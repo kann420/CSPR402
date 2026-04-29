@@ -21,7 +21,8 @@
     "prepare": "husky"
   },
   "overrides": {
-    "axios": "^1.15.0"
+    "axios": "^1.15.0",
+    "postcss": "^8.5.10"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.5.2",
