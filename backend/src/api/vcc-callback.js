@@ -5,7 +5,7 @@
 
 const { Router } = require('express');
 const db = require('../db');
-const { enqueueWebhook, scheduleRefund } = require('../fulfillment');
+const { enqueueWebhook, refundOrQuarantine } = require('../fulfillment');
 const { verifyVccSignature } = require('../vcc-client');
 const { sealCard } = require('../lib/card-vault');
 const { normalizeCardBrand } = require('../lib/normalize-card');
@@ -206,7 +206,7 @@ router.post('/', (req, res) => {
   // arriving while the first is still processing) from both entering
   // the success branch and double-writing card data.
   const now = new Date().toISOString();
-  const TERMINAL = ['delivered', 'failed', 'refunded', 'refund_pending'];
+  const TERMINAL = ['delivered', 'failed', 'refunded', 'refund_pending', 'pending_manual_recovery'];
   if (TERMINAL.includes(order.status)) {
     return res.json({ ok: true, note: 'already_terminal' });
   }
@@ -321,16 +321,31 @@ router.post('/', (req, res) => {
     // playwright launch ...' or 'vcc invoice failed: HTTP 502
     // {ctx_error: ...}' would expose every layer of the fulfillment
     // pipeline. Raw error is still logged via bizEvent below for ops.
-    const { publicMessage } = require('../lib/sanitize-error');
-    const safeError = publicMessage(error || 'fulfillment_failed');
+    const { publicMessage, publicCode } = require('../lib/sanitize-error');
+    // Quarantine vs refund decision: if the CTX-side payment has already
+    // gone out (ctx_stellar_txid populated on the order) the gift card
+    // exists on CTX, so refunding would orphan it. Use a distinct error
+    // code + message so agents see "needs verification" rather than
+    // "refunded automatically" — the latter would be a lie at this
+    // point. Incident 2026-04-29: pre-fix, three orders ($14.50 total)
+    // were refunded after stage-2 chromium failure left the CTX-side
+    // gift cards stranded.
+    const ctxAlreadyPaid = Boolean(order.ctx_stellar_txid);
+    const safeError = publicMessage(
+      ctxAlreadyPaid ? 'ctx_paid_no_card' : error || 'fulfillment_failed',
+    );
+    const safeCode = publicCode(
+      ctxAlreadyPaid ? 'ctx_paid_no_card' : error || 'fulfillment_failed',
+    );
+    const targetStatus = ctxAlreadyPaid ? 'pending_manual_recovery' : 'failed';
     const claimed = db
       .prepare(
         `
-      UPDATE orders SET status = 'failed', error = @error, updated_at = @now
-      WHERE id = @id AND status NOT IN ('delivered', 'failed', 'refunded', 'refund_pending')
+      UPDATE orders SET status = @target, error = @error, updated_at = @now
+      WHERE id = @id AND status NOT IN ('delivered', 'failed', 'refunded', 'refund_pending', 'pending_manual_recovery')
     `,
       )
-      .run({ id: order_id, error: safeError, now });
+      .run({ id: order_id, target: targetStatus, error: safeError, now });
     if (claimed.changes === 0) {
       return res.json({ ok: true, note: 'already_terminal_race' });
     }
@@ -356,12 +371,13 @@ router.post('/', (req, res) => {
       });
     }
 
-    bizEvent('order.failed', {
+    bizEvent(ctxAlreadyPaid ? 'order.quarantined' : 'order.failed', {
       order_id,
       amount_usd: order.amount_usdc,
       payment_asset: order.payment_asset,
       api_key_id: order.api_key_id,
       error,
+      ctx_stellar_txid: order.ctx_stellar_txid || null,
     });
 
     // Fire agent failure webhook
@@ -380,21 +396,32 @@ router.post('/', (req, res) => {
     if (failureWebhookUrl) {
       // Use the same sanitised error in the outbound webhook so a
       // listening agent doesn't get the raw vcc/scraper string either.
+      // The webhook `status` mirrors the order's terminal status:
+      // 'failed' for refunded orders, 'pending_recovery' for the
+      // quarantine path so an agent's bot can route the recovery
+      // case differently (e.g. open a support ticket vs queue a
+      // retry).
       enqueueWebhook(
         failureWebhookUrl,
         {
           order_id,
-          status: 'failed',
+          status: ctxAlreadyPaid ? 'pending_recovery' : 'failed',
           amount_usdc: order.amount_usdc,
           payment_asset: order.payment_asset,
           error: safeError,
+          error_code: safeCode,
         },
         failedOrder?.webhook_secret || null,
       ).catch(() => {});
     }
 
-    // cards402 holds the funds — issue a refund to the agent
-    scheduleRefund(order_id).catch(() => {});
+    // Refund-or-quarantine: refundOrQuarantine() re-reads the order
+    // and routes to scheduleRefund() (when no CTX payment leg fired)
+    // or to quarantineForManualRecovery() (when ctx_stellar_txid is
+    // populated). The atomic UPDATE above already moved the row to
+    // its terminal state; this call only fires the side-effects
+    // (refund tx OR ops alert).
+    refundOrQuarantine(order_id, safeError).catch(() => {});
   } else {
     return res.status(400).json({ error: 'invalid_status' });
   }

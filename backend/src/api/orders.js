@@ -731,6 +731,11 @@ const PHASE = {
   failed: 'failed',
   refund_pending: 'failed',
   refunded: 'refunded',
+  // Quarantined for manual recovery: VCC failed AFTER cards402 paid CTX,
+  // so the gift card exists upstream and is being recovered manually.
+  // Distinct phase 'pending_recovery' so agents that branch on phase
+  // can differentiate from a clean 'failed' (refunded).
+  pending_manual_recovery: 'pending_recovery',
 };
 
 // Build the public-facing payload for an order row. Shared by GET /:id and
@@ -790,10 +795,15 @@ function buildOrderResponse(order) {
     response.note = 'This transaction was rejected. No funds were taken.';
   }
 
-  if (['failed', 'refund_pending', 'refunded'].includes(order.status)) {
+  if (['failed', 'refund_pending', 'refunded', 'pending_manual_recovery'].includes(order.status)) {
     response.error = order.error;
     if (order.status === 'refunded') {
       response.refund = { stellar_txid: order.refund_stellar_txid };
+    }
+    if (order.status === 'pending_manual_recovery') {
+      response.note =
+        'Your payment was received and the gift card was issued, but extraction failed. ' +
+        'An operator is recovering it manually — do not retry. Support will update you with a resolution.';
     }
   }
 
@@ -808,7 +818,14 @@ function buildOrderResponse(order) {
   return response;
 }
 
-const TERMINAL_STATUSES = new Set(['delivered', 'failed', 'refunded', 'expired', 'rejected']);
+const TERMINAL_STATUSES = new Set([
+  'delivered',
+  'failed',
+  'refunded',
+  'expired',
+  'rejected',
+  'pending_manual_recovery',
+]);
 
 // GET /orders/:id/stream — SSE stream of phase transitions.
 //

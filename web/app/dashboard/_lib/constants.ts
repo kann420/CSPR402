@@ -44,6 +44,10 @@ export const ORDER_STATUS_TONE: Record<string, PillTone> = {
   stage1_done: 'purple',
   rejected: 'red',
   expired: 'red',
+  // Quarantined for manual recovery: gift card exists upstream, ops
+  // are recovering it. Yellow because it's an active operator state,
+  // not a terminal red. Counted as terminal in the set below.
+  pending_manual_recovery: 'yellow',
 };
 
 export const ORDER_STATUS_LABEL: Record<string, string> = {
@@ -58,6 +62,7 @@ export const ORDER_STATUS_LABEL: Record<string, string> = {
   stage1_done: 'Stage 1 done',
   rejected: 'Rejected',
   expired: 'Expired',
+  pending_manual_recovery: 'Recovery in progress',
 };
 
 // Statuses that should render with a pulsing dot in the pill.
@@ -78,12 +83,15 @@ export const IN_FLIGHT_ORDER_STATUSES: ReadonlySet<string> = new Set([
 ]);
 
 // Statuses that are terminal — the order won't change after this.
+// pending_manual_recovery counts as terminal because no further automated
+// transition fires; the operator either delivers or refunds out-of-band.
 export const TERMINAL_ORDER_STATUSES: ReadonlySet<string> = new Set([
   'delivered',
   'failed',
   'refunded',
   'rejected',
   'expired',
+  'pending_manual_recovery',
 ]);
 
 export function getOrderStatusLabel(status: string): string {

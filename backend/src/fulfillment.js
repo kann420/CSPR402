@@ -523,9 +523,69 @@ async function scheduleRefund(orderId) {
   }
 }
 
+// Quarantine an order for manual operator recovery. Used when fulfillment
+// has failed BUT the CTX-side payment has already gone out (i.e.
+// ctx_stellar_txid is populated): the gift card exists on CTX, refunding
+// would orphan it and lose treasury. Marking the order
+// `pending_manual_recovery` makes it terminal from the agent's POV (no
+// further auto-refund or retry) but signals ops to manually recover the
+// claim URL from CTX and either deliver the card or process a manual
+// refund out-of-band.
+//
+// Idempotent: runs an atomic claim that no-ops if the order is already in
+// any terminal state (delivered, failed, refunded, refund_pending,
+// pending_manual_recovery). The error string is the sanitized
+// public-facing message — same constraint as `orders.error` everywhere.
+async function quarantineForManualRecovery(orderId, publicErrorMessage) {
+  const now = new Date().toISOString();
+  const claimed = db
+    .prepare(
+      `UPDATE orders
+       SET status = 'pending_manual_recovery', error = @error, updated_at = @now
+       WHERE id = @id
+         AND status NOT IN ('delivered', 'failed', 'refunded', 'refund_pending', 'pending_manual_recovery')`,
+    )
+    .run({ id: orderId, error: publicErrorMessage, now });
+  if (claimed.changes === 0) {
+    console.log(`[quarantine] ${orderId}: already terminal — skipping`);
+    return;
+  }
+  bizEvent('order.quarantined', {
+    order_id: orderId,
+    reason: publicErrorMessage,
+  });
+  console.warn(
+    `[quarantine] ${orderId}: marked pending_manual_recovery — ops must recover gift card from CTX`,
+  );
+}
+
+// Refund or quarantine, depending on whether the CTX-side payment leg
+// has already gone out. Single decision point used by every code path
+// that previously called scheduleRefund() directly. The check is
+// authoritative: if ctx_stellar_txid is populated, cards402 has paid
+// VCC's payment URL and the gift card is real on CTX, so an auto-refund
+// here would double-spend (we'd be out the XLM AND the user gets the
+// USDC back). Quarantine and let ops decide.
+//
+// Pre-fix (incident 2026-04-29): this check did not exist; an EACCES on
+// stage-2 chromium launch made VCC mark three orders failed, cards402
+// auto-refunded all three, and CTX kept the gift cards. The user got
+// $14.50 back AND the recoverable claim URLs.
+async function refundOrQuarantine(orderId, publicErrorMessage) {
+  const order = /** @type {any} */ (
+    db.prepare(`SELECT ctx_stellar_txid FROM orders WHERE id = ?`).get(orderId)
+  );
+  if (order?.ctx_stellar_txid) {
+    return quarantineForManualRecovery(orderId, publicErrorMessage);
+  }
+  return scheduleRefund(orderId);
+}
+
 module.exports = {
   isFrozen,
   scheduleRefund,
+  refundOrQuarantine,
+  quarantineForManualRecovery,
   enqueueWebhook,
   fireWebhook,
   redactCardFields,

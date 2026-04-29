@@ -116,6 +116,21 @@ const RULES = Object.freeze([
       retryable: false,
     }),
   },
+  // CTX paid but card not extracted — incident 2026-04-29. cards402
+  // forwarded payment to CTX, CTX issued the gift card, but VCC's
+  // post-purchase scraping (stage 2) failed before it could pull the
+  // card number. Same "do NOT auto-refund" semantics as the ambiguous
+  // case above: the gift card exists on CTX with our money, refunding
+  // would orphan it.
+  {
+    re: /ctx_paid_no_card/i,
+    out: Object.freeze({
+      code: 'recovery_pending',
+      message:
+        'Your payment was received and the gift card was issued, but extraction failed. An operator is recovering it manually — do not retry this order. Support will update you with a resolution.',
+      retryable: false,
+    }),
+  },
   // Whole pipeline temporarily down — frozen by ops or VCC circuit
   // breaker tripped. Runs first because these are system-wide.
   {

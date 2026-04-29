@@ -23,7 +23,7 @@ const { getInvoice, notifyPaid } = require('./vcc-client');
 // prevents tests from exercising the ambiguous-outcome branch without
 // a full patchCache refactor. Same pattern applied in jobs.js.
 const xlmSender = require('./payments/xlm-sender');
-const { scheduleRefund } = require('./fulfillment');
+const { refundOrQuarantine } = require('./fulfillment');
 // Deferred logger reference so tests can monkey-patch `logger.event`
 // at runtime without having to patchCache before module load. Same
 // pattern used by src/middleware/requireCardReveal.js after the
@@ -492,12 +492,18 @@ async function handlePayment({
     // publicMessage is already defensive (audit F2-sanitize wraps its
     // own coercion in try/catch) but we pass the safe string anyway so
     // the two modules don't depend on each other's internals.
+    // Refund-or-quarantine: covers the narrow window where ctx_stellar_txid
+    // was set on the row (line ~476 above) but a subsequent step in this
+    // try block threw before completion. Without this routing, an
+    // exception in notifyPaid() (or any later code) would refund a
+    // CTX-paid order, orphaning the gift card.
+    const safePublicMessage = publicMessage(rawMessage);
     db.prepare(`UPDATE orders SET status = 'failed', error = ?, updated_at = ? WHERE id = ?`).run(
-      publicMessage(rawMessage),
+      safePublicMessage,
       new Date().toISOString(),
       orderId,
     );
-    scheduleRefund(orderId).catch((e) =>
+    refundOrQuarantine(orderId, safePublicMessage).catch((e) =>
       console.error(`[payment] refund error for ${orderId.slice(0, 8)}: ${safeErrorMessage(e)}`),
     );
   }

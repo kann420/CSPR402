@@ -356,16 +356,27 @@ describe('e2e cards402 ↔ vcc: happy path', () => {
 // ── Failure path ─────────────────────────────────────────────────────────────
 
 describe('e2e cards402 ↔ vcc: vcc reports failure', () => {
-  it('vcc callback with status=failed marks the order failed and queues a refund', async () => {
-    const { key } = await createTestKey({ label: 'e2e-failed' });
-
-    const createRes = await createOrderViaApi(key);
-    const orderId = createRes.body.order_id;
+  it('vcc callback with status=failed AFTER ctx_stellar_txid is set → quarantine (no refund)', async () => {
+    // 2026-04-29 incident: VCC stage-2 (card extraction) failed AFTER
+    // cards402 had forwarded payment to CTX. The gift card existed on
+    // CTX, but the old code path refunded the agent — orphaning the
+    // card. The new contract: any failed callback on an order whose
+    // ctx_stellar_txid is populated must quarantine for manual
+    // recovery, NOT auto-refund.
+    const { key } = await createTestKey({ label: 'e2e-failed-after-ctx-paid' });
+    const orderId = (await createOrderViaApi(key)).body.order_id;
     await simulateSorobanPayment(orderId);
 
-    // Fake vcc callback with a failure reason. F2: sign with the per-order
-    // secret so the verifier accepts it.
-    const payload = { order_id: orderId, status: 'failed', error: 'ctx_order_rejected' };
+    // simulateSorobanPayment runs handlePayment which forwards to CTX
+    // and stores ctx_stellar_txid — confirm the precondition the test
+    // depends on.
+    const before = db.prepare(`SELECT ctx_stellar_txid FROM orders WHERE id = ?`).get(orderId);
+    assert.ok(
+      before.ctx_stellar_txid,
+      'precondition: ctx_stellar_txid must be set after simulateSorobanPayment',
+    );
+
+    const payload = { order_id: orderId, status: 'failed', error: 'stage2_browser_eaccess' };
     const orderSecret = getOrderCallbackSecret(orderId);
     const { timestamp, signature, body, nonce } = signVccCallback(payload, orderSecret);
     const cbRes = await request
@@ -378,12 +389,53 @@ describe('e2e cards402 ↔ vcc: vcc reports failure', () => {
       .send(body);
     assert.equal(cbRes.status, 200);
 
-    // vcc-callback writes status='failed' + error, then schedules a refund.
-    // scheduleRefund is synchronous up to the Stellar send, which is stubbed
-    // to resolve immediately, so by the time we read the row the order is
-    // already 'refunded'. Either of those terminal states is acceptable —
-    // what matters is that we captured the failure error and the phase the
-    // agent sees is a clear terminal.
+    const row = db
+      .prepare(`SELECT status, error, refund_stellar_txid FROM orders WHERE id = ?`)
+      .get(orderId);
+    assert.equal(row.status, 'pending_manual_recovery', `expected quarantine, got ${row.status}`);
+    // Public error must use the recovery_pending message, not the
+    // generic "your payment has been refunded" — that would be a lie.
+    assert.match(row.error, /operator is recovering|verification|do not retry/i);
+    assert.doesNotMatch(row.error, /refunded automatically/i);
+    // No refund must have been issued.
+    assert.equal(row.refund_stellar_txid, null, 'must NOT auto-refund when CTX has been paid');
+
+    // Agent-facing phase: a distinct value so an agent's webhook
+    // handler can branch on recovery vs refunded vs delivered.
+    const pollRes = await request.get(`/v1/orders/${orderId}`).set('X-Api-Key', key);
+    assert.equal(pollRes.body.phase, 'pending_recovery');
+  });
+
+  it('vcc callback with status=failed AND no ctx_stellar_txid → standard auto-refund', async () => {
+    // Control case: VCC reports failure BEFORE cards402 forwarded payment
+    // to CTX (e.g. invoice creation failed). ctx_stellar_txid is null,
+    // so auto-refund is the right behaviour and must be unaffected by
+    // the quarantine routing.
+    const { key } = await createTestKey({ label: 'e2e-failed-pre-ctx' });
+    const orderId = (await createOrderViaApi(key)).body.order_id;
+
+    // Mark the order as ordering and give it a sender_address so
+    // scheduleRefund will run a (stubbed) refund send. Skip
+    // simulateSorobanPayment so ctx_stellar_txid stays null.
+    db.prepare(
+      `UPDATE orders SET status = 'ordering', sender_address = 'GTESTSENDER',
+       payment_asset = 'usdc_soroban', stellar_txid = 'fake-paid-txid'
+       WHERE id = ?`,
+    ).run(orderId);
+
+    const payload = { order_id: orderId, status: 'failed', error: 'invoice_creation_failed' };
+    const orderSecret = getOrderCallbackSecret(orderId);
+    const { timestamp, signature, body, nonce } = signVccCallback(payload, orderSecret);
+    const cbRes = await request
+      .post('/vcc-callback')
+      .set('Content-Type', 'application/json')
+      .set('X-VCC-Timestamp', timestamp)
+      .set('X-VCC-Signature', signature)
+      .set('X-VCC-Order-Id', orderId)
+      .set('X-VCC-Nonce', nonce)
+      .send(body);
+    assert.equal(cbRes.status, 200);
+
     const row = db
       .prepare(`SELECT status, error, refund_stellar_txid FROM orders WHERE id = ?`)
       .get(orderId);
@@ -391,21 +443,15 @@ describe('e2e cards402 ↔ vcc: vcc reports failure', () => {
       ['failed', 'refund_pending', 'refunded'].includes(row.status),
       `expected terminal-fail status, got ${row.status}`,
     );
-    const { publicMessage } = require('../../src/lib/sanitize-error');
-    const sanitized = publicMessage('ctx_order_rejected');
-    assert.equal(row.error, sanitized);
     if (row.status === 'refunded') {
       assert.equal(row.refund_stellar_txid, 'fake-refund-usdc-txhash');
     }
-
-    // Poll and confirm the phase surface the agent sees. The phase mapping
-    // groups refund_pending/failed under 'failed' and refunded under 'refunded'.
+    // Phase must be a "money returned / no card" terminal.
     const pollRes = await request.get(`/v1/orders/${orderId}`).set('X-Api-Key', key);
     assert.ok(
       ['failed', 'refunded'].includes(pollRes.body.phase),
       `expected terminal phase, got ${pollRes.body.phase}`,
     );
-    assert.equal(pollRes.body.error, sanitized);
   });
 });
 

@@ -8,7 +8,7 @@ const {
   fireWebhook,
   WEBHOOK_RETRY_DELAYS_MS,
   MAX_WEBHOOK_ATTEMPTS,
-  scheduleRefund,
+  refundOrQuarantine,
 } = require('./fulfillment');
 const vccClient = require('./vcc-client');
 // Import as a module object so tests can monkey-patch `xlmSender.payCtxOrder`
@@ -366,7 +366,10 @@ async function reconcileOrderingFulfillment() {
         });
         continue;
       }
-      scheduleRefund(order.id).catch((err) =>
+      // refundOrQuarantine: route the failed order through the
+      // ctx_stellar_txid check. If we'd already paid CTX, this becomes
+      // a manual-recovery quarantine instead of a double-spend refund.
+      refundOrQuarantine(order.id, publicMessage(reason)).catch((err) =>
         log(`  ${shortId} refund schedule failed: ${err.message}`),
       );
       continue;
@@ -541,22 +544,26 @@ async function recoverStuckOrders() {
         db.prepare(`UPDATE orders SET updated_at = ? WHERE id = ?`).run(now, order.id);
       } else if (vccJob.status === 'failed') {
         const { publicMessage } = require('./lib/sanitize-error');
-        // F1-recover (2026-04-16): atomic claim on the transition
-        // to 'failed'. Same race as F1-reconcile — the original
+        // Quarantine vs refund decision: if the CTX-side payment leg
+        // ran (ctx_stellar_txid populated), the gift card exists on
+        // CTX, so a refund here would orphan it. Use a distinct
+        // sanitised message and target status. Same logic as
+        // vcc-callback's failed branch.
+        const ctxAlreadyPaid = Boolean(order.ctx_stellar_txid);
+        const reasonKey = ctxAlreadyPaid ? 'ctx_paid_no_card' : vccJob.error || 'vcc_failed';
+        const targetStatus = ctxAlreadyPaid ? 'pending_manual_recovery' : 'failed';
+        // F1-recover (2026-04-16): atomic claim on the transition.
+        // Same race rationale as F1-reconcile — the original
         // unconditional UPDATE would overwrite a concurrent
-        // 'delivered' flip from vcc-callback, triggering a refund on
-        // an order that successfully delivered. The guard limits
-        // the UPDATE to the pre-terminal states the reconciler is
-        // responsible for (pending_payment, ordering); any concurrent
-        // transition to delivered/failed/refund_pending/refunded
-        // makes changes === 0 and skips the scheduleRefund call.
+        // 'delivered' flip from vcc-callback. Guard restricts to
+        // the pre-terminal states the reconciler owns.
         const claimed = db
           .prepare(
             `UPDATE orders
-               SET status = 'failed', error = ?, updated_at = ?
+               SET status = ?, error = ?, updated_at = ?
              WHERE id = ? AND status IN ('pending_payment', 'ordering')`,
           )
-          .run(publicMessage(vccJob.error || 'vcc_failed'), now, order.id);
+          .run(targetStatus, publicMessage(reasonKey), now, order.id);
         if (claimed.changes === 0) {
           log(
             `  ${order.id.slice(0, 8)} → recover hard-fail aborted: row concurrently terminal; refund NOT queued`,
@@ -567,16 +574,92 @@ async function recoverStuckOrders() {
           });
           continue;
         }
-        // F10: match the callback path — every terminal failure queues a refund
-        scheduleRefund(order.id).catch((err) =>
+        // F10 + 2026-04-29: match the callback path — refundOrQuarantine
+        // routes to scheduleRefund or quarantineForManualRecovery based
+        // on ctx_stellar_txid. Idempotent vs the UPDATE above.
+        refundOrQuarantine(order.id, publicMessage(reasonKey)).catch((err) =>
           log(`  ${order.id.slice(0, 8)} refund schedule failed: ${err.message}`),
         );
-        log(`  recovered ${order.id.slice(0, 8)} → failed via VCC poll; refund queued`);
+        log(`  recovered ${order.id.slice(0, 8)} → ${targetStatus} via VCC poll`);
       }
       // If still in-progress (awaiting_payment, queued, running) — leave it alone
     } catch (err) {
       log(`  VCC poll failed for ${order.id.slice(0, 8)}: ${err.message}`);
     }
+  }
+}
+
+// ── Refund/quarantine reconciliation ─────────────────────────────────────────
+//
+// Belt-and-braces audit: walk the rows that should never have happened and
+// alert ops if they have. Two queries:
+//
+//   A) status='refunded' AND ctx_stellar_txid IS NOT NULL
+//      Pre-2026-04-29: this was the bug — auto-refund fired even after CTX
+//      was paid, orphaning the gift card. Post-fix, this row should never
+//      exist for orders created after the fix lands. Existing rows from
+//      before the fix are flagged so ops can recover them manually.
+//
+//   B) status='pending_manual_recovery' AND age > QUARANTINE_ALERT_AFTER_MS
+//      A quarantined order that has sat for too long without operator
+//      action. Surfaces the case where the quarantine alert was missed
+//      (e.g. Discord outage during the original notify, or ops backlog).
+//
+// Cheap, bounded, non-mutating. Runs once per job tick (5 min). Both use
+// indexed columns so the scan is O(matches) not O(table).
+const QUARANTINE_ALERT_AFTER_MS = parseInt(
+  process.env.QUARANTINE_ALERT_AFTER_MS || String(60 * 60 * 1000), // 1 hour default
+  10,
+);
+
+async function reconcileRefundQuarantine() {
+  // (A) refunded but CTX was paid — pre-fix orphans, must never recur.
+  const orphans = /** @type {any[]} */ (
+    db
+      .prepare(
+        `SELECT id, amount_usdc, payment_asset, ctx_stellar_txid, refund_stellar_txid, updated_at
+         FROM orders
+         WHERE status = 'refunded' AND ctx_stellar_txid IS NOT NULL`,
+      )
+      .all()
+  );
+  for (const row of orphans) {
+    logger.event('reconcile.orphaned_gift_card', {
+      order_id: row.id,
+      amount_usdc: row.amount_usdc,
+      payment_asset: row.payment_asset,
+      ctx_stellar_txid: row.ctx_stellar_txid,
+      refund_stellar_txid: row.refund_stellar_txid,
+    });
+  }
+  if (orphans.length > 0) {
+    log(
+      `reconcile: ${orphans.length} orphaned gift card(s) detected (refunded with ctx_stellar_txid populated)`,
+    );
+  }
+
+  // (B) quarantined orders sitting longer than the alert window.
+  const cutoff = new Date(Date.now() - QUARANTINE_ALERT_AFTER_MS).toISOString();
+  const stuckQuarantine = /** @type {any[]} */ (
+    db
+      .prepare(
+        `SELECT id, amount_usdc, ctx_stellar_txid, vcc_job_id, updated_at
+         FROM orders
+         WHERE status = 'pending_manual_recovery' AND updated_at < ?`,
+      )
+      .all(cutoff)
+  );
+  for (const row of stuckQuarantine) {
+    logger.event('reconcile.quarantine_stuck', {
+      order_id: row.id,
+      amount_usdc: row.amount_usdc,
+      ctx_stellar_txid: row.ctx_stellar_txid,
+      vcc_job_id: row.vcc_job_id,
+      age_minutes: Math.round((Date.now() - Date.parse(row.updated_at)) / 60000),
+    });
+  }
+  if (stuckQuarantine.length > 0) {
+    log(`reconcile: ${stuckQuarantine.length} quarantined order(s) waiting on operator action`);
   }
 }
 
@@ -1126,6 +1209,7 @@ async function runJobs() {
     await _runSubJob('expireApprovalRequests', async () => expireApprovalRequests());
     await _runSubJob('reconcileOrderingFulfillment', reconcileOrderingFulfillment);
     await _runSubJob('recoverStuckOrders', recoverStuckOrders);
+    await _runSubJob('reconcileRefundQuarantine', reconcileRefundQuarantine);
     await _runSubJob('retryWebhooks', retryWebhooks);
     await _runSubJob('pruneIdempotencyKeys', async () => pruneIdempotencyKeys());
     await _runSubJob('pruneExpiredSessions', async () => pruneExpiredSessions());
@@ -1234,6 +1318,7 @@ module.exports = {
   expireApprovalRequests,
   reconcileOrderingFulfillment,
   recoverStuckOrders,
+  reconcileRefundQuarantine,
   retryWebhooks,
   pruneIdempotencyKeys,
   pruneExpiredSessions,
