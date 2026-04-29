@@ -32,6 +32,7 @@ const {
   _recordVccSuccess,
   _vccCircuitGuard,
   _decryptToken,
+  _encryptToken,
 } = require('../../src/vcc-client');
 
 // ── Fetch mock ────────────────────────────────────────────────────────────────
@@ -511,5 +512,86 @@ describe('F3-vcc-client: decryptToken non-string input', () => {
     // strings fall through the "no key" path and return unchanged —
     // that's the legacy-install contract we don't want to break.
     assert.equal(_decryptToken('plaintext_vcc_token'), 'plaintext_vcc_token');
+  });
+});
+
+// ── Two-key migration: CARDS402_SECRET_BOX_KEY ↔ VCC_TOKEN_KEY ──────────────
+//
+// Background (incident 2026-04-29 follow-up): vcc-client used to use
+// VCC_TOKEN_KEY as its sole at-rest encryption key. lib/secret-box.js
+// later introduced CARDS402_SECRET_BOX_KEY as the canonical name with
+// VCC_TOKEN_KEY kept for backwards-compat. This refactor brings
+// vcc-client onto the same convention so prod can unset VCC_TOKEN_KEY
+// without losing token encryption.
+//
+// The contract:
+//   - encryptToken always prefers CARDS402_SECRET_BOX_KEY when set.
+//   - decryptToken tries every configured key in preference order so a
+//     token written under the legacy key during the migration window
+//     can still be opened.
+
+describe('two-key migration: CARDS402_SECRET_BOX_KEY ↔ VCC_TOKEN_KEY', () => {
+  const KEY_A = 'a'.repeat(64); // canonical
+  const KEY_B = 'b'.repeat(64); // legacy
+
+  let savedCanonical, savedLegacy;
+  beforeEach(() => {
+    savedCanonical = process.env.CARDS402_SECRET_BOX_KEY;
+    savedLegacy = process.env.VCC_TOKEN_KEY;
+  });
+  function restore() {
+    if (savedCanonical === undefined) delete process.env.CARDS402_SECRET_BOX_KEY;
+    else process.env.CARDS402_SECRET_BOX_KEY = savedCanonical;
+    if (savedLegacy === undefined) delete process.env.VCC_TOKEN_KEY;
+    else process.env.VCC_TOKEN_KEY = savedLegacy;
+  }
+
+  it('encrypts with CARDS402_SECRET_BOX_KEY when both are set', () => {
+    try {
+      process.env.CARDS402_SECRET_BOX_KEY = KEY_A;
+      process.env.VCC_TOKEN_KEY = KEY_B;
+      const ct = _encryptToken('vcc_session_token_xyz');
+      assert.ok(ct.startsWith('enc:'), 'must encrypt to enc: format');
+      // Decrypt back with both keys configured — should match.
+      assert.equal(_decryptToken(ct), 'vcc_session_token_xyz');
+    } finally {
+      restore();
+    }
+  });
+
+  it('opens a legacy-key-encrypted token after the canonical key has been set', () => {
+    let cipherText;
+    try {
+      // Step 1: emulate the pre-migration world — only VCC_TOKEN_KEY set.
+      delete process.env.CARDS402_SECRET_BOX_KEY;
+      process.env.VCC_TOKEN_KEY = KEY_B;
+      cipherText = _encryptToken('legacy_token');
+      assert.ok(cipherText.startsWith('enc:'));
+      assert.equal(_decryptToken(cipherText), 'legacy_token');
+
+      // Step 2: post-migration — both keys present, canonical preferred.
+      // The same legacy ciphertext must still decrypt because vcc-client
+      // tries the legacy key as a fallback.
+      process.env.CARDS402_SECRET_BOX_KEY = KEY_A;
+      process.env.VCC_TOKEN_KEY = KEY_B;
+      assert.equal(_decryptToken(cipherText), 'legacy_token');
+    } finally {
+      restore();
+    }
+  });
+
+  it('throws vcc_token_decrypt_failed when no configured key opens the token', () => {
+    try {
+      // Encrypt under one key, then swap to a different key entirely.
+      // The graceful-degradation path in getVccToken catches this and
+      // re-registers; here we just assert the throw.
+      process.env.CARDS402_SECRET_BOX_KEY = KEY_A;
+      delete process.env.VCC_TOKEN_KEY;
+      const ct = _encryptToken('rotating_token');
+      process.env.CARDS402_SECRET_BOX_KEY = KEY_B; // wrong key
+      assert.throws(() => _decryptToken(ct), /vcc_token_decrypt_failed/);
+    } finally {
+      restore();
+    }
   });
 });

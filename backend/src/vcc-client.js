@@ -8,8 +8,24 @@ const { event: bizEvent } = require('./lib/logger');
 
 const VCC_API_BASE = process.env.VCC_API_BASE;
 
-if (!process.env.VCC_TOKEN_KEY && process.env.NODE_ENV !== 'test') {
-  console.warn('[vcc-client] WARNING: VCC_TOKEN_KEY not set — VCC API token stored in plaintext');
+// Token encryption key resolution. CARDS402_SECRET_BOX_KEY is the
+// canonical key for at-rest encryption across cards402 (see
+// lib/secret-box.js); VCC_TOKEN_KEY was the legacy name and is kept
+// solely as a decrypt-only fallback so existing tokens encrypted with
+// the legacy key can still be opened during a one-time rotation. New
+// tokens are always sealed under CARDS402_SECRET_BOX_KEY.
+//
+// If neither is set in production, the token is stored plaintext (the
+// graceful-degradation path the codebase has always supported); we warn
+// once at startup so ops sees the regression.
+if (
+  !process.env.CARDS402_SECRET_BOX_KEY &&
+  !process.env.VCC_TOKEN_KEY &&
+  process.env.NODE_ENV !== 'test'
+) {
+  console.warn(
+    '[vcc-client] WARNING: neither CARDS402_SECRET_BOX_KEY nor VCC_TOKEN_KEY is set — VCC API token will be stored in plaintext',
+  );
 }
 
 // Audit C-7: simple circuit breaker on the cards402 → vcc path. If vcc is
@@ -94,18 +110,46 @@ function _getVccCircuitState() {
 }
 
 // ── Token encryption (B-7) ────────────────────────────────────────────────────
-// VCC token is encrypted at rest with AES-256-GCM using VCC_TOKEN_KEY (32-byte hex env var).
-// Stored format: "enc:iv_hex:tag_hex:ciphertext_hex"
-// Falls back to treating stored value as plaintext for backwards-compatibility on first upgrade.
+// VCC token is encrypted at rest with AES-256-GCM. Stored format:
+//   "enc:iv_hex:tag_hex:ciphertext_hex"
+// Empty/missing key → plaintext storage (graceful degradation — see
+// startup warning above).
+//
+// Key resolution: CARDS402_SECRET_BOX_KEY is the canonical key (matches
+// lib/secret-box.js). VCC_TOKEN_KEY is the legacy name; we accept it as
+// a decrypt-only fallback so tokens encrypted under the legacy key
+// during an upgrade window can still be opened. New encryption ALWAYS
+// uses CARDS402_SECRET_BOX_KEY when set, so the legacy key fades out as
+// tokens rotate. Once all tokens have been re-encrypted (or
+// re-registered after a decrypt failure) the legacy env var can be
+// safely unset.
 
-function getEncryptionKey() {
-  const hex = process.env.VCC_TOKEN_KEY;
-  if (!hex || hex.length !== 64) return null; // key not configured — store plaintext
+function parseHexKey(hex) {
+  if (!hex || hex.length !== 64) return null;
   return Buffer.from(hex, 'hex');
 }
 
+function getEncryptKey() {
+  // Encryption: prefer the canonical key. Falls back to legacy only so
+  // a host that has *only* the legacy var keeps working (the warning
+  // at startup nudges ops to migrate).
+  return parseHexKey(process.env.CARDS402_SECRET_BOX_KEY) || parseHexKey(process.env.VCC_TOKEN_KEY);
+}
+
+function getDecryptKeys() {
+  // Decryption: try every key we know about, in preference order. This
+  // is the bridge that lets us flip the encrypt side to the new key
+  // while still being able to open tokens written under the old one.
+  const keys = [];
+  const canonical = parseHexKey(process.env.CARDS402_SECRET_BOX_KEY);
+  const legacy = parseHexKey(process.env.VCC_TOKEN_KEY);
+  if (canonical) keys.push(canonical);
+  if (legacy && (!canonical || !legacy.equals(canonical))) keys.push(legacy);
+  return keys;
+}
+
 function encryptToken(plaintext) {
-  const key = getEncryptionKey();
+  const key = getEncryptKey();
   if (!key) return plaintext; // no key configured — store as-is
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv('aes-256-gcm', key, iv, { authTagLength: 16 });
@@ -126,23 +170,32 @@ function decryptToken(stored) {
     throw new Error(`vcc_token_decrypt_failed: non_string_stored type=${typeof stored}`);
   }
   if (!stored.startsWith('enc:')) return stored; // plaintext (pre-encryption or no key)
-  const key = getEncryptionKey();
-  if (!key) return stored; // can't decrypt without key — let caller handle the error
+  const keys = getDecryptKeys();
+  if (keys.length === 0) return stored; // can't decrypt without key — let caller handle the error
   const parts = stored.split(':');
   if (parts.length !== 4) throw new Error('stored token has invalid enc: format');
   const [, ivHex, tagHex, ctHex] = parts;
-  try {
-    const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(ivHex, 'hex'), {
-      authTagLength: 16,
-    });
-    decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
-    return decipher.update(Buffer.from(ctHex, 'hex')) + decipher.final('utf8');
-  } catch (err) {
-    // Wrap the raw crypto message so it doesn't leak tag/iv internals into
-    // the order error column. The ops signal stays intact via bizEvent at
-    // the call site (getVccToken) which handles the re-registration fallback.
-    throw new Error(`vcc_token_decrypt_failed: ${err.code || err.name || 'crypto'}`);
+  // Try each key in preference order. AES-GCM authenticated decryption
+  // throws on tag mismatch, so a wrong key fails fast with no plaintext
+  // exposure. We try the canonical key first; the legacy fallback only
+  // matters for tokens written before the migration.
+  let lastErr;
+  for (const key of keys) {
+    try {
+      const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(ivHex, 'hex'), {
+        authTagLength: 16,
+      });
+      decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
+      return decipher.update(Buffer.from(ctHex, 'hex')) + decipher.final('utf8');
+    } catch (err) {
+      lastErr = err;
+    }
   }
+  // Wrap the raw crypto message so it doesn't leak tag/iv internals
+  // into the order error column. The ops signal stays intact via
+  // bizEvent at the call site (getVccToken) which handles the
+  // re-registration fallback.
+  throw new Error(`vcc_token_decrypt_failed: ${lastErr?.code || lastErr?.name || 'crypto'}`);
 }
 
 // ── Registration ──────────────────────────────────────────────────────────────
@@ -471,4 +524,5 @@ module.exports = {
   _recordVccSuccess: recordVccSuccess,
   _vccCircuitGuard: vccCircuitGuard,
   _decryptToken: decryptToken,
+  _encryptToken: encryptToken,
 };
