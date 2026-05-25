@@ -36,6 +36,15 @@ async function proxy(req: NextRequest, { params }: { params: Promise<{ path: str
   }
 
   const { path } = await params;
+  // L1 hardening: reject path segments that could pivot the proxy to an
+  // unintended backend route. WHATWG URL normalises `..` away but only
+  // after the components are joined — explicit per-segment rejection
+  // gives no chance for surprises.
+  if (
+    path.some((p) => p === '..' || p === '.' || p === '' || p.includes('\0') || p.includes('/'))
+  ) {
+    return NextResponse.json({ error: 'bad_path' }, { status: 400 });
+  }
   const upstreamPath = path.join('/');
   const upstreamUrl = new URL(`${getBackendBaseUrl()}/${upstreamPath}`);
 
