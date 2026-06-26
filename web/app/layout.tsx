@@ -149,7 +149,6 @@ export default async function RootLayout({
             __html: JSON.stringify([jsonLdOrg, jsonLdSite]),
           }}
         />
-        <div id="csprclick-ui" />
         <div
           id="app"
           style={{
@@ -158,6 +157,7 @@ export default async function RootLayout({
             flexDirection: 'column',
           }}
         >
+          <div id="csprclick-ui" />
           {isStatusSubdomain ? children : <MarketingChrome>{children}</MarketingChrome>}
         </div>
       </body>
