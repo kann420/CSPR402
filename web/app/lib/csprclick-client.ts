@@ -52,6 +52,14 @@ type CsprClickClient = {
   ): Promise<CsprClickSendResult | undefined>;
 };
 
+type PublicRuntimeConfig = {
+  csprclick_app_id?: string | null;
+  csprclick_cdn_version?: string | null;
+  csprclick_providers?: string | null;
+  casper_node_rpc_url?: string | null;
+  casper_chain_name?: string | null;
+};
+
 declare global {
   interface Window {
     csprclick?: CsprClickClient;
@@ -71,6 +79,7 @@ declare global {
     };
     __cspr402CsprClickRuntime?: Promise<CsprClickClient>;
     __cspr402CsprClickInitialized?: boolean;
+    __cspr402PublicConfig?: Promise<PublicRuntimeConfig>;
   }
 }
 
@@ -124,22 +133,43 @@ function errorDataSummary(errorData: unknown): string | null {
   }
 }
 
-function resolveAppId(): string {
-  const configured = process.env.NEXT_PUBLIC_CSPRCLICK_APP_ID?.trim();
-  if (configured) return configured;
-  // Public client identifier only, not a secret. Keep the demo usable on
-  // Docker builds where NEXT_PUBLIC_* values are not available at build time.
-  return LOCAL_APP_ID;
+function isLocalHost(): boolean {
+  if (typeof window === 'undefined') return false;
+  return ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
 }
 
-function runtimeSrc(): string {
+async function loadPublicConfig(): Promise<PublicRuntimeConfig> {
+  if (typeof window === 'undefined') return {};
+  if (!window.__cspr402PublicConfig) {
+    window.__cspr402PublicConfig = fetch('/api/public-config', { cache: 'no-store' })
+      .then((res) => (res.ok ? (res.json() as Promise<PublicRuntimeConfig>) : {}))
+      .catch(() => ({}));
+  }
+  return window.__cspr402PublicConfig;
+}
+
+async function resolveAppId(config: PublicRuntimeConfig): Promise<string> {
+  const configured =
+    config.csprclick_app_id?.trim() || process.env.NEXT_PUBLIC_CSPRCLICK_APP_ID?.trim();
+  if (configured && (configured !== LOCAL_APP_ID || isLocalHost())) return configured;
+  if (isLocalHost()) return LOCAL_APP_ID;
+  throw new Error(
+    'Casper Wallet login is not configured for cspr402.xyz yet. Register a CSPR.click app id for this domain, set CSPRCLICK_APP_ID on Railway, then redeploy. Use Open demo dashboard for now.',
+  );
+}
+
+function runtimeSrc(config: PublicRuntimeConfig): string {
   const version =
-    process.env.NEXT_PUBLIC_CSPRCLICK_CDN_VERSION?.trim() || CSPRCLICK_DEFAULT_VERSION;
+    config.csprclick_cdn_version?.trim() ||
+    process.env.NEXT_PUBLIC_CSPRCLICK_CDN_VERSION?.trim() ||
+    CSPRCLICK_DEFAULT_VERSION;
   return `https://cdn.cspr.click/ui/v${version}/csprclick-client-${version}.js`;
 }
 
-function configuredProviders(): string[] {
-  const raw = process.env.NEXT_PUBLIC_CSPRCLICK_PROVIDERS?.trim();
+async function configuredProviders(): Promise<string[]> {
+  const config = await loadPublicConfig();
+  const raw =
+    config.csprclick_providers?.trim() || process.env.NEXT_PUBLIC_CSPRCLICK_PROVIDERS?.trim();
   const providers = raw
     ? raw
         .split(',')
@@ -147,6 +177,25 @@ function configuredProviders(): string[] {
         .filter(Boolean)
     : DEFAULT_PROVIDERS;
   return providers.length > 0 ? providers : DEFAULT_PROVIDERS;
+}
+
+async function assertCsprClickAppReady(appId: string): Promise<void> {
+  if (appId === LOCAL_APP_ID && isLocalHost()) return;
+  try {
+    const res = await fetch(
+      `https://accounts.cspr.click/api/application/${encodeURIComponent(appId)}.json`,
+      { cache: 'no-store' },
+    );
+    if (!res.ok) {
+      throw new Error(
+        `CSPR.click rejected the configured app id for this domain (HTTP ${res.status}). Register an app id for cspr402.xyz or use Open demo dashboard for now.`,
+      );
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('CSPR.click rejected')) throw err;
+    // Do not fail closed on transient CSPR.click account-api/network issues;
+    // the SDK can still attempt its own provider flow.
+  }
 }
 
 function timeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
@@ -170,13 +219,24 @@ async function loadRuntime(): Promise<CsprClickClient> {
   if (window.csprclick) return window.csprclick;
   if (window.__cspr402CsprClickRuntime) return window.__cspr402CsprClickRuntime;
 
+  const config = await loadPublicConfig();
+  const appId = await resolveAppId(config);
+  await assertCsprClickAppReady(appId);
+  const providers = await configuredProviders();
+
   window.clickSDKOptions = {
     appName: 'CSPR402',
-    appId: resolveAppId(),
+    appId,
     contentMode: 'iframe',
-    casperNode: process.env.NEXT_PUBLIC_CASPER_NODE_RPC_URL,
-    chainName: process.env.NEXT_PUBLIC_CASPER_CHAIN_NAME || 'casper-test',
-    providers: configuredProviders(),
+    casperNode:
+      config.casper_node_rpc_url?.trim() ||
+      process.env.NEXT_PUBLIC_CASPER_NODE_RPC_URL?.trim() ||
+      undefined,
+    chainName:
+      config.casper_chain_name?.trim() ||
+      process.env.NEXT_PUBLIC_CASPER_CHAIN_NAME?.trim() ||
+      'casper-test',
+    providers,
   };
   window.clickUIOptions = {
     uiContainer: 'csprclick-ui',
@@ -206,7 +266,7 @@ async function loadRuntime(): Promise<CsprClickClient> {
     const handleScriptError = () => {
       rejectAndReset(new Error('Failed to load CSPR.click runtime.'));
     };
-    const desiredSrc = runtimeSrc();
+    const desiredSrc = runtimeSrc(config);
     const legacyScript = document.getElementById(CSPRCLICK_LEGACY_SCRIPT_ID);
     const existing = document.getElementById(CSPRCLICK_SCRIPT_ID) ?? legacyScript;
     window.addEventListener('csprclick:loaded', settle, { once: true });
@@ -303,7 +363,7 @@ export async function connectWallet(timeoutMs = 60000): Promise<string> {
   const current = await getActivePublicKey();
   if (current) return current;
 
-  const providers = configuredProviders();
+  const providers = await configuredProviders();
   const presentProviders = providers.filter((provider) => {
     try {
       return click.isProviderPresent?.(provider) ?? true;
