@@ -242,7 +242,6 @@ async function loadRuntime(): Promise<CsprClickClient> {
     uiContainer: 'csprclick-ui',
     rootAppElement: '#app',
     showTopBar: false,
-    show1ClickModal: false,
   };
 
   window.__cspr402CsprClickRuntime = new Promise<CsprClickClient>((resolve, reject) => {
