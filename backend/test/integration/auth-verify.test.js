@@ -14,7 +14,7 @@
 
 require('../helpers/env');
 
-const { describe, it, beforeEach } = require('node:test');
+const { describe, it, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
@@ -214,5 +214,39 @@ describe('POST /auth/verify — F3 bootstrap owner creation', () => {
       .all('repeat@example.com');
     assert.equal(users.length, 1);
     assert.equal(users[0].role, 'owner');
+  });
+});
+
+describe('POST /auth/demo-login', () => {
+  beforeEach(() => {
+    resetDb();
+    delete process.env.CSPR402_DEMO_DASHBOARD_LOGIN;
+    delete process.env.CSPR402_DEMO_WALLET_PUBLIC_KEY;
+  });
+
+  afterEach(() => {
+    delete process.env.CSPR402_DEMO_DASHBOARD_LOGIN;
+    delete process.env.CSPR402_DEMO_WALLET_PUBLIC_KEY;
+  });
+
+  it('is disabled unless explicitly enabled by env', async () => {
+    const res = await request.post('/auth/demo-login').send({});
+    assert.equal(res.status, 404);
+    assert.equal(res.body.error, 'not_found');
+  });
+
+  it('creates a regular dashboard session when enabled', async () => {
+    process.env.CSPR402_DEMO_DASHBOARD_LOGIN = 'true';
+
+    const res = await request.post('/auth/demo-login').send({});
+    assert.equal(res.status, 200);
+    assert.ok(res.body.token);
+    assert.match(res.body.user.wallet_public_key, /^01[0-9a-f]{64}$/);
+    assert.ok(res.body.dashboard.id);
+
+    const me = await request.get('/auth/me').set('Authorization', `Bearer ${res.body.token}`);
+    assert.equal(me.status, 200);
+    assert.equal(me.body.user.id, res.body.user.id);
+    assert.equal(me.body.dashboard.id, res.body.dashboard.id);
   });
 });

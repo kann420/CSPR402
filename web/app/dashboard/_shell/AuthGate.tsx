@@ -18,7 +18,7 @@ export function AuthGate() {
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [stage, setStage] = useState<'email' | 'code'>('email');
-  const [busy, setBusy] = useState<'wallet' | 'email' | 'code' | null>(null);
+  const [busy, setBusy] = useState<'wallet' | 'demo' | 'email' | 'code' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [walletPublicKey, setWalletPublicKey] = useState<string | null>(null);
 
@@ -49,6 +49,22 @@ export function AuthGate() {
       window.location.reload();
     } catch (err) {
       setError((err as Error).message || 'Wallet login failed.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function demoSignIn() {
+    setError(null);
+    setBusy('demo');
+    try {
+      await fetch('/api/auth/demo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      }).then(readJson);
+      window.location.reload();
+    } catch (err) {
+      setError((err as Error).message || 'Demo login failed.');
     } finally {
       setBusy(null);
     }
@@ -134,6 +150,16 @@ export function AuthGate() {
           style={{ width: '100%', justifyContent: 'center' }}
         >
           {busy === 'wallet' ? 'Waiting for wallet...' : 'Connect Casper Wallet'}
+        </Button>
+
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={demoSignIn}
+          disabled={busy !== null}
+          style={{ width: '100%', justifyContent: 'center', marginTop: '0.7rem' }}
+        >
+          {busy === 'demo' ? 'Opening...' : 'Open demo dashboard'}
         </Button>
 
         {walletPublicKey && (

@@ -29,6 +29,7 @@ const CODE_MAX_PER_WINDOW = 3;
 const SESSION_TTL_DAYS = 7;
 const WALLET_CHALLENGE_TTL_MINUTES = 5;
 const CASPER_PUBLIC_KEY_RE = /^(01[0-9a-fA-F]{64}|02[0-9a-fA-F]{66})$/;
+const DEMO_WALLET_PUBLIC_KEY = `01${'b'.repeat(64)}`;
 
 // ── Rate limiters ──────────────────────────────────────────────────────────
 //
@@ -249,6 +250,16 @@ function walletSignatureDiagnostics({ publicKey, message, signatureHex }) {
 
 function walletEmail(publicKey) {
   return `wallet-${publicKey.slice(0, 24)}@wallet.cspr402.local`;
+}
+
+function demoLoginEnabled() {
+  return process.env.CSPR402_DEMO_DASHBOARD_LOGIN === 'true';
+}
+
+function demoWalletPublicKey() {
+  return (
+    normalizeCasperPublicKey(process.env.CSPR402_DEMO_WALLET_PUBLIC_KEY) || DEMO_WALLET_PUBLIC_KEY
+  );
 }
 
 function createSession(userId) {
@@ -803,6 +814,50 @@ router.post('/wallet/verify', verifyLimiter, (req, res) => {
     details: {
       domain: row.domain,
       chain_name: row.chain_name,
+      wallet_public_key: publicKey,
+      is_platform_owner: isPlatformOwner(user.email),
+    },
+    ip: clientIp(req),
+    userAgent: clientUserAgent(req),
+  });
+
+  res.json({
+    token: rawToken,
+    user: {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      wallet_public_key: publicKey,
+      is_platform_owner: isPlatformOwner(user.email),
+    },
+    dashboard: { id: dashboard.id, name: dashboard.name },
+  });
+});
+
+// POST /auth/demo-login
+//
+// Hackathon-only dashboard fallback. This route is disabled unless the
+// deployment explicitly sets CSPR402_DEMO_DASHBOARD_LOGIN=true. It creates a
+// normal short-lived backend session for a fixed Casper testnet public key; the
+// web app still wraps the returned token in an HttpOnly cookie so browser JS
+// never sees the bearer token.
+router.post('/demo-login', loginLimiter, (req, res) => {
+  if (!demoLoginEnabled()) {
+    return res.status(404).json({ error: 'not_found' });
+  }
+
+  const now = new Date().toISOString();
+  const publicKey = demoWalletPublicKey();
+  const { user, dashboard } = bootstrapWalletUser(publicKey, now);
+  const rawToken = createSession(user.id);
+
+  recordAudit({
+    dashboardId: dashboard.id,
+    actor: { id: user.id, email: user.email, role: user.role },
+    action: 'auth.demo_session_created',
+    resourceType: 'demo_session',
+    resourceId: user.id,
+    details: {
       wallet_public_key: publicKey,
       is_platform_owner: isPlatformOwner(user.email),
     },
