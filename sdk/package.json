@@ -17,7 +17,7 @@
     }
   },
   "bin": {
-    "cspr402": "./dist/cli.js"
+    "cspr402": "dist/cli.js"
   },
   "files": [
     "dist",
@@ -48,7 +48,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/CTX-com/Cards402"
+    "url": "git+https://github.com/kann420/CSPR402.git"
   },
   "homepage": "https://cspr402.xyz",
   "publishConfig": {
