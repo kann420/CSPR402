@@ -127,11 +127,9 @@ function errorDataSummary(errorData: unknown): string | null {
 function resolveAppId(): string {
   const configured = process.env.NEXT_PUBLIC_CSPRCLICK_APP_ID?.trim();
   if (configured) return configured;
-  if (typeof window !== 'undefined') {
-    const host = window.location.hostname;
-    if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return LOCAL_APP_ID;
-  }
-  throw new Error('NEXT_PUBLIC_CSPRCLICK_APP_ID is required for CSPR.click.');
+  // Public client identifier only, not a secret. Keep the demo usable on
+  // Docker builds where NEXT_PUBLIC_* values are not available at build time.
+  return LOCAL_APP_ID;
 }
 
 function runtimeSrc(): string {
