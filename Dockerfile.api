@@ -1,0 +1,19 @@
+# CSPR402 API - Express backend built from the monorepo root.
+
+FROM node:20-bookworm-slim AS builder
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 build-essential \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app/backend
+COPY backend/package*.json ./
+RUN npm ci --omit=dev
+COPY backend/src ./src
+
+FROM node:20-bookworm-slim AS runner
+ENV NODE_ENV=production PORT=4000
+WORKDIR /app/backend
+COPY --from=builder --chown=node:node /app/backend /app/backend
+RUN mkdir -p /data && chown node:node /data
+EXPOSE 4000
+CMD ["sh", "-c", "mkdir -p /data && chown -R node:node /data && su node -s /bin/sh -c 'node src/index.js'"]
