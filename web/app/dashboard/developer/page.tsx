@@ -43,7 +43,9 @@ export default function DeveloperPage() {
           <Snippet title="Install" code={`npm install cspr402@latest`} />
           <Snippet
             title="Onboard an agent"
-            code={`npx -y cspr402@latest onboard --claim <claim-code> --casper-public-key <hex>`}
+            code={`npx -y cspr402@latest onboard --claim <claim-code>
+# Optional, on the first run if available:
+#   --casper-public-key <hex>`}
           />
           <Snippet
             title="Create a CSPR order"

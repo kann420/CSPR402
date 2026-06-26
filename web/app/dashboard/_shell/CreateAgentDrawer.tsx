@@ -103,7 +103,10 @@ export function CreateAgentDrawer({ open, onClose }: Props) {
   const snippet = created?.claim
     ? [
         'Read https://cspr402.xyz/skill.md and set up this by running:',
-        `npx -y cspr402@latest onboard --claim ${created.claim.code} --casper-public-key <hex>`,
+        `npx -y cspr402@latest onboard --claim ${created.claim.code}`,
+        '',
+        'If this agent already has a Casper testnet public key, add:',
+        '--casper-public-key <hex>',
       ].join('\n')
     : '';
 

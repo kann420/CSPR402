@@ -5,6 +5,13 @@ You are setting up an agent for CSPR402, a Casper testnet payment demo.
 Run the command the operator provided:
 
 ```bash
+npx -y cspr402@latest onboard --claim <claim_code>
+```
+
+If your agent already has a Casper testnet public key, include it on the first
+run so the dashboard can advance through "Casper wallet configured":
+
+```bash
 npx -y cspr402@latest onboard --claim <claim_code> --casper-public-key <hex>
 ```
 
@@ -24,7 +31,7 @@ and one receipt.
 ## Agent Inputs
 
 - A one-time CSPR402 claim code from the dashboard
-- A Casper testnet public key or local key-file path
+- An optional Casper testnet public key or local key-file path
 - Testnet CSPR for native transfers and gas
 
 ## Payment Flow
