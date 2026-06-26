@@ -18,8 +18,7 @@ FROM node:20-bookworm-slim AS runner
 ENV NODE_ENV=production PORT=4000
 WORKDIR /app
 COPY --from=builder --chown=node:node /app /app
-# SQLite data dir — owned by the non-root runtime user; mounted as a volume
+# SQLite data dir. Railway mounts volumes at runtime, so CMD chowns it before dropping to node.
 RUN mkdir -p /data && chown node:node /data
-USER node
 EXPOSE 4000
-CMD ["node", "src/index.js"]
+CMD ["sh", "-c", "mkdir -p /data && chown -R node:node /data && su node -s /bin/sh -c 'node src/index.js'"]
