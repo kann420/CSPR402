@@ -1,45 +1,130 @@
-// `cards402 wallet address` / `cards402 wallet balance` — read-only
-// helpers that wrap the OWS SDK so agents don't have to spawn Node
-// one-liners to find out their own Stellar address or check whether
-// funding has landed.
-
 import { loadCards402Config } from '../config';
-import { getOWSPublicKey, getOWSBalance, addUsdcTrustlineOWS } from '../ows';
+
+const CASPER_PUBLIC_KEY_RE = /^(01[0-9a-f]{64}|02[0-9a-f]{66})$/i;
+const DEFAULT_RPC_URL = 'https://node.testnet.casper.network/rpc';
+const MOTES_PER_CSPR = 1_000_000_000n;
 
 function usage(): void {
-  process.stderr
-    .write(`Usage: cards402 wallet <subcommand> [--vault-path <path>] [--name <walletname>] [--passphrase-env <ENVNAME>]
+  process.stderr.write(`Usage: cspr402 wallet <subcommand> [--public-key <hex>] [--rpc-url <url>]
 
 Subcommands:
-  address              Print the Stellar address for this agent's wallet
-  balance              Print the wallet's XLM and USDC balances from Horizon
-  trustline            Open a USDC trustline on this wallet's Stellar account.
-                       Required before the wallet can receive USDC from the
-                       operator. Costs ~0.0000100 XLM in network fees and
-                       raises the account's min reserve by 0.5 XLM.
+  address              Print the configured Casper public key
+  key-path             Print the configured local key-file path, if one was saved
+  balance              Query Casper testnet CSPR balance for the configured public key
+  info                 Print configured wallet context
   -h, --help           Show this message
 
-Standard onboarding flow:
-  1. cards402 onboard --claim <code>
-  2. Operator sends at least 2 XLM to the wallet's Stellar address
-  3. cards402 wallet trustline    (opens the USDC trustline)
-  4. Operator sends USDC
-  5. cards402 purchase --amount <USD>
-
-Both subcommands read ~/.cards402/config.json for the wallet name and
-vault path so you don't need to pass anything after 'cards402 onboard'.
-Override either with --name=<walletname> / --vault-path=<path>.
+The wallet command is read-only. It never reads or stores private key material;
+the optional key path is only a local pointer saved by onboarding.
 `);
 }
 
-function parseFlag(rest: string[], short: string): string | undefined {
+function parseFlag(rest: string[], name: string): string | undefined {
   for (let i = 0; i < rest.length; i++) {
     const arg = rest[i];
     if (!arg) continue;
-    if (arg === short) return rest[i + 1];
-    if (arg.startsWith(`${short}=`)) return arg.slice(short.length + 1);
+    if (arg === name) return rest[i + 1];
+    if (arg.startsWith(`${name}=`)) return arg.slice(name.length + 1);
   }
   return undefined;
+}
+
+function normalizePublicKey(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (!CASPER_PUBLIC_KEY_RE.test(normalized)) {
+    throw new Error('Casper public key must be 01 + 32 bytes or 02 + 33 bytes in hex.');
+  }
+  return normalized;
+}
+
+function resolvePublicKey(rest: string[]): string {
+  const config = loadCards402Config();
+  const publicKey = normalizePublicKey(
+    parseFlag(rest, '--public-key') ||
+      process.env.CSPR402_CASPER_PUBLIC_KEY ||
+      config?.casper_public_key,
+  );
+  if (!publicKey) {
+    throw new Error(
+      "No Casper public key configured. Re-run 'cspr402 onboard --claim <code> --casper-public-key <hex>' or pass --public-key.",
+    );
+  }
+  return publicKey;
+}
+
+function resolveRpcUrl(rest: string[]): string {
+  return (
+    parseFlag(rest, '--rpc-url') ||
+    process.env.CSPR402_CASPER_NODE_RPC_URL ||
+    process.env.CASPER_NODE_RPC_URL ||
+    DEFAULT_RPC_URL
+  );
+}
+
+async function rpcCall(rpcUrl: string, method: string, params: unknown[]): Promise<unknown> {
+  const res = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: 1, jsonrpc: '2.0', method, params }),
+  });
+  const body = (await res.json().catch(() => ({}))) as {
+    error?: { message?: string; data?: unknown };
+    result?: unknown;
+  };
+  if (!res.ok || body.error) {
+    const msg =
+      body.error?.message ||
+      (typeof body.error?.data === 'string' ? body.error.data : undefined) ||
+      `Casper RPC HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return body.result;
+}
+
+function unwrapValue(result: unknown): Record<string, unknown> {
+  const obj = result as Record<string, unknown>;
+  if (obj && typeof obj === 'object' && obj.value && typeof obj.value === 'object') {
+    return obj.value as Record<string, unknown>;
+  }
+  return obj || {};
+}
+
+function formatCSPR(motesRaw: string): string {
+  const motes = BigInt(motesRaw);
+  const whole = motes / MOTES_PER_CSPR;
+  const frac = String(motes % MOTES_PER_CSPR).padStart(9, '0');
+  return `${whole}.${frac}`;
+}
+
+async function fetchBalance(
+  publicKey: string,
+  rpcUrl: string,
+): Promise<{ accountHash: string; motes: string }> {
+  const accountInfo = unwrapValue(
+    await rpcCall(rpcUrl, 'state_get_account_info', [
+      { name: 'account_identifier', value: publicKey },
+    ]),
+  );
+  const account = accountInfo.account as Record<string, unknown> | undefined;
+  const accountHash = typeof account?.account_hash === 'string' ? account.account_hash : undefined;
+  if (!accountHash) {
+    throw new Error('Account was not found on Casper testnet. Fund it with testnet CSPR first.');
+  }
+
+  const balanceResult = unwrapValue(
+    await rpcCall(rpcUrl, 'query_balance', [
+      {
+        name: 'purse_identifier',
+        value: { main_purse_under_account_hash: accountHash },
+      },
+    ]),
+  );
+  const balance = balanceResult.balance;
+  if (typeof balance !== 'string' || !/^\d+$/.test(balance)) {
+    throw new Error('Casper RPC did not return a parseable balance.');
+  }
+  return { accountHash, motes: balance };
 }
 
 export async function walletCommand(argv: string[]): Promise<number> {
@@ -49,147 +134,63 @@ export async function walletCommand(argv: string[]): Promise<number> {
     return sub ? 0 : 2;
   }
 
-  const config = loadCards402Config();
-  if (!config) {
-    process.stderr.write(
-      "error: no cards402 config found. Run 'cards402 onboard --claim <code>' first.\n",
-    );
-    return 1;
-  }
+  try {
+    const config = loadCards402Config();
 
-  // Resolve wallet name. Onboard writes a unique wallet_name per claim
-  // to prevent cross-agent collision; a static fallback here would
-  // reintroduce that bug (see onboard.ts:deriveDefaultWalletName). If
-  // neither config nor --name provides one, refuse to guess.
-  const walletName = parseFlag(rest, '--name') || config.wallet_name;
-  if (!walletName) {
-    process.stderr.write(
-      'error: no wallet_name in ~/.cards402/config.json and no --name passed.\n' +
-        "Either pass --name <walletname>, or re-run 'cards402 onboard --claim <code>'\n" +
-        'to write a fresh config with a unique wallet name.\n',
-    );
-    return 1;
-  }
-  // F12: vault_path and passphrase_env come from config first, CLI
-  // flag overrides. The passphrase value is read from process.env at
-  // call time; only the env var NAME is ever stored in config.
-  const vaultPath = parseFlag(rest, '--vault-path') || config.vault_path;
-  // F1-wallet (2026-04-16): resolve passphrase for the trustline
-  // subcommand. Pre-fix, addUsdcTrustlineOWS was called without a
-  // passphrase — so agents onboarded with --passphrase-env couldn't
-  // open a USDC trustline via the CLI (the OWS vault couldn't decrypt
-  // the signing key and threw a cryptic error). The purchase command
-  // and the MCP setup_wallet tool both correctly pass the passphrase;
-  // wallet.ts was the only caller that missed it.
-  const passphraseEnv = parseFlag(rest, '--passphrase-env') || config.passphrase_env;
-  const passphrase = passphraseEnv ? process.env[passphraseEnv] : undefined;
-
-  if (sub === 'address') {
-    try {
-      const publicKey = getOWSPublicKey(walletName, vaultPath);
-      process.stdout.write(`${publicKey}\n`);
+    if (sub === 'address') {
+      process.stdout.write(`${resolvePublicKey(rest)}\n`);
       return 0;
-    } catch (err) {
-      process.stderr.write(
-        `error: wallet "${walletName}" not found: ${
-          err instanceof Error ? err.message : String(err)
-        }\n`,
+    }
+
+    if (sub === 'key-path') {
+      const keyPath =
+        parseFlag(rest, '--key-path') ||
+        process.env.CSPR402_CASPER_KEY_PATH ||
+        config?.casper_key_path;
+      if (!keyPath) {
+        process.stderr.write('No Casper key-file path configured.\n');
+        return 1;
+      }
+      process.stdout.write(`${keyPath}\n`);
+      return 0;
+    }
+
+    if (sub === 'info') {
+      const publicKey = normalizePublicKey(
+        parseFlag(rest, '--public-key') ||
+          process.env.CSPR402_CASPER_PUBLIC_KEY ||
+          config?.casper_public_key,
       );
-      return 1;
-    }
-  }
-
-  if (sub === 'balance') {
-    try {
-      const publicKey = getOWSPublicKey(walletName, vaultPath);
-      const bal = await getOWSBalance(walletName, vaultPath);
-      process.stdout.write(`address: ${publicKey}\n`);
-      process.stdout.write(`xlm:     ${bal.xlm}\n`);
-      process.stdout.write(`usdc:    ${bal.usdc}\n`);
-      return 0;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      // Horizon 404 on a brand-new unactivated wallet — show zeros.
-      if (msg.includes('Not Found') || msg.includes('404')) {
-        try {
-          const publicKey = getOWSPublicKey(walletName, vaultPath);
-          process.stdout.write(`address: ${publicKey}\n`);
-          // Send at least 2 XLM — 1 for the Stellar base reserve plus
-          // 1 for a future USDC trustline entry. Matches the onboard
-          // command's funding instructions, the MCP setup_wallet tool,
-          // and the quickstart docs on cards402.com.
-          process.stdout.write(`xlm:     0 (unactivated — send at least 2 XLM to activate)\n`);
-          process.stdout.write(`usdc:    0\n`);
-          return 0;
-        } catch {
-          /* fall through to error */
-        }
-      }
-      process.stderr.write(`error: ${msg}\n`);
-      return 1;
-    }
-  }
-
-  if (sub === 'trustline') {
-    // `cards402 wallet trustline` — opens a USDC trustline on the
-    // agent's Stellar account. The operator's typical onboarding flow
-    // is: fund with XLM → agent runs this → operator sends USDC →
-    // agent runs `purchase`. Without the trustline, any USDC payment
-    // sent to the agent address bounces — USDC is an issued asset on
-    // Stellar and every holder account must authorise the issuer
-    // before it can hold the balance.
-    //
-    // The trustline operation costs one base fee (~0.00001 XLM) and
-    // bumps the account's minimum reserve by 0.5 XLM, so the wallet
-    // needs ~2 XLM already landed for this to succeed. We let the
-    // underlying op surface the real Stellar error on insufficient
-    // balance rather than pre-checking — the error message is more
-    // useful than a synthetic one.
-    try {
-      const publicKey = getOWSPublicKey(walletName, vaultPath);
-      process.stdout.write(`→ Opening USDC trustline for ${publicKey}…\n`);
-      const txHash = await addUsdcTrustlineOWS({ walletName, passphrase, vaultPath });
-      if (txHash === null) {
-        process.stdout.write(`✓ USDC trustline already exists on this wallet — nothing to do.\n`);
-        return 0;
-      }
-      process.stdout.write(`✓ USDC trustline opened (txid: ${txHash})\n`);
       process.stdout.write(
-        `\nThe wallet can now receive USDC from your operator. Run 'cards402 wallet balance'\n` +
-          `to confirm the USDC line appears (shown as '0.0000000' when open and empty).\n`,
+        `config:     ${process.env.CSPR402_CONFIG_DIR || '~/.cspr402'}/config.json\n`,
       );
+      process.stdout.write(
+        `api_url:    ${config?.api_url || process.env.CSPR402_BASE_URL || 'not configured'}\n`,
+      );
+      process.stdout.write(`public_key: ${publicKey || 'not configured'}\n`);
+      process.stdout.write(
+        `key_path:   ${config?.casper_key_path || process.env.CSPR402_CASPER_KEY_PATH || 'not configured'}\n`,
+      );
+      process.stdout.write(`rpc_url:    ${resolveRpcUrl(rest)}\n`);
       return 0;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      // Detect the most common "why did this fail" cases and turn
-      // them into actionable messages instead of the bare Horizon
-      // response body.
-      if (/not found/i.test(msg) || /404/.test(msg)) {
-        process.stderr.write(
-          `error: wallet is not activated on mainnet yet. Ask your operator to send\n` +
-            `at least 2 XLM to the address printed by 'cards402 wallet address',\n` +
-            `then re-run 'cards402 wallet trustline'.\n`,
-        );
-        return 1;
-      }
-      if (/already exists/i.test(msg) || /op_already_exists/.test(msg)) {
-        process.stdout.write(`✓ USDC trustline already exists on this wallet — nothing to do.\n`);
-        return 0;
-      }
-      if (/insufficient/i.test(msg) || /op_low_reserve/.test(msg)) {
-        process.stderr.write(
-          `error: insufficient XLM to open the trustline. A trustline subentry\n` +
-            `requires +0.5 XLM of account reserve on top of the 1 XLM base. Ask\n` +
-            `your operator to top up the wallet with at least 2 XLM total.\n`,
-        );
-        return 1;
-      }
-      process.stderr.write(`error: ${msg}\n`);
-      return 1;
     }
-  }
 
-  process.stderr.write(`error: unknown wallet subcommand '${sub}'\n`);
-  usage();
-  return 2;
+    if (sub === 'balance') {
+      const publicKey = resolvePublicKey(rest);
+      const rpcUrl = resolveRpcUrl(rest);
+      const balance = await fetchBalance(publicKey, rpcUrl);
+      process.stdout.write(`address:      ${publicKey}\n`);
+      process.stdout.write(`account_hash: ${balance.accountHash}\n`);
+      process.stdout.write(`motes:        ${balance.motes}\n`);
+      process.stdout.write(`cspr:         ${formatCSPR(balance.motes)}\n`);
+      return 0;
+    }
+
+    process.stderr.write(`error: unknown wallet subcommand '${sub}'\n`);
+    usage();
+    return 2;
+  } catch (err) {
+    process.stderr.write(`error: ${err instanceof Error ? err.message : String(err)}\n`);
+    return 1;
+  }
 }

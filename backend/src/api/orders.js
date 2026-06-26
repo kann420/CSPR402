@@ -6,12 +6,24 @@
 const { Router } = require('express');
 const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
+const { PublicKey } = require('casper-js-sdk');
 const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 const db = require('../db');
-const { isFrozen } = require('../fulfillment');
+const { isFrozen, enqueueWebhook } = require('../fulfillment');
 const { assertSafeUrl } = require('../lib/ssrf');
 const { checkPolicy, recordDecision } = require('../policy');
 const { usdToXlm } = require('../payments/xlm-price');
+const { buildMockUsdcPayment } = require('../payments/casper-cep18');
+const {
+  CasperPaymentAmountError,
+  allocateTransferId,
+  buildCasperPayment,
+} = require('../payments/casper');
+const {
+  CasperPaymentVerificationError,
+  verifyCasperCep18Payment,
+  verifyCasperDeployPayment,
+} = require('../payments/casper-verify');
 const { sendApprovalEmail, sendSpendAlertEmail } = require('../lib/email');
 const { event: bizEvent } = require('../lib/logger');
 const { insertPendingPaymentOrder } = require('../orders/core');
@@ -55,6 +67,24 @@ function canonicalJson(value, depth = 0) {
 // nothing reasonable needs it).
 const MAX_METADATA_JSON_BYTES = 8 * 1024;
 const MAX_WEBHOOK_URL_CHARS = 2048;
+const MOCK_CASPER_CARD = {
+  number: '4242424242424242',
+  cvv: '123',
+  expiry: '12/99',
+  brand: 'Mock Virtual Card',
+};
+const CASPER_PUBLIC_KEY_RE = /^(01[0-9a-fA-F]{64}|02[0-9a-fA-F]{66})$/;
+
+function isValidCasperPublicKey(value) {
+  if (typeof value !== 'string') return false;
+  if (!CASPER_PUBLIC_KEY_RE.test(value)) return false;
+  try {
+    PublicKey.fromHex(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 // Rate limit order creation per API key — default 60/hour, overridable per key via rate_limit_rpm.
 // req.apiKey is set by the auth middleware before this runs.
@@ -294,7 +324,61 @@ router.post('/', orderCreateLimiter, async (req, res) => {
     });
   }
 
-  const { amount_usdc, webhook_url, metadata } = req.body;
+  const { amount_usdc, webhook_url, metadata, payment_asset, payer_public_key } = req.body;
+  const requestedPaymentAsset =
+    payment_asset === undefined || payment_asset === null || payment_asset === ''
+      ? null
+      : String(payment_asset);
+  if (
+    requestedPaymentAsset &&
+    requestedPaymentAsset !== 'cspr_casper' &&
+    requestedPaymentAsset !== 'mock_usdc_cep18' &&
+    requestedPaymentAsset !== 'usdc'
+  ) {
+    return res.status(400).json({
+      error: 'invalid_payment_asset',
+      message: 'payment_asset must be cspr_casper, mock_usdc_cep18, or legacy usdc',
+    });
+  }
+  const normalizedPayerPublicKey =
+    typeof payer_public_key === 'string' && payer_public_key.trim()
+      ? payer_public_key.trim().toLowerCase()
+      : null;
+  if (normalizedPayerPublicKey && !isValidCasperPublicKey(normalizedPayerPublicKey)) {
+    return res.status(400).json({
+      error: 'invalid_payer_public_key',
+      message: 'payer_public_key must be a valid Casper public key hex string.',
+    });
+  }
+  const treasuryPublicKey =
+    typeof process.env.CASPER_TREASURY_PUBLIC_KEY === 'string'
+      ? process.env.CASPER_TREASURY_PUBLIC_KEY.trim().toLowerCase()
+      : null;
+  if (
+    normalizedPayerPublicKey &&
+    treasuryPublicKey &&
+    normalizedPayerPublicKey === treasuryPublicKey
+  ) {
+    return res.status(409).json({
+      error: 'self_payment_not_supported',
+      message:
+        'payer_public_key matches CASPER_TREASURY_PUBLIC_KEY. Configure a treasury recipient that is different from the paying wallet.',
+    });
+  }
+  if (requestedPaymentAsset === 'mock_usdc_cep18') {
+    if (process.env.MOCK_USDC_ENABLED !== 'true') {
+      return res.status(409).json({
+        error: 'mock_usdc_not_enabled',
+        message: 'mockUSDC CEP-18 payments are not enabled on this backend.',
+      });
+    }
+    if (!normalizedPayerPublicKey) {
+      return res.status(400).json({
+        error: 'invalid_payer_public_key',
+        message: 'payer_public_key is required for mock_usdc_cep18 orders',
+      });
+    }
+  }
 
   // Strict decimal validation — reject "10abc" which parseFloat would
   // silently accept as 10, AND reject sub-cent amounts like "10.12345"
@@ -386,20 +470,29 @@ router.post('/', orderCreateLimiter, async (req, res) => {
   }
 
   // ── Async pre-work (must happen BEFORE the db.transaction) ─────────────────
-  // usdToXlm is a Horizon fetch; we resolve it up-front and then let
-  // the synchronous transaction below decide what to do with the
-  // result. If the price oracle is down we simply don't advertise an
-  // XLM payment branch for this order.
-  let xlmAmount = null;
-  try {
-    xlmAmount = await usdToXlm(String(amount));
-  } catch (err) {
-    console.warn(`[orders] XLM price lookup failed: ${err.message}`);
+  // Legacy Stellar pre-work. Casper mode builds a deterministic native
+  // transfer instruction inside the DB transaction and does not depend
+  // on the XLM price oracle.
+  const paymentProvider = process.env.PAYMENT_PROVIDER || 'casper';
+  const useLegacyStellarPayment = paymentProvider === 'stellar' || requestedPaymentAsset === 'usdc';
+  const boundCasperPayerPublicKey = !useLegacyStellarPayment ? normalizedPayerPublicKey : null;
+  if (paymentProvider === 'stellar' && requestedPaymentAsset && requestedPaymentAsset !== 'usdc') {
+    return res.status(400).json({
+      error: 'invalid_payment_asset',
+      message: 'Casper payment assets require PAYMENT_PROVIDER=casper.',
+    });
   }
-
-  // Stable USDC issuer for the Soroban payment envelope.
-  const USDC_ISSUER =
-    process.env.STELLAR_USDC_ISSUER || 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN';
+  let xlmAmount = null;
+  let USDC_ISSUER = null;
+  if (useLegacyStellarPayment) {
+    try {
+      xlmAmount = await usdToXlm(String(amount));
+    } catch (err) {
+      console.warn(`[orders] XLM price lookup failed: ${err.message}`);
+    }
+    USDC_ISSUER =
+      process.env.STELLAR_USDC_ISSUER || 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN';
+  }
 
   // ── Atomic DB work — closes the spend/policy/idempotency TOCTOUs ───────────
   //
@@ -488,14 +581,22 @@ router.post('/', orderCreateLimiter, async (req, res) => {
     // Approval required branch.
     if (policyResult.decision === 'pending_approval') {
       db.prepare(
-        `INSERT INTO orders (id, status, amount_usdc, api_key_id, webhook_url, request_id)
-         VALUES (@id, 'awaiting_approval', @amount_usdc, @api_key_id, @webhook_url, @request_id)`,
+        `INSERT INTO orders
+           (id, status, amount_usdc, api_key_id, webhook_url, metadata, request_id,
+            payment_asset, casper_expected_sender_public_key)
+         VALUES
+           (@id, 'awaiting_approval', @amount_usdc, @api_key_id, @webhook_url, @metadata,
+            @request_id, @payment_asset, @casper_expected_sender_public_key)`,
       ).run({
         id,
         amount_usdc: String(amount),
         api_key_id: req.apiKey.id,
         webhook_url: webhook_url || null,
+        metadata: metadataStr,
         request_id: req.id || null,
+        payment_asset:
+          requestedPaymentAsset || (paymentProvider === 'stellar' ? 'usdc' : 'cspr_casper'),
+        casper_expected_sender_public_key: boundCasperPayerPublicKey,
       });
 
       const approvalId = uuidv4();
@@ -599,23 +700,81 @@ router.post('/', orderCreateLimiter, async (req, res) => {
       return { kind: 'order', status: 201, body: sandboxBody };
     }
 
-    // Real mode — real Soroban contract payment instructions.
-    const contractPayment = {
-      type: 'soroban_contract',
-      contract_id: process.env.RECEIVER_CONTRACT_ID,
-      order_id: id,
-      usdc: { amount: String(amount), asset: `USDC:${USDC_ISSUER}` },
-      ...(xlmAmount && { xlm: { amount: xlmAmount } }),
-    };
+    // Real mode payment instructions. Casper is the default; Stellar is
+    // preserved only for explicit legacy mode.
+    let paymentInstruction;
+    let expectedXlmAmount = null;
+    let paymentAsset =
+      useLegacyStellarPayment && !requestedPaymentAsset
+        ? 'usdc'
+        : requestedPaymentAsset || 'cspr_casper';
+    let casperTransferId = null;
+    let casperExpectedSenderPublicKey = null;
+    if (useLegacyStellarPayment) {
+      if (paymentAsset !== 'usdc') {
+        return {
+          kind: 'invalid_request',
+          status: 400,
+          body: {
+            error: 'invalid_payment_asset',
+            message: 'Casper payment assets require PAYMENT_PROVIDER=casper.',
+          },
+        };
+      }
+      paymentAsset = 'usdc';
+      expectedXlmAmount = xlmAmount || null;
+      paymentInstruction = {
+        type: 'soroban_contract',
+        contract_id: process.env.RECEIVER_CONTRACT_ID,
+        order_id: id,
+        usdc: { amount: String(amount), asset: `USDC:${USDC_ISSUER}` },
+        ...(xlmAmount && { xlm: { amount: xlmAmount } }),
+      };
+    } else if (paymentAsset === 'mock_usdc_cep18') {
+      casperExpectedSenderPublicKey = normalizedPayerPublicKey;
+      paymentInstruction = buildMockUsdcPayment({
+        orderId: id,
+        amountUsdc: String(amount),
+        senderPublicKey: casperExpectedSenderPublicKey,
+      });
+    } else {
+      paymentAsset = 'cspr_casper';
+      casperTransferId = allocateTransferId();
+      try {
+        paymentInstruction = buildCasperPayment({
+          orderId: id,
+          amountUsdc: String(amount),
+          transferId: casperTransferId,
+          senderPublicKey: boundCasperPayerPublicKey,
+        });
+      } catch (err) {
+        if (err instanceof CasperPaymentAmountError) {
+          return {
+            kind: 'invalid_request',
+            status: err.status,
+            body: {
+              error: err.code,
+              message: err.message,
+              details: err.details,
+            },
+          };
+        }
+        throw err;
+      }
+      casperExpectedSenderPublicKey = boundCasperPayerPublicKey;
+    }
     insertPendingPaymentOrder({
       id,
       amount_usdc: String(amount),
-      expected_xlm_amount: xlmAmount || null,
+      expected_xlm_amount: expectedXlmAmount,
       api_key_id: req.apiKey.id,
       webhook_url: webhook_url || null,
       metadata: metadataStr,
-      vcc_payment_json: JSON.stringify(contractPayment),
+      vcc_payment_json: JSON.stringify(paymentInstruction),
       request_id: req.id || null,
+      payment_asset: paymentAsset,
+      casper_transfer_id: casperTransferId,
+      casper_expected_sender_public_key: casperExpectedSenderPublicKey,
     });
     const freshKey = /** @type {any} */ (
       db.prepare(`SELECT * FROM api_keys WHERE id = ?`).get(req.apiKey.id)
@@ -626,7 +785,7 @@ router.post('/', orderCreateLimiter, async (req, res) => {
       status: 'pending_payment',
       phase: 'awaiting_payment',
       amount_usdc: String(amount),
-      payment: contractPayment,
+      payment: paymentInstruction,
       poll_url: `/v1/orders/${id}`,
       budget,
     };
@@ -642,6 +801,8 @@ router.post('/', orderCreateLimiter, async (req, res) => {
 
   // ── Post-commit dispatch ────────────────────────────────────────────────────
   switch (txnResult.kind) {
+    case 'invalid_request':
+      return res.status(txnResult.status).json(txnResult.body);
     case 'idem_conflict':
       bizEvent('idempotency.conflict', {
         api_key_id: req.apiKey.id,
@@ -784,6 +945,8 @@ function buildOrderResponse(order) {
       card.brand = normalizeCardBrand(card.brand);
     }
     response.card = card;
+    const receipt = parseOrderReceipt(order);
+    if (receipt) response.receipt = receipt;
   }
 
   if (order.status === 'expired') {
@@ -853,6 +1016,336 @@ const TERMINAL_STATUSES = new Set([
 // immediately. A tight loop could hit 1000+ opens/sec, hammering
 // SQLite and socket setup without breaching any counter. Using the
 // existing 600/min poll limiter caps that axis correctly.
+function parseOrderPayment(order) {
+  if (!order?.vcc_payment_json) return null;
+  try {
+    return JSON.parse(order.vcc_payment_json);
+  } catch {
+    return null;
+  }
+}
+
+function parseOrderReceipt(order) {
+  if (!order?.payment_receipt_json) return null;
+  try {
+    return JSON.parse(order.payment_receipt_json);
+  } catch {
+    return null;
+  }
+}
+
+function paymentReceipt({ order, payment, verification, deployHash, verifiedAt = null }) {
+  const stored = parseOrderReceipt(order);
+  if (stored && (!deployHash || stored.deploy_hash === deployHash)) return stored;
+
+  const common = {
+    order_id: order.id,
+    network: payment?.network || process.env.CASPER_NETWORK || 'testnet',
+    chain_name: payment?.chain_name || process.env.CASPER_CHAIN_NAME || 'casper-test',
+    deploy_hash: deployHash,
+    sender_public_key: verification?.senderPublicKey || order.casper_sender_public_key || null,
+    verified_at: verifiedAt || order.casper_paid_at || null,
+    card_mode: 'mock',
+  };
+
+  if (order.payment_asset === 'mock_usdc_cep18' || payment?.type === 'casper_cep18_transfer') {
+    return {
+      type: 'casper_mock_usdc_receipt',
+      payment_asset: 'mock_usdc_cep18',
+      ...common,
+      asset: 'mockUSDC',
+      decimals: payment?.decimals ?? 6,
+      contract_package_hash:
+        verification?.contractPackageHash || payment?.contract_package_hash || null,
+      contract_hash: payment?.contract_hash || null,
+      recipient_public_key:
+        payment?.recipient_public_key || process.env.CASPER_TREASURY_PUBLIC_KEY || null,
+      recipient_account_hash: verification?.recipientAccountHash || null,
+      amount_base_units: verification?.amountBaseUnits || payment?.amount_base_units || null,
+    };
+  }
+
+  return {
+    type: 'casper_cspr_receipt',
+    payment_asset: 'cspr_casper',
+    ...common,
+    recipient: payment?.recipient || process.env.CASPER_TREASURY_PUBLIC_KEY || null,
+    transfer_id: order.casper_transfer_id,
+    amount_motes: verification?.amountMotes || payment?.amount_motes || null,
+  };
+}
+
+// POST /orders/:id/verify-payment — verify a Casper testnet payment deploy and
+// fulfill one mock virtual card. Supports native CSPR and mockUSDC CEP-18.
+router.post('/:id/verify-payment', orderPollLimiter, async (req, res) => {
+  if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+    return res.status(400).json({
+      error: 'invalid_request',
+      message: 'Request body must be a JSON object.',
+    });
+  }
+  const deployHash = req.body.deploy_hash;
+  const submittedSender =
+    typeof req.body.sender_public_key === 'string' && req.body.sender_public_key.trim()
+      ? req.body.sender_public_key.trim().toLowerCase()
+      : null;
+  if (typeof deployHash !== 'string') {
+    return res.status(400).json({
+      error: 'invalid_deploy_hash',
+      message: 'deploy_hash must be a 64-character hex string.',
+    });
+  }
+
+  const order = /** @type {any} */ (
+    db
+      .prepare(`SELECT * FROM orders WHERE id = ? AND api_key_id = ?`)
+      .get(req.params.id, req.apiKey.id)
+  );
+  if (!order) return res.status(404).json({ error: 'order_not_found' });
+
+  const normalizedDeployHash = deployHash.toLowerCase();
+  if (order.status === 'delivered' && order.casper_deploy_hash === normalizedDeployHash) {
+    const payment = parseOrderPayment(order);
+    return res.json({
+      ok: true,
+      note: 'already_verified',
+      receipt: paymentReceipt({
+        order,
+        payment,
+        verification: null,
+        deployHash: normalizedDeployHash,
+      }),
+      order: buildOrderResponse(order),
+    });
+  }
+  if (order.status !== 'pending_payment') {
+    return res.status(409).json({
+      error: 'order_not_payable',
+      message: `Order is ${order.status}, not pending_payment.`,
+    });
+  }
+  if (order.payment_asset !== 'cspr_casper' && order.payment_asset !== 'mock_usdc_cep18') {
+    return res.status(409).json({
+      error: 'wrong_payment_provider',
+      message: 'This order is not awaiting a Casper testnet payment.',
+    });
+  }
+
+  const payment = parseOrderPayment(order);
+  const expectedPaymentType =
+    order.payment_asset === 'mock_usdc_cep18' ? 'casper_cep18_transfer' : 'casper_cspr_transfer';
+  if (!payment || payment.type !== expectedPaymentType) {
+    return res.status(409).json({
+      error: 'missing_payment_instructions',
+      message: 'Order has no matching Casper payment instructions to verify against.',
+    });
+  }
+  if (order.payment_asset === 'mock_usdc_cep18') {
+    if (!submittedSender || !isValidCasperPublicKey(submittedSender)) {
+      return res.status(400).json({
+        error: 'invalid_sender_public_key',
+        message: 'sender_public_key is required to verify mockUSDC CEP-18 payments.',
+      });
+    }
+    if (
+      order.casper_expected_sender_public_key &&
+      submittedSender !== order.casper_expected_sender_public_key
+    ) {
+      return res.status(422).json({
+        error: 'wrong_sender',
+        message: 'sender_public_key does not match the payer bound to this order.',
+      });
+    }
+  } else if (submittedSender && !isValidCasperPublicKey(submittedSender)) {
+    return res.status(400).json({
+      error: 'invalid_sender_public_key',
+      message: 'sender_public_key must be a valid Casper public key hex string.',
+    });
+  } else if (
+    order.casper_expected_sender_public_key &&
+    submittedSender &&
+    submittedSender !== order.casper_expected_sender_public_key
+  ) {
+    return res.status(422).json({
+      error: 'wrong_sender',
+      message: 'sender_public_key does not match the payer bound to this order.',
+    });
+  }
+  if (payment.expires_at && Date.parse(payment.expires_at) <= Date.now()) {
+    db.prepare(
+      `UPDATE orders SET status = 'expired', updated_at = ? WHERE id = ? AND status = 'pending_payment'`,
+    ).run(new Date().toISOString(), order.id);
+    return res.status(410).json({
+      error: 'payment_expired',
+      message: 'Payment window expired. Create a fresh order.',
+    });
+  }
+
+  const duplicate = /** @type {any} */ (
+    db
+      .prepare(`SELECT id FROM orders WHERE casper_deploy_hash = ? AND id <> ?`)
+      .get(normalizedDeployHash, order.id)
+  );
+  if (duplicate) {
+    return res.status(409).json({
+      error: 'payment_already_redeemed',
+      message: 'This Casper deploy hash has already been used for another order.',
+    });
+  }
+
+  let verification;
+  try {
+    if (order.payment_asset === 'mock_usdc_cep18') {
+      verification = await verifyCasperCep18Payment({
+        deployHash: normalizedDeployHash,
+        expectedChainName: payment.chain_name,
+        expectedContractPackageHash: payment.contract_package_hash,
+        expectedRecipient: payment.recipient_public_key,
+        expectedAmountBaseUnits: payment.amount_base_units,
+        expectedSender: order.casper_expected_sender_public_key || submittedSender,
+      });
+    } else {
+      verification = await verifyCasperDeployPayment({
+        deployHash: normalizedDeployHash,
+        expectedChainName: payment.chain_name,
+        expectedRecipient: payment.recipient,
+        expectedAmountMotes: payment.amount_motes,
+        expectedTransferId: order.casper_transfer_id,
+        expectedSender: order.casper_expected_sender_public_key || submittedSender,
+      });
+    }
+  } catch (err) {
+    if (err instanceof CasperPaymentVerificationError) {
+      return res.status(err.status).json({
+        error: err.code,
+        message: err.message,
+        details: err.details,
+      });
+    }
+    console.error(`[orders] Casper verification failed for ${order.id}: ${err.message}`);
+    return res
+      .status(502)
+      .json({ error: 'casper_rpc_error', message: 'Casper verification failed' });
+  }
+
+  const { sealCard } = require('../lib/card-vault');
+  const sealed = sealCard(MOCK_CASPER_CARD);
+  const now = new Date().toISOString();
+  const receipt = paymentReceipt({
+    order,
+    payment,
+    verification,
+    deployHash: verification.deployHash,
+    verifiedAt: now,
+  });
+  const claimed = db
+    .prepare(
+      `UPDATE orders
+       SET status = 'delivered',
+           card_number = @num,
+           card_cvv = @cvv,
+           card_expiry = @expiry,
+           card_brand = @brand,
+           casper_deploy_hash = @deploy_hash,
+           casper_sender_public_key = @sender,
+           casper_paid_at = @paid_at,
+           payment_receipt_json = @receipt_json,
+           updated_at = @now
+       WHERE id = @id
+         AND api_key_id = @api_key_id
+         AND status = 'pending_payment'
+         AND casper_deploy_hash IS NULL`,
+    )
+    .run({
+      id: order.id,
+      api_key_id: req.apiKey.id,
+      num: sealed.number,
+      cvv: sealed.cvv,
+      expiry: sealed.expiry,
+      brand: sealed.brand,
+      deploy_hash: verification.deployHash,
+      sender: verification.senderPublicKey,
+      paid_at: now,
+      receipt_json: JSON.stringify(receipt),
+      now,
+    });
+
+  if (claimed.changes === 0) {
+    const current = /** @type {any} */ (
+      db.prepare(`SELECT * FROM orders WHERE id = ?`).get(order.id)
+    );
+    if (current?.status === 'delivered' && current.casper_deploy_hash === verification.deployHash) {
+      return res.json({
+        ok: true,
+        note: 'already_verified',
+        receipt: paymentReceipt({
+          order: current,
+          payment,
+          verification,
+          deployHash: verification.deployHash,
+        }),
+        order: buildOrderResponse(current),
+      });
+    }
+    return res.status(409).json({
+      error: 'order_not_payable',
+      message: 'Order was updated before this payment could be claimed.',
+    });
+  }
+
+  if (order.api_key_id) {
+    db.prepare(
+      `UPDATE api_keys
+       SET total_spent_usdc = printf('%.2f', CAST(total_spent_usdc AS REAL) + CAST(@amount AS REAL))
+       WHERE id = @id`,
+    ).run({ id: order.api_key_id, amount: order.amount_usdc });
+  }
+
+  bizEvent('order.fulfilled_mock_casper', {
+    order_id: order.id,
+    api_key_id: order.api_key_id,
+    payment_asset: order.payment_asset,
+    deploy_hash: verification.deployHash,
+    sender_public_key: verification.senderPublicKey,
+    amount_motes: verification.amountMotes,
+    amount_base_units: verification.amountBaseUnits,
+    transfer_id: verification.transferId,
+  });
+
+  const keyRow = /** @type {any} */ (
+    db
+      .prepare(`SELECT webhook_secret, default_webhook_url FROM api_keys WHERE id = ?`)
+      .get(order.api_key_id)
+  );
+  const webhookUrl = order.webhook_url || keyRow?.default_webhook_url || null;
+  if (webhookUrl) {
+    enqueueWebhook(
+      webhookUrl,
+      {
+        order_id: order.id,
+        status: 'delivered',
+        amount_usdc: order.amount_usdc,
+        payment_asset: order.payment_asset,
+        receipt,
+        card: MOCK_CASPER_CARD,
+      },
+      keyRow?.webhook_secret || null,
+    ).catch(() => {});
+  }
+
+  const fresh = /** @type {any} */ (db.prepare(`SELECT * FROM orders WHERE id = ?`).get(order.id));
+  return res.json({
+    ok: true,
+    receipt: paymentReceipt({
+      order: fresh,
+      payment,
+      verification,
+      deployHash: verification.deployHash,
+    }),
+    order: buildOrderResponse(fresh),
+  });
+});
+
 router.get('/:id/stream', orderPollLimiter, (req, res) => {
   const orderId = req.params.id;
   const keyId = req.apiKey.id;

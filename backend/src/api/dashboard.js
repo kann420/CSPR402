@@ -7,11 +7,14 @@ const { Router } = require('express');
 const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
+const { PublicKey } = require('casper-js-sdk');
 /** @type {any} */ const db = require('../db');
 const { enqueueWebhook, fireWebhook: fireWebhookRaw } = require('../fulfillment');
 const { assertSafeUrl } = require('../lib/ssrf');
 const { recordDecision } = require('../policy');
 const { usdToXlm } = require('../payments/xlm-price');
+const { buildMockUsdcPayment } = require('../payments/casper-cep18');
+const { allocateTransferId, buildCasperPayment } = require('../payments/casper');
 const requireAuth = require('../middleware/requireAuth');
 const requireDashboard = require('../middleware/requireDashboard');
 const { event: bizEvent } = require('../lib/logger');
@@ -23,6 +26,7 @@ const enabledMerchants = require('../lib/enabled-merchants');
 const webhookLog = require('../lib/webhook-log');
 
 const router = Router();
+const CASPER_PUBLIC_KEY_RE = /^(01[0-9a-fA-F]{64}|02[0-9a-fA-F]{66})$/;
 
 router.use(requireAuth, requireDashboard);
 
@@ -236,7 +240,19 @@ router.get('/', (req, res) => {
     spend_limit_usdc: d.spend_limit_usdc,
     frozen: d.frozen === 1,
     created_at: d.created_at,
-    network: process.env.STELLAR_NETWORK || 'mainnet',
+    network:
+      process.env.PAYMENT_PROVIDER === 'casper'
+        ? process.env.CASPER_CHAIN_NAME || process.env.CASPER_NETWORK || 'casper-test'
+        : process.env.STELLAR_NETWORK || 'mainnet',
+    payment_provider: process.env.PAYMENT_PROVIDER || 'casper',
+    mock_card_mode: process.env.MOCK_CARD_MODE !== 'false',
+    mock_usdc: {
+      enabled: process.env.MOCK_USDC_ENABLED === 'true',
+      configured: Boolean(process.env.MOCK_USDC_CONTRACT_PACKAGE_HASH),
+      contract_package_hash: process.env.MOCK_USDC_CONTRACT_PACKAGE_HASH || null,
+      contract_hash: process.env.MOCK_USDC_CONTRACT_HASH || null,
+      decimals: parseInt(process.env.MOCK_USDC_DECIMALS || '6', 10),
+    },
     stats: { ...stats, active_keys: activeKeys, pending_approvals: pendingApprovals },
   });
 });
@@ -276,6 +292,8 @@ router.get('/orders', (req, res) => {
   const { status, limit = 50, api_key_id } = /** @type {Record<string, any>} */ (req.query);
   let query = `
     SELECT o.id, o.status, o.amount_usdc, o.payment_asset, o.stellar_txid,
+           o.casper_deploy_hash, o.casper_transfer_id, o.casper_sender_public_key,
+           o.casper_expected_sender_public_key, o.payment_receipt_json,
            o.card_brand, o.error, o.created_at, o.updated_at,
            o.api_key_id, k.label AS api_key_label
     FROM orders o
@@ -306,6 +324,16 @@ router.get('/orders', (req, res) => {
   // 6-Month Expiration [ITNL] eGift Card" in the UI.
   for (const row of rows) {
     row.card_brand = normalizeCardBrand(row.card_brand);
+    if (row.payment_receipt_json) {
+      try {
+        row.receipt = JSON.parse(row.payment_receipt_json);
+      } catch {
+        row.receipt = null;
+      }
+    } else {
+      row.receipt = null;
+    }
+    delete row.payment_receipt_json;
   }
   res.json(rows);
 });
@@ -344,11 +372,19 @@ function validateApiKeyFields({
     }
   }
   if (wallet_public_key !== undefined && wallet_public_key !== null && wallet_public_key !== '') {
-    const { StrKey } = require('@stellar/stellar-sdk');
-    if (!StrKey.isValidEd25519PublicKey(wallet_public_key)) {
+    const normalized = String(wallet_public_key).trim().toLowerCase();
+    let validCasperPublicKey = CASPER_PUBLIC_KEY_RE.test(normalized);
+    if (validCasperPublicKey) {
+      try {
+        PublicKey.fromHex(normalized);
+      } catch {
+        validCasperPublicKey = false;
+      }
+    }
+    if (!validCasperPublicKey) {
       return {
         error: 'invalid_wallet_public_key',
-        message: 'wallet_public_key must be a valid Stellar G-address (56 chars, valid checksum)',
+        message: 'wallet_public_key must be a valid Casper public key hex string.',
       };
     }
   }
@@ -446,8 +482,12 @@ router.post('/api-keys', requirePermission('agent:create'), async (req, res) => 
   }
 
   const id = uuidv4();
-  const rawKey = `cards402_${crypto.randomBytes(24).toString('hex')}`;
-  const keyPrefix = rawKey.slice(9, 21);
+  const normalizedWalletPublicKey =
+    typeof wallet_public_key === 'string' && wallet_public_key.trim()
+      ? wallet_public_key.trim().toLowerCase()
+      : null;
+  const rawKey = `cspr402_${crypto.randomBytes(24).toString('hex')}`;
+  const keyPrefix = rawKey.slice('cspr402_'.length, 'cspr402_'.length + 12);
   const keyHash = await bcrypt.hash(rawKey, 10);
   const webhookSecret = `whsec_${crypto.randomBytes(32).toString('hex')}`;
 
@@ -468,12 +508,12 @@ router.post('/api-keys', requirePermission('agent:create'), async (req, res) => 
     spend_limit_usdc: spend_limit_usdc || null,
     webhookSecret,
     default_webhook_url: default_webhook_url || null,
-    wallet_public_key: wallet_public_key || null,
+    wallet_public_key: normalizedWalletPublicKey,
     dashboard_id: req.dashboard.id,
   });
 
   // Mint a one-time claim code for the agent-facing onboarding flow.
-  // The agent runs `npx cards402 onboard --claim <code>` and the CLI
+  // The agent runs `npx -y cspr402@latest onboard --claim <code>` and the CLI
   // trades the code for the real api_key via POST /v1/agent/claim —
   // so the raw api_key never has to live in a pasted snippet (or the
   // agent's conversation transcript).
@@ -487,7 +527,7 @@ router.post('/api-keys', requirePermission('agent:create'), async (req, res) => 
   // constraint still works because both sides hash identically.
   const { hashClaimCode } = require('../lib/claim-hash');
   const claimId = uuidv4();
-  const claimCode = `c402_${crypto.randomBytes(24).toString('hex')}`;
+  const claimCode = `cspr402_claim_${crypto.randomBytes(24).toString('hex')}`;
   const claimTtlMs = 10 * 60 * 1000; // 10 min — long enough to paste + run, short enough to matter
   const claimExpiresAt = new Date(Date.now() + claimTtlMs).toISOString();
   const secretBox = require('../lib/secret-box');
@@ -527,7 +567,7 @@ router.post('/api-keys', requirePermission('agent:create'), async (req, res) => 
   res.status(201).json({
     id,
     label: label || null,
-    wallet_public_key: wallet_public_key || null,
+    wallet_public_key: normalizedWalletPublicKey,
     claim: {
       code: claimCode,
       expires_at: claimExpiresAt,
@@ -760,8 +800,11 @@ router.post(
     const approval = db
       .prepare(
         `
-    SELECT ar.* FROM approval_requests ar
+    SELECT ar.*, o.payment_asset AS order_payment_asset,
+           o.casper_expected_sender_public_key AS order_casper_expected_sender_public_key
+    FROM approval_requests ar
     JOIN api_keys k ON ar.api_key_id = k.id
+    JOIN orders o ON o.id = ar.order_id
     WHERE ar.id = ? AND k.dashboard_id = ?
   `,
       )
@@ -819,24 +862,31 @@ router.post(
       }
     }
 
-    // Build the Soroban receiver-contract payment instructions for the agent.
-    // VCC is not contacted until the Soroban watcher sees the agent's payment —
-    // so there's no vccJobId yet; that's assigned later in index.js handlePayment.
+    // Build payment instructions for the agent. Casper is the default;
+    // Stellar/Soroban is preserved only for explicit legacy mode.
+    const paymentProvider = process.env.PAYMENT_PROVIDER || 'casper';
+    const useLegacyStellarPayment =
+      paymentProvider === 'stellar' || approval.order_payment_asset === 'usdc';
     let xlmAmount = null;
-    try {
-      xlmAmount = await usdToXlm(String(approval.amount_usdc));
-    } catch (err) {
-      console.warn(`[dashboard] XLM price lookup failed: ${err.message}`);
+    /** @type {any} */
+    let stellarPaymentInstruction = null;
+    if (useLegacyStellarPayment) {
+      try {
+        xlmAmount = await usdToXlm(String(approval.amount_usdc));
+      } catch (err) {
+        console.warn(`[dashboard] XLM price lookup failed: ${err.message}`);
+      }
+      const USDC_ISSUER =
+        process.env.STELLAR_USDC_ISSUER ||
+        'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN';
+      stellarPaymentInstruction = {
+        type: 'soroban_contract',
+        contract_id: process.env.RECEIVER_CONTRACT_ID,
+        order_id: approval.order_id,
+        usdc: { amount: String(approval.amount_usdc), asset: `USDC:${USDC_ISSUER}` },
+        ...(xlmAmount && { xlm: { amount: xlmAmount } }),
+      };
     }
-    const USDC_ISSUER =
-      process.env.STELLAR_USDC_ISSUER || 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN';
-    const contractPayment = {
-      type: 'soroban_contract',
-      contract_id: process.env.RECEIVER_CONTRACT_ID,
-      order_id: approval.order_id,
-      usdc: { amount: String(approval.amount_usdc), asset: `USDC:${USDC_ISSUER}` },
-      ...(xlmAmount && { xlm: { amount: xlmAmount } }),
-    };
 
     const now = new Date().toISOString();
     const decisionNote = shortString(req.body.note, 1000);
@@ -866,15 +916,59 @@ router.post(
         if (approvalChanged.changes === 0) {
           return { code: 410 };
         }
+        /** @type {any} */
+        let paymentInstruction = stellarPaymentInstruction;
+        let paymentAsset = 'usdc';
+        let expectedXlmAmount = xlmAmount || null;
+        let casperTransferId = null;
+        let casperExpectedSenderPublicKey = null;
+        if (!useLegacyStellarPayment) {
+          expectedXlmAmount = null;
+          if (approval.order_payment_asset === 'mock_usdc_cep18') {
+            if (!approval.order_casper_expected_sender_public_key) {
+              throw new Error('missing_mock_usdc_payer');
+            }
+            paymentAsset = 'mock_usdc_cep18';
+            casperExpectedSenderPublicKey = approval.order_casper_expected_sender_public_key;
+            paymentInstruction = buildMockUsdcPayment({
+              orderId: approval.order_id,
+              amountUsdc: String(approval.amount_usdc),
+              senderPublicKey: casperExpectedSenderPublicKey,
+            });
+          } else {
+            casperTransferId = allocateTransferId();
+            paymentAsset = 'cspr_casper';
+            casperExpectedSenderPublicKey =
+              approval.order_casper_expected_sender_public_key || null;
+            paymentInstruction = buildCasperPayment({
+              orderId: approval.order_id,
+              amountUsdc: String(approval.amount_usdc),
+              transferId: casperTransferId,
+              senderPublicKey: casperExpectedSenderPublicKey,
+            });
+          }
+        }
         const orderChanged = db
           .prepare(
             `UPDATE orders
              SET status = 'pending_payment',
                  vcc_payment_json = ?,
+                 payment_asset = ?,
+                 expected_xlm_amount = ?,
+                 casper_transfer_id = ?,
+                 casper_expected_sender_public_key = ?,
                  updated_at = ?
              WHERE id = ? AND status = 'awaiting_approval'`,
           )
-          .run(JSON.stringify(contractPayment), now, approval.order_id);
+          .run(
+            JSON.stringify(paymentInstruction),
+            paymentAsset,
+            expectedXlmAmount,
+            casperTransferId,
+            casperExpectedSenderPublicKey,
+            now,
+            approval.order_id,
+          );
         if (orderChanged.changes === 0) {
           // Throw inside the transaction to trigger a rollback — the
           // approval_requests UPDATE is rolled back too.
@@ -891,6 +985,18 @@ router.post(
         return res.status(409).json({
           error: 'order_state_drift',
           message: 'Approval approved but order is no longer in awaiting_approval state.',
+        });
+      }
+      if (err.message === 'missing_mock_usdc_payer') {
+        return res.status(409).json({
+          error: 'missing_mock_usdc_payer',
+          message: 'This mockUSDC approval request is missing its bound payer public key.',
+        });
+      }
+      if (/MOCK_USDC_|CASPER_TREASURY_PUBLIC_KEY/.test(err.message || '')) {
+        return res.status(503).json({
+          error: 'mock_usdc_not_configured',
+          message: err.message,
         });
       }
       throw err;
@@ -1259,15 +1365,15 @@ router.get('/policy-decisions', requirePermission('audit:read'), (req, res) => {
 // backend never has to touch the network on every poll.
 router.get('/platform-wallet', requirePlatformOwner, (req, res) => {
   try {
-    const { Keypair } = require('@stellar/stellar-sdk');
-    const secret = process.env.STELLAR_XLM_SECRET;
-    if (!secret) {
-      return res.status(503).json({ error: 'STELLAR_XLM_SECRET not configured' });
+    const publicKey = process.env.CASPER_TREASURY_PUBLIC_KEY;
+    if (!publicKey) {
+      return res.status(503).json({ error: 'CASPER_TREASURY_PUBLIC_KEY not configured' });
     }
-    const keypair = Keypair.fromSecret(secret);
     res.json({
-      public_key: keypair.publicKey(),
-      network: process.env.STELLAR_NETWORK || 'mainnet',
+      public_key: publicKey,
+      network: process.env.CASPER_NETWORK || 'testnet',
+      chain_name: process.env.CASPER_CHAIN_NAME || 'casper-test',
+      payment_provider: process.env.PAYMENT_PROVIDER || 'casper',
     });
   } catch (err) {
     res.status(500).json({

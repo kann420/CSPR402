@@ -3,16 +3,19 @@ info:
   title: cards402 Agent API
   version: 0.1.0
   description: |
-    Virtual Visa cards for AI agents. Pay with USDC or XLM on Stellar,
-    receive a card number, CVV, and expiry within ~60 seconds
-    (median ~33s on mainnet — see the "Anatomy of a Cards402 order"
-    blog post at https://cards402.com/blog/anatomy-of-a-cards402-order).
+    CSPR402 hackathon MVP API.
 
-    **Authentication:** Every request requires an `X-Api-Key` header with
-    a valid API key obtained from the cards402 dashboard.
+    Flow:
+    1. Create an order.
+    2. Receive Casper testnet CSPR or mockUSDC CEP-18 payment instructions.
+    3. Submit the requested transfer from the client wallet or agent.
+    4. Call the verify endpoint with the resulting deploy hash.
+    5. Receive a simulated virtual card and Casper receipt.
 
-    **Idempotency:** `POST /orders` accepts an `Idempotency-Key` header.
-    Duplicate requests within 24h return the cached response.
+    Authentication: every request requires an `X-Api-Key` header with a valid API key.
+
+    Idempotency: `POST /orders` accepts an `Idempotency-Key` header. Duplicate
+    requests with the same body return the cached response for 24 hours.
   contact:
     name: cards402
     url: https://cards402.com
@@ -34,28 +37,28 @@ paths:
       operationId: createOrder
       summary: Create a new card order
       description: |
-        Creates a pending order and returns Soroban contract payment
-        instructions. The agent pays the contract on Stellar, the watcher
-        detects the event, and fulfillment begins automatically.
+        Creates a pending order and returns Casper testnet native CSPR
+        payment instructions by default. Set `payment_asset: mock_usdc_cep18`
+        with `payer_public_key` to use the mockUSDC CEP-18 test-token rail.
 
         For amounts above the policy approval threshold, returns 202 with
         `phase: awaiting_approval` instead of payment instructions.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          schema:
+            type: string
+            maxLength: 255
+          description: Same key plus same body returns the cached order response for 24 hours.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateOrderRequest'
-      parameters:
-        - name: Idempotency-Key
-          in: header
-          schema:
-            type: string
-            maxLength: 128
-          description: Deduplication key — same key + same body = cached response for 24h.
       responses:
         '201':
-          description: Order created, payment pending
+          description: Order created, waiting for Casper payment
           content:
             application/json:
               schema:
@@ -71,7 +74,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '409':
-          description: Idempotency-Key reused with different body
+          description: Idempotency-Key reused with a different body
           content:
             application/json:
               schema:
@@ -79,7 +82,7 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
         '503':
-          description: Fulfillment system temporarily unavailable (frozen)
+          description: Fulfillment system temporarily unavailable
           content:
             application/json:
               schema:
@@ -96,9 +99,6 @@ paths:
             enum:
               [
                 pending_payment,
-                payment_confirmed,
-                claim_received,
-                stage1_done,
                 ordering,
                 awaiting_approval,
                 delivered,
@@ -126,13 +126,11 @@ paths:
           schema:
             type: string
             format: date-time
-          description: Only orders created at or after this timestamp.
         - name: since_updated_at
           in: query
           schema:
             type: string
             format: date-time
-          description: Only orders updated at or after this timestamp.
       responses:
         '200':
           description: Array of order summaries
@@ -146,15 +144,10 @@ paths:
   /orders/{orderId}:
     get:
       operationId: getOrder
-      summary: Get order details (poll fallback)
+      summary: Get order details
       description: |
         Returns the current state of an order. When `phase` is `ready`,
-        the `card` object contains the virtual card details.
-
-        Prefer `/orders/{orderId}/stream` (Server-Sent Events) for live
-        updates — one open connection gets pushed to on every phase
-        transition until terminal. Use this poll endpoint only as a
-        fallback for clients that can't consume `text/event-stream`.
+        the `card` object contains the simulated virtual card details.
       parameters:
         - name: orderId
           in: path
@@ -175,21 +168,12 @@ paths:
   /orders/{orderId}/stream:
     get:
       operationId: streamOrder
-      summary: Subscribe to live order phase updates (SSE)
+      summary: Subscribe to live order phase updates
       description: |
         Server-Sent Events stream of phase transitions for a single order.
-        The server sends an immediate event with the current phase on
-        connection, then emits a new event every time the order's
-        `updated_at` changes, and closes the stream cleanly when the
-        order reaches a terminal phase (`ready`, `failed`, `refunded`,
-        `expired`, `rejected`).
-
-        Each event carries the full `OrderStatus` shape as its `data:`
-        payload, so a client that reconnects always sees the latest
-        state on the first message — no `Last-Event-ID` replay required.
-
-        Keep-alive: the server emits an SSE comment line every 15s so
-        intermediate proxies don't idle-kill the connection.
+        The server sends an immediate event with the current phase, emits a
+        new event every time the order changes, and closes the stream when
+        the order reaches a terminal phase.
       parameters:
         - name: orderId
           in: path
@@ -204,15 +188,72 @@ paths:
             text/event-stream:
               schema:
                 type: string
-                description: |
-                  Server-Sent Events. Each event has the form:
-                    id: <ms-since-epoch of updated_at>
-                    event: phase
-                    data: <OrderStatus JSON>
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+
+  /orders/{orderId}/verify-payment:
+    post:
+      operationId: verifyCasperPayment
+      summary: Verify a Casper testnet payment
+      description: |
+        Verifies the submitted deploy hash against the order's quoted
+        recipient, amount, chain, and correlation data. CSPR orders verify
+        native transfer ID; mockUSDC CEP-18 orders verify sender, package hash,
+        entry point, recipient, and amount. On success, the backend fulfills
+        exactly one simulated virtual card and returns the receipt plus the
+        updated order.
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyCasperPaymentRequest'
+      responses:
+        '200':
+          description: Casper payment verified and order fulfilled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyCasperPaymentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Order or deploy hash cannot be claimed in the current state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '410':
+          description: Order payment window expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Deploy found but failed validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '425':
+          description: Deploy not found yet or not executed yet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /usage:
     get:
@@ -230,10 +271,6 @@ paths:
     get:
       operationId: checkPolicy
       summary: Dry-run policy check without creating an order
-      description: |
-        Returns what would happen if the agent tried to create an order
-        for the given amount. Useful for pre-flight checks before
-        committing to a Stellar transaction.
       parameters:
         - name: amount
           in: query
@@ -262,57 +299,141 @@ components:
   schemas:
     CreateOrderRequest:
       type: object
-      required:
-        - amount_usdc
+      required: [amount_usdc]
       properties:
         amount_usdc:
           type: string
           pattern: '^\d+(\.\d{1,2})?$'
-          description: |
-            Card value in USD as a positive decimal string, e.g. "10.00".
-            Minimum "0.01" and maximum "10000.00" per order — orders
-            outside this range are rejected with `invalid_amount`.
-            The maximum matches Pathward's per-card balance ceiling.
-          examples: ['0.01', '10.00', '25.50', '100.00', '10000.00']
+          description: Positive USD amount string from 0.01 to 10000.00
+        payment_asset:
+          type: string
+          enum: [cspr_casper, mock_usdc_cep18]
+          description: Defaults to cspr_casper. mock_usdc_cep18 requires payer_public_key.
+        payer_public_key:
+          type: string
+          description: Casper payer public key required for mock_usdc_cep18 orders.
         webhook_url:
           type: string
           format: uri
-          description: HTTPS URL to receive delivery/failure webhooks
         metadata:
           type: object
-          description: Arbitrary JSON metadata stored with the order
           additionalProperties: true
 
     PaymentInstructions:
+      oneOf:
+        - $ref: '#/components/schemas/CasperCSPRPaymentInstructions'
+        - $ref: '#/components/schemas/MockUsdcCep18PaymentInstructions'
+
+    CasperCSPRPaymentInstructions:
       type: object
-      required: [type, contract_id, order_id, usdc]
+      required:
+        [
+          type,
+          network,
+          chain_name,
+          recipient,
+          order_id,
+          amount_usdc,
+          amount_cspr,
+          amount_motes,
+          transfer_id,
+          expires_at,
+        ]
       properties:
         type:
           type: string
-          enum: [soroban_contract]
-        contract_id:
+          enum: [casper_cspr_transfer]
+        network:
           type: string
-          description: Soroban contract address (C...)
+          enum: [testnet]
+        chain_name:
+          type: string
+          enum: [casper-test]
+        recipient:
+          type: string
+          description: Casper treasury public key hex
         order_id:
           type: string
           format: uuid
-          description: Pass this as the order_id arg to pay_usdc/pay_xlm
-        usdc:
-          type: object
-          required: [amount, asset]
-          properties:
-            amount:
-              type: string
-              description: USDC amount as 7-decimal string
-            asset:
-              type: string
-              description: 'CODE:ISSUER format, e.g. USDC:GA5Z...'
-        xlm:
-          type: object
-          properties:
-            amount:
-              type: string
-              description: Equivalent XLM amount (spot conversion)
+        amount_usdc:
+          type: string
+        amount_cspr:
+          type: string
+        amount_motes:
+          type: string
+        transfer_id:
+          type: integer
+        expires_at:
+          type: string
+          format: date-time
+
+    MockUsdcCep18PaymentInstructions:
+      type: object
+      required:
+        [
+          type,
+          asset,
+          decimals,
+          network,
+          chain_name,
+          contract_package_hash,
+          sender_public_key,
+          recipient_public_key,
+          order_id,
+          amount,
+          amount_base_units,
+          expires_at,
+        ]
+      properties:
+        type:
+          type: string
+          enum: [casper_cep18_transfer]
+        asset:
+          type: string
+          enum: [mockUSDC]
+        decimals:
+          type: integer
+          enum: [6]
+        network:
+          type: string
+          enum: [testnet]
+        chain_name:
+          type: string
+          enum: [casper-test]
+        contract_package_hash:
+          type: string
+          description: CEP-18 package hash verified by the backend
+        contract_hash:
+          type: string
+          nullable: true
+        sender_public_key:
+          type: string
+        recipient_public_key:
+          type: string
+        order_id:
+          type: string
+          format: uuid
+        amount:
+          type: string
+        amount_base_units:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        verify_url:
+          type: string
+          nullable: true
+
+    VerifyCasperPaymentRequest:
+      type: object
+      required: [deploy_hash]
+      properties:
+        deploy_hash:
+          type: string
+          pattern: '^[0-9a-fA-F]{64}$'
+        sender_public_key:
+          type: string
+          description: Required for mock_usdc_cep18; optional stricter verification for CSPR.
 
     Budget:
       type: object
@@ -320,21 +441,16 @@ components:
       properties:
         spent_usdc:
           type: string
-          description: Total settled spend by this API key
         in_flight_usdc:
           type: string
-          description: Sum of pending/ordering orders not yet settled
         committed_usdc:
           type: string
-          description: spent_usdc + in_flight_usdc
         limit_usdc:
           type: string
           nullable: true
-          description: Spend limit (null = unlimited)
         remaining_usdc:
           type: string
           nullable: true
-          description: Remaining budget against committed (null = unlimited)
 
     CardDetails:
       type: object
@@ -342,25 +458,17 @@ components:
       properties:
         number:
           type: string
-          description: Full 16-digit card number
-          examples: ['4111111111111111']
         cvv:
           type: string
-          description: 3-digit CVV
-          examples: ['123']
         expiry:
           type: string
-          description: MM/YY format
-          examples: ['12/27']
         brand:
           type: string
           nullable: true
-          description: Card brand (usually "Visa")
-          examples: ['Visa']
 
     OrderCreatedResponse:
       type: object
-      required: [order_id, status, payment, poll_url, budget]
+      required: [order_id, status, phase, amount_usdc, payment, poll_url, budget]
       properties:
         order_id:
           type: string
@@ -377,14 +485,10 @@ components:
           $ref: '#/components/schemas/PaymentInstructions'
         poll_url:
           type: string
-          description: Relative URL to poll for status
         budget:
           $ref: '#/components/schemas/Budget'
         sandbox:
           type: boolean
-          description: |
-            Present and `true` when the order was created by an API key
-            in sandbox mode. Omitted for live orders.
 
     OrderAwaitingApprovalResponse:
       type: object
@@ -403,10 +507,8 @@ components:
           type: string
         message:
           type: string
-          description: Human-readable reason the order requires approval
         note:
           type: string
-          description: Instruction for the agent
         expires_at:
           type: string
           format: date-time
@@ -436,7 +538,7 @@ components:
           type: string
         payment_asset:
           type: string
-          enum: [usdc, usdc_soroban, xlm, xlm_soroban]
+          enum: [cspr_casper, mock_usdc_cep18]
         created_at:
           type: string
           format: date-time
@@ -459,9 +561,11 @@ components:
           type: string
         payment_asset:
           type: string
-          enum: [usdc, usdc_soroban, xlm, xlm_soroban]
+          enum: [cspr_casper, mock_usdc_cep18]
         payment:
           $ref: '#/components/schemas/PaymentInstructions'
+        receipt:
+          $ref: '#/components/schemas/CasperPaymentReceipt'
         card:
           $ref: '#/components/schemas/CardDetails'
         error:
@@ -470,11 +574,6 @@ components:
         note:
           type: string
           nullable: true
-        refund:
-          type: object
-          properties:
-            stellar_txid:
-              type: string
         metadata:
           type: object
           additionalProperties: true
@@ -490,6 +589,134 @@ components:
         updated_at:
           type: string
           format: date-time
+
+    CasperPaymentReceipt:
+      oneOf:
+        - $ref: '#/components/schemas/CasperCSPRPaymentReceipt'
+        - $ref: '#/components/schemas/MockUsdcReceipt'
+
+    CasperCSPRPaymentReceipt:
+      type: object
+      required:
+        [
+          type,
+          order_id,
+          payment_asset,
+          network,
+          chain_name,
+          deploy_hash,
+          transfer_id,
+          card_mode,
+        ]
+      properties:
+        type:
+          type: string
+          enum: [casper_cspr_receipt]
+        order_id:
+          type: string
+          format: uuid
+        payment_asset:
+          type: string
+          enum: [cspr_casper]
+        network:
+          type: string
+        chain_name:
+          type: string
+        deploy_hash:
+          type: string
+        sender_public_key:
+          type: string
+          nullable: true
+        recipient:
+          type: string
+          nullable: true
+        transfer_id:
+          type: integer
+        amount_motes:
+          type: string
+          nullable: true
+        verified_at:
+          type: string
+          format: date-time
+          nullable: true
+        card_mode:
+          type: string
+          enum: [mock]
+
+    MockUsdcReceipt:
+      type: object
+      required:
+        [
+          type,
+          order_id,
+          payment_asset,
+          network,
+          chain_name,
+          deploy_hash,
+          asset,
+          decimals,
+          card_mode,
+        ]
+      properties:
+        type:
+          type: string
+          enum: [casper_mock_usdc_receipt]
+        order_id:
+          type: string
+          format: uuid
+        payment_asset:
+          type: string
+          enum: [mock_usdc_cep18]
+        network:
+          type: string
+        chain_name:
+          type: string
+        deploy_hash:
+          type: string
+        sender_public_key:
+          type: string
+          nullable: true
+        asset:
+          type: string
+          enum: [mockUSDC]
+        decimals:
+          type: integer
+        contract_package_hash:
+          type: string
+          nullable: true
+        contract_hash:
+          type: string
+          nullable: true
+        recipient_public_key:
+          type: string
+          nullable: true
+        recipient_account_hash:
+          type: string
+          nullable: true
+        amount_base_units:
+          type: string
+          nullable: true
+        verified_at:
+          type: string
+          format: date-time
+          nullable: true
+        card_mode:
+          type: string
+          enum: [mock]
+
+    VerifyCasperPaymentResponse:
+      type: object
+      required: [ok, receipt, order]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        note:
+          type: string
+        receipt:
+          $ref: '#/components/schemas/CasperPaymentReceipt'
+        order:
+          $ref: '#/components/schemas/OrderStatus'
 
     UsageSummary:
       type: object
@@ -527,11 +754,9 @@ components:
         rule:
           type: string
           nullable: true
-          description: Which policy rule matched
         reason:
           type: string
           nullable: true
-          description: Human-readable explanation
 
     ErrorResponse:
       type: object
@@ -539,76 +764,11 @@ components:
       properties:
         error:
           type: string
-          description: Machine-readable error code
-          examples: [invalid_amount, rate_limit_exceeded, service_temporarily_unavailable]
         message:
           type: string
-          description: Human-readable explanation
-
-    WebhookPayload:
-      type: object
-      description: |
-        Delivered to `webhook_url` on every meaningful order-state
-        transition. Signed with HMAC-SHA256 if a `webhook_secret` was
-        issued with the API key. Headers:
-        `X-Cards402-Signature: sha256=<hex>`,
-        `X-Cards402-Timestamp: <epoch_ms>`.
-
-        Every payload carries `order_id` and `status`. The rest of the
-        shape varies by event — `delivered` carries `card` + pricing,
-        `failed` carries `error` + pricing, `expired` / `pending_payment`
-        (approved) / `rejected` carry a `note` or `error` but no card
-        or pricing. Consumers should branch on `status`.
-      required: [order_id, status]
-      properties:
-        order_id:
-          type: string
-          format: uuid
-        status:
-          type: string
-          description: |
-            The terminal state of the order. `delivered` and `failed`
-            are the primary happy / sad paths; `expired` fires when an
-            order hits its 2-hour payment window; `pending_payment` is
-            emitted when an approval-gated order is approved and is
-            now payable; `rejected` fires when an approval is denied.
-          enum:
-            - delivered
-            - failed
-            - expired
-            - pending_payment
-            - rejected
-            - refunded
-            - refund_pending
-        phase:
-          $ref: '#/components/schemas/OrderPhase'
-          description: |
-            The public phase corresponding to `status`. Present on
-            every non-delivered/non-failed event (expired, approved,
-            rejected) so consumers can match phase-based logic.
-        amount_usdc:
-          type: string
-          description: |
-            Present on `delivered` and `failed` events. Omitted on
-            `expired`, `pending_payment`, and `rejected`.
-        payment_asset:
-          type: string
-          description: |
-            Present on `delivered` and `failed` events. One of
-            `usdc_soroban` or `xlm_soroban`.
-        card:
-          $ref: '#/components/schemas/CardDetails'
-          description: Only present when `status == delivered`.
-        error:
-          type: string
-          description: |
-            Present on `failed` and `rejected` events. Sanitised to
-            avoid leaking fulfilment-pipeline internals.
-        note:
-          type: string
-          description: |
-            Present on `expired` and `pending_payment` (approved)
-            events. Human-readable explanation of the transition.
+        details:
+          type: object
+          additionalProperties: true
 
   responses:
     BadRequest:

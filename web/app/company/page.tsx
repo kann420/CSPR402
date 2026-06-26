@@ -5,27 +5,28 @@ import { ogForPage, twitterForPage } from '@/app/lib/seo';
 export const metadata: Metadata = {
   title: 'Company',
   description:
-    "Cards402 is a small team building payment infrastructure for AI agents. Here's who we are and where we're going.",
+    "CSPR402 is a small team building a Casper-first payment demo for AI agents. Here's who we are and where we're going.",
   alternates: { canonical: 'https://cards402.com/company' },
   openGraph: ogForPage({
-    title: 'Company — Cards402',
-    description: 'Payment infrastructure for AI agents. Built by a small, focused team.',
+    title: 'Company - CSPR402',
+    description:
+      'Casper-first payment infrastructure for AI agents. Built by a small, focused team.',
     path: '/company',
   }),
   twitter: twitterForPage({
-    title: 'Company — Cards402',
-    description: 'Payment infrastructure for AI agents.',
+    title: 'Company - CSPR402',
+    description: 'Casper-first payment infrastructure for AI agents.',
   }),
 };
 
 const PRINCIPLES = [
   {
     title: 'Agents are the customer.',
-    body: 'Not the humans who build them. Every design decision — from claim codes to the SSE stream to non-custodial payments — starts by asking "what does a program need that a dashboard user doesn\'t?".',
+    body: 'Not the humans who build them. Every design decision, from claim codes to deploy verification to mock fulfilment labeling, starts by asking what a program actually needs.',
   },
   {
     title: 'Ship one good thing.',
-    body: 'Cards402 does one job: turn a Stellar payment into a Visa card. We will not bolt on a rewards programme, a fiat on-ramp, or a chat widget. Depth over breadth, forever.',
+    body: 'CSPR402 does one job: turn a Casper testnet payment into a verified mock-card receipt. We will not bolt on a rewards programme, a fiat on-ramp, or a fake production narrative.',
   },
   {
     title: 'Write it down.',
@@ -33,33 +34,33 @@ const PRINCIPLES = [
   },
   {
     title: 'Honest by default.',
-    body: 'Cards at face value. No dark patterns. No free-trial auto-renewal traps. No "we\'ll get back to you in 5–7 business days" when the real answer is next quarter. We tell you what happened and when.',
+    body: 'No dark patterns. No wish-casting. No pretending a hackathon prototype is already an issuer stack. We tell you what is real, what is mocked, and what still needs building.',
   },
 ];
 
 const MILESTONES = [
   {
     date: 'Q1 2026',
-    title: 'Private beta — Stellar Mainnet launch',
-    body: 'First live orders fulfilled end-to-end. ~33s from payment confirmation to PAN delivery.',
+    title: 'Hackathon fork and scope reset',
+    body: 'Forked the upstream project, cut the Stellar-first product story, and narrowed the MVP to Casper testnet verification plus mock fulfilment.',
     status: 'Shipped',
   },
   {
     date: 'Q2 2026',
-    title: 'Non-custodial v2 + MCP server',
-    body: 'Agents now pay the receiver contract directly. Claude Desktop integration via the Cards402 MCP server.',
+    title: 'Casper testnet CSPR flow',
+    body: 'Orders now return Casper payment instructions, the backend verifies a finalized deploy, and the API returns a simulated virtual card receipt.',
     status: 'Shipped',
   },
   {
     date: 'Q3 2026',
-    title: 'Multi-merchant routing',
-    body: 'Expand beyond the initial reward-card supplier so agents can pick the best card for each use case.',
+    title: 'mockUSDC CEP-18 bonus rail',
+    body: 'Add an optional test-token path without blocking the native CSPR MVP. Keep naming precise and verification strict.',
     status: 'In progress',
   },
   {
     date: 'Q4 2026',
-    title: 'EU IBAN + on-chain reporting',
-    body: 'European IBAN accounts for agents that need a non-card rail. Transparent on-chain reporting of Cards402 treasury flow.',
+    title: 'Sharper demo and agent tooling',
+    body: 'Polish the agent-facing SDK, dashboard copy, and verification surfaces so the Casper-first story is obvious everywhere.',
     status: 'Planned',
   },
 ];
@@ -71,10 +72,9 @@ export default function CompanyPage() {
         eyebrow="Company"
         title="Payment infrastructure for autonomous"
         accent="agents"
-        intro="Cards402 was started because there was no way for an LLM agent to buy something on the open internet without a human holding its hand. Not without pasting a card number into a chat. Not without a human approving every transaction. Not without giving up custody. We're fixing that — carefully, one primitive at a time."
+        intro="CSPR402 exists because agent payment demos get fuzzy fast: vague wallets, vague settlement, vague receipts, and a lot of hand-waving around what was actually verified. We're taking the opposite route: one Casper testnet payment, one backend verification pass, one clearly-labeled mock fulfilment result."
       />
 
-      {/* Mission */}
       <PageSection>
         <div
           style={{
@@ -98,27 +98,25 @@ export default function CompanyPage() {
                 lineHeight: 1.05,
               }}
             >
-              Make the open internet payable, without the human loop.
+              Make agent payment demos precise enough to trust.
             </h2>
           </div>
           <div>
             <p className="type-body" style={{ fontSize: '1rem', marginBottom: '1.2rem' }}>
               The web assumed a human was always there, at the other end of a checkout form, tapping
-              a 3-D Secure OTP out of an iPhone. AI agents broke that assumption a year ago. The
-              industry responded with either &ldquo;wrap it in a shared corporate card&rdquo; or
-              &ldquo;let the agent ask the human&rdquo;. Neither scales.
+              a 3-D Secure OTP out of an iPhone. AI agents broke that assumption. The industry
+              responded with either "wrap it in a shared corporate card" or "let the agent ask the
+              human". Neither scales.
             </p>
             <p className="type-body" style={{ fontSize: '1rem', marginBottom: '1.2rem' }}>
-              Cards402 is the middle answer. A stablecoin payment in, a real card out, and a
-              non-custodial architecture so no single party — not us, not a custodian, not a
-              compromised operator — can divert agent funds in flight. Boring, correct, and mostly
-              invisible. That&apos;s the job.
+              CSPR402 is the smallest credible answer we could ship. A Casper testnet payment in, a
+              simulated virtual card receipt out, and a verification path that makes every important
+              decision explicit. Boring, correct, and mostly invisible. That's the job.
             </p>
           </div>
         </div>
       </PageSection>
 
-      {/* Principles */}
       <PageSection
         background="surface"
         eyebrow="Principles"
@@ -172,7 +170,6 @@ export default function CompanyPage() {
         </div>
       </PageSection>
 
-      {/* Milestones */}
       <PageSection eyebrow="Timeline" title="Where we are and where we're going.">
         <div
           style={{
@@ -270,7 +267,6 @@ export default function CompanyPage() {
         </div>
       </PageSection>
 
-      {/* Closing contact */}
       <section style={{ padding: '3rem 1.35rem 6rem' }}>
         <div
           style={{

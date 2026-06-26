@@ -16,17 +16,12 @@ interface Item {
   href: string;
   label: string;
   icon: ReactNode;
-  badge?: 'approvals';
+  badge?: 'approvals' | 'soon';
   permission?: Permission;
 }
 interface Section {
   label?: string;
   items: Item[];
-  // Platform-owner-only sections are gated by the `is_platform_owner`
-  // flag on the authed user, which is an orthogonal axis from the
-  // tenant-scoped `permission` system. Non-owner users never see these
-  // items at all.
-  platformOwnerOnly?: boolean;
 }
 
 function Icon({ d }: { d: string }) {
@@ -78,18 +73,6 @@ const SECTIONS: Section[] = [
         badge: 'approvals',
         permission: 'approval:read',
       },
-      {
-        href: '/dashboard/analytics',
-        label: 'Analytics',
-        icon: <Icon d="M3 3v18h18M7 13l4-4 4 4 6-6" />,
-        permission: 'dashboard:read',
-      },
-      {
-        href: '/dashboard/merchants',
-        label: 'Merchants',
-        icon: <Icon d="M3 9l2-5h14l2 5M3 9h18v11H3zM8 14h8" />,
-        permission: 'merchant:read',
-      },
     ],
   },
   {
@@ -101,6 +84,7 @@ const SECTIONS: Section[] = [
         icon: (
           <Icon d="M8 12h8M8 8h8M8 16h4M4 6v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2z" />
         ),
+        badge: 'soon',
         permission: 'webhook:read',
       },
     ],
@@ -109,26 +93,6 @@ const SECTIONS: Section[] = [
     label: 'Administration',
     items: [
       {
-        href: '/dashboard/alerts',
-        label: 'Alerts',
-        icon: <Icon d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" />,
-        permission: 'alert:read',
-      },
-      {
-        href: '/dashboard/audit',
-        label: 'Audit log',
-        icon: <Icon d="M9 12l2 2 4-4M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z" />,
-        permission: 'audit:read',
-      },
-      {
-        href: '/dashboard/teams',
-        label: 'Teams',
-        icon: (
-          <Icon d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-        ),
-        permission: 'team:manage',
-      },
-      {
         href: '/dashboard/settings',
         label: 'Settings',
         icon: (
@@ -136,92 +100,15 @@ const SECTIONS: Section[] = [
         ),
         permission: 'dashboard:read',
       },
-      {
-        href: '/dashboard/feedback',
-        label: 'Feedback',
-        icon: (
-          <Icon d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
-        ),
-      },
-    ],
-  },
-  {
-    label: 'Platform',
-    platformOwnerOnly: true,
-    items: [
-      {
-        href: '/dashboard/platform',
-        label: 'Overview',
-        icon: <Icon d="M4 4h6v6H4zM14 4h6v6h-6zM14 14h6v6h-6zM4 14h6v6H4z" />,
-      },
-      {
-        href: '/dashboard/platform/orders',
-        label: 'All orders',
-        icon: (
-          <Icon d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8" />
-        ),
-      },
-      {
-        href: '/dashboard/platform/agents',
-        label: 'All agents',
-        icon: (
-          <Icon d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0z" />
-        ),
-      },
-      {
-        href: '/dashboard/platform/users',
-        label: 'All users',
-        icon: (
-          <Icon d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0z" />
-        ),
-      },
-      {
-        href: '/dashboard/platform/treasury',
-        label: 'Treasury',
-        icon: <Icon d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />,
-      },
-      {
-        href: '/dashboard/platform/margins',
-        label: 'Margins',
-        icon: <Icon d="M3 3v18h18M7 16l4-8 4 4 6-8" />,
-      },
-      {
-        href: '/dashboard/platform/webhooks',
-        label: 'Webhooks',
-        icon: (
-          <Icon d="M8 12h8M8 8h8M8 16h4M4 6v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2z" />
-        ),
-      },
-      {
-        href: '/dashboard/platform/approvals',
-        label: 'Approvals',
-        icon: <Icon d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />,
-      },
-      {
-        href: '/dashboard/platform/unmatched',
-        label: 'Unmatched',
-        icon: <Icon d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6M8 9l4 4 4-4" />,
-      },
-      {
-        href: '/dashboard/platform/audit',
-        label: 'Audit',
-        icon: <Icon d="M9 12l2 2 4-4M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z" />,
-      },
-      {
-        href: '/dashboard/platform/health',
-        label: 'Health',
-        icon: <Icon d="M22 12h-4l-3 9L9 3l-3 9H2" />,
-      },
     ],
   },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { approvals, user } = useDashboard();
+  const { approvals } = useDashboard();
   const perms = usePermissions();
   const approvalCount = approvals.length;
-  const isPlatformOwner = !!user?.is_platform_owner;
 
   return (
     <aside
@@ -252,7 +139,7 @@ export function Sidebar() {
           color: 'var(--fg)',
         }}
       >
-        <Wordmark height={18} />
+        <Wordmark height={30} />
         <span
           style={{
             fontSize: '0.54rem',
@@ -270,7 +157,6 @@ export function Sidebar() {
       </Link>
 
       {SECTIONS.map((section, sIdx) => {
-        if (section.platformOwnerOnly && !isPlatformOwner) return null;
         const visible = section.items.filter((i) => !i.permission || perms.can(i.permission));
         if (visible.length === 0) return null;
         return (
@@ -329,6 +215,22 @@ export function Sidebar() {
                       }}
                     >
                       {approvalCount}
+                    </span>
+                  )}
+                  {item.badge === 'soon' && (
+                    <span
+                      style={{
+                        border: '1px solid var(--border)',
+                        borderRadius: 999,
+                        padding: '0.08rem 0.32rem',
+                        color: 'var(--fg-dim)',
+                        fontSize: '0.54rem',
+                        fontFamily: 'var(--font-mono)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                      }}
+                    >
+                      Soon
                     </span>
                   )}
                 </Link>

@@ -43,11 +43,13 @@ export interface UsageSummary {
 
 export interface OrderOptions {
   amount_usdc: string;
+  payment_asset?: 'cspr_casper' | 'mock_usdc_cep18';
+  payer_public_key?: string;
   webhook_url?: string;
   metadata?: Record<string, unknown>;
 }
 
-export interface PaymentInstructions {
+export interface SorobanPaymentInstructions {
   // Tag identifying the payment model — currently always "soroban_contract".
   type: 'soroban_contract';
   // Cards402 receiver contract ID (C...) on Soroban.
@@ -59,6 +61,42 @@ export interface PaymentInstructions {
   // XLM quote — present when the order supports XLM payment (always in current backend).
   xlm?: { amount: string };
 }
+
+export interface CasperCSPRPaymentInstructions {
+  type: 'casper_cspr_transfer';
+  network: 'testnet';
+  chain_name: 'casper-test';
+  recipient: string;
+  sender_public_key?: string | null;
+  order_id: string;
+  amount_usdc: string;
+  amount_cspr: string;
+  amount_motes: string;
+  transfer_id: number;
+  expires_at: string;
+}
+
+export interface MockUsdcCep18PaymentInstructions {
+  type: 'casper_cep18_transfer';
+  asset: 'mockUSDC';
+  decimals: 6;
+  network: 'testnet';
+  chain_name: 'casper-test';
+  contract_package_hash: string;
+  contract_hash: string | null;
+  sender_public_key: string;
+  recipient_public_key: string;
+  order_id: string;
+  amount: string;
+  amount_base_units: string;
+  expires_at: string;
+  verify_url: string | null;
+}
+
+export type PaymentInstructions =
+  | SorobanPaymentInstructions
+  | CasperCSPRPaymentInstructions
+  | MockUsdcCep18PaymentInstructions;
 
 export interface OrderResponse {
   order_id: string;
@@ -116,8 +154,52 @@ export interface OrderStatus {
    * Soroban txs.
    */
   payment?: PaymentInstructions;
+  receipt?: CasperPaymentReceipt;
   created_at: string;
   updated_at: string;
+}
+
+export interface CasperCSPRPaymentReceipt {
+  type: 'casper_cspr_receipt';
+  order_id: string;
+  payment_asset: 'cspr_casper';
+  network: string;
+  chain_name: string;
+  deploy_hash: string;
+  sender_public_key: string | null;
+  recipient: string | null;
+  transfer_id: number;
+  amount_motes: string | null;
+  verified_at: string | null;
+  card_mode: 'mock';
+}
+
+export interface MockUsdcReceipt {
+  type: 'casper_mock_usdc_receipt';
+  order_id: string;
+  payment_asset: 'mock_usdc_cep18';
+  network: string;
+  chain_name: string;
+  deploy_hash: string;
+  sender_public_key: string | null;
+  asset: 'mockUSDC';
+  decimals: number;
+  contract_package_hash: string | null;
+  contract_hash: string | null;
+  recipient_public_key: string | null;
+  recipient_account_hash: string | null;
+  amount_base_units: string | null;
+  verified_at: string | null;
+  card_mode: 'mock';
+}
+
+export type CasperPaymentReceipt = CasperCSPRPaymentReceipt | MockUsdcReceipt;
+
+export interface VerifyCasperPaymentResponse {
+  ok: true;
+  note?: string;
+  receipt: CasperPaymentReceipt;
+  order: OrderStatus;
 }
 
 export interface RetryOptions {
@@ -195,7 +277,7 @@ export class Cards402Client {
     // explicitly (the common case for MCP, CLI purchase, and OWS callers).
     // An http:// or ftp:// URL would be used as-is, sending the agent's
     // API key over plaintext. Now every code path is covered.
-    const finalBase = resolvedBase || 'https://api.cards402.com/v1';
+    const finalBase = resolvedBase || 'https://api.cspr402.xyz/v1';
     try {
       // Lazy-require to avoid circular deps in the browser-bundle path
       // where config.ts isn't available. If assertSafeBaseUrl isn't
@@ -294,6 +376,33 @@ export class Cards402Client {
     });
     if (!res.ok) return this.handleError(res);
     return res.json() as Promise<OrderStatus>;
+  }
+
+  async verifyCasperPayment(
+    orderId: string,
+    deployHash: string,
+    opts: { senderPublicKey?: string } = {},
+  ): Promise<VerifyCasperPaymentResponse> {
+    validateOrderId(orderId);
+    if (!/^[0-9a-fA-F]{64}$/.test(deployHash)) {
+      throw new Cards402ErrorCtor('Invalid Casper deploy hash', 'invalid_deploy_hash', 400);
+    }
+    const res = await this.fetchWithRetry(
+      `${this.baseUrl}/orders/${encodeURIComponent(orderId)}/verify-payment`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Api-Key': this.apiKey,
+        },
+        body: JSON.stringify({
+          deploy_hash: deployHash,
+          ...(opts.senderPublicKey ? { sender_public_key: opts.senderPublicKey } : {}),
+        }),
+      },
+    );
+    if (!res.ok) return this.handleError(res);
+    return res.json() as Promise<VerifyCasperPaymentResponse>;
   }
 
   // Wait until the card is ready. Uses SSE (GET /orders/:id/stream) by
@@ -539,3 +648,5 @@ export class Cards402Client {
     }
   }
 }
+
+export class CSPR402Client extends Cards402Client {}

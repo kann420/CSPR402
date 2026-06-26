@@ -14,6 +14,7 @@ require('../helpers/env');
 
 const { describe, it, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
+const { PrivateKey, KeyAlgorithm, byteHash } = require('casper-js-sdk');
 const { request, db, createTestSession, resetDb } = require('../helpers/app');
 
 // ── /auth/me ────────────────────────────────────────────────────────────────
@@ -114,5 +115,112 @@ describe('F1-auth-routes: /auth/logout token handling', () => {
     const res = await request.post('/auth/logout').set('Authorization', 'Bearer   \t  ');
     assert.equal(res.status, 200);
     assert.equal(res.body.ok, true);
+  });
+});
+
+describe('wallet auth signature verification', () => {
+  beforeEach(() => {
+    resetDb();
+  });
+
+  it('accepts a Casper Wallet signMessage signature over raw Casper-prefixed message bytes', async () => {
+    const key = PrivateKey.generate(KeyAlgorithm.ED25519);
+    const publicKey = key.publicKey.toHex().toLowerCase();
+    const challenge = await request
+      .post('/auth/wallet/challenge')
+      .send({ public_key: publicKey, domain: 'localhost:3000' });
+    assert.equal(challenge.status, 200);
+
+    const payload = Buffer.from(`Casper Message:\n${challenge.body.message}`, 'utf8');
+    const signatureHex = Buffer.from(key.signAndAddAlgorithmBytes(payload)).toString('hex');
+    const verify = await request.post('/auth/wallet/verify').send({
+      public_key: publicKey,
+      nonce: challenge.body.nonce,
+      signature_hex: signatureHex,
+    });
+
+    assert.equal(verify.status, 200);
+    assert.equal(verify.body.user.wallet_public_key, publicKey);
+    assert.equal(typeof verify.body.token, 'string');
+  });
+
+  it('accepts a Ledger-style signature over the Blake2b digest of the Casper-prefixed message', async () => {
+    const key = PrivateKey.generate(KeyAlgorithm.ED25519);
+    const publicKey = key.publicKey.toHex().toLowerCase();
+    const challenge = await request
+      .post('/auth/wallet/challenge')
+      .send({ public_key: publicKey, domain: 'localhost:3000' });
+    assert.equal(challenge.status, 200);
+
+    const digest = byteHash(Buffer.from(`Casper Message:\n${challenge.body.message}`, 'utf8'));
+    const signatureHex = Buffer.from(key.signAndAddAlgorithmBytes(digest)).toString('hex');
+    const verify = await request.post('/auth/wallet/verify').send({
+      public_key: publicKey,
+      nonce: challenge.body.nonce,
+      signature_hex: signatureHex,
+    });
+
+    assert.equal(verify.status, 200);
+  });
+
+  it('accepts a raw 64-byte Casper message signature by adding the public-key algorithm byte', async () => {
+    const key = PrivateKey.generate(KeyAlgorithm.ED25519);
+    const publicKey = key.publicKey.toHex().toLowerCase();
+    const challenge = await request
+      .post('/auth/wallet/challenge')
+      .send({ public_key: publicKey, domain: 'localhost:3000' });
+    assert.equal(challenge.status, 200);
+
+    const digest = byteHash(Buffer.from(`Casper Message:\n${challenge.body.message}`, 'utf8'));
+    const signatureHex = Buffer.from(key.sign(digest)).toString('hex');
+    const verify = await request.post('/auth/wallet/verify').send({
+      public_key: publicKey,
+      nonce: challenge.body.nonce,
+      signature_hex: signatureHex,
+    });
+
+    assert.equal(verify.status, 200);
+  });
+
+  it('accepts a secp256k1 signMessage signature with a trailing recovery byte', async () => {
+    const key = PrivateKey.generate(KeyAlgorithm.SECP256K1);
+    const publicKey = key.publicKey.toHex().toLowerCase();
+    const challenge = await request
+      .post('/auth/wallet/challenge')
+      .send({ public_key: publicKey, domain: 'localhost:3000' });
+    assert.equal(challenge.status, 200);
+
+    const digest = Buffer.from(`Casper Message:\n${challenge.body.message}`, 'utf8');
+    const compactSignatureWithRecoveryByte = Buffer.concat([
+      Buffer.from(key.sign(digest)),
+      Buffer.from([0]),
+    ]);
+    const verify = await request.post('/auth/wallet/verify').send({
+      public_key: publicKey,
+      nonce: challenge.body.nonce,
+      signature_hex: compactSignatureWithRecoveryByte.toString('hex'),
+    });
+
+    assert.equal(verify.status, 200);
+  });
+
+  it('keeps accepting providers that sign the raw challenge message bytes', async () => {
+    const key = PrivateKey.generate(KeyAlgorithm.ED25519);
+    const publicKey = key.publicKey.toHex().toLowerCase();
+    const challenge = await request
+      .post('/auth/wallet/challenge')
+      .send({ public_key: publicKey, domain: 'localhost:3000' });
+    assert.equal(challenge.status, 200);
+
+    const signatureHex = Buffer.from(
+      key.signAndAddAlgorithmBytes(Buffer.from(challenge.body.message, 'utf8')),
+    ).toString('hex');
+    const verify = await request.post('/auth/wallet/verify').send({
+      public_key: publicKey,
+      nonce: challenge.body.nonce,
+      signature_hex: signatureHex,
+    });
+
+    assert.equal(verify.status, 200);
   });
 });

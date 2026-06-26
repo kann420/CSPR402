@@ -16,7 +16,6 @@ import { ToastProvider } from './_ui/Toast';
 import { Sidebar } from './_shell/Sidebar';
 import { Header } from './_shell/Header';
 import { AuthGate } from './_shell/AuthGate';
-import { FeedbackLauncher } from './_shell/FeedbackLauncher';
 import { CommandPalette } from './_shell/CommandPalette';
 
 function ShellInner({ children }: { children: ReactNode }) {
@@ -65,7 +64,6 @@ function ShellInner({ children }: { children: ReactNode }) {
           {children}
         </main>
       </div>
-      <FeedbackLauncher />
       <CommandPalette />
     </div>
   );

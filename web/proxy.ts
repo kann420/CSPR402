@@ -23,7 +23,17 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const STATUS_HOST = 'status.cards402.com';
+const STATUS_HOST = 'status.cspr402.xyz';
+const DASHBOARD_OVERVIEW = '/dashboard/overview';
+const HIDDEN_DASHBOARD_ROUTES = [
+  '/dashboard/analytics',
+  '/dashboard/merchants',
+  '/dashboard/alerts',
+  '/dashboard/audit',
+  '/dashboard/teams',
+  '/dashboard/feedback',
+  '/dashboard/platform',
+];
 
 // Match /logo.svg, /icon.png, /skill.md, /robots.txt, /sitemap.xml,
 // /humans.txt, /manifest.webmanifest, /.well-known/*, etc. Anything
@@ -32,6 +42,12 @@ const STATUS_HOST = 'status.cards402.com';
 // the status page HTML with Content-Type text/html, which the browser
 // can't use as a CSS mask-image → the wordmark disappears.
 const STATIC_FILE_RE = /\.[a-zA-Z0-9]+$/;
+
+function isHiddenDashboardRoute(pathname: string) {
+  return HIDDEN_DASHBOARD_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`),
+  );
+}
 
 export function proxy(request: NextRequest) {
   // Host-based routing for the status subdomain. Next's matcher can
@@ -61,6 +77,11 @@ export function proxy(request: NextRequest) {
     url.pathname = '/status';
     return NextResponse.rewrite(url);
   }
+  if (isHiddenDashboardRoute(request.nextUrl.pathname)) {
+    const url = request.nextUrl.clone();
+    url.pathname = DASHBOARD_OVERVIEW;
+    return NextResponse.redirect(url);
+  }
   return NextResponse.next();
 }
 
@@ -89,7 +110,14 @@ export const config = {
       //                            / manifest.webmanifest / favicon.ico
       // Everything else passes through to the proxy() function above.
       source: '/((?!_next|api|\\.well-known|.*\\.[a-zA-Z0-9]+$).*)',
-      has: [{ type: 'header', key: 'host', value: 'status.cards402.com' }],
+      has: [{ type: 'header', key: 'host', value: 'status.cspr402.xyz' }],
     },
+    '/dashboard/analytics/:path*',
+    '/dashboard/merchants/:path*',
+    '/dashboard/alerts/:path*',
+    '/dashboard/audit/:path*',
+    '/dashboard/teams/:path*',
+    '/dashboard/feedback/:path*',
+    '/dashboard/platform/:path*',
   ],
 };

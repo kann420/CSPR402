@@ -19,8 +19,7 @@ import { formatUsd, parseTimestamp, timeAgo, bucketSpendByDay } from '../_lib/fo
 import { IN_FLIGHT_ORDER_STATUSES } from '../_lib/constants';
 
 export default function OverviewPage() {
-  const { user, info, agents, orders } = useDashboard();
-  const isPlatformOwner = !!user?.is_platform_owner;
+  const { info, agents, orders } = useDashboard();
 
   const stats = useMemo(() => {
     const now = Date.now();
@@ -44,21 +43,6 @@ export default function OverviewPage() {
 
     // Top 5 spenders over the 7d window — surfaced to regular users in
     // place of the platform-level System health card.
-    const spendByAgentId = new Map<string, number>();
-    for (const o of delivered7d) {
-      spendByAgentId.set(
-        o.api_key_id,
-        (spendByAgentId.get(o.api_key_id) || 0) + (parseFloat(o.amount_usdc) || 0),
-      );
-    }
-    const topAgents = [...spendByAgentId.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([id, spent]) => {
-        const agent = agents.find((a) => a.id === id);
-        return { id, label: agent?.label ?? null, spent };
-      });
-
     return {
       spend24h,
       spend7d,
@@ -66,7 +50,6 @@ export default function OverviewPage() {
       activeAgents,
       inFlight,
       delivered7d: delivered7d.length,
-      topAgents,
     };
   }, [orders, agents]);
 
@@ -102,7 +85,7 @@ export default function OverviewPage() {
           hint="delivered / attempted"
         />
         <KpiTile label="Active agents" value={stats.activeAgents} hint={`${agents.length} total`} />
-        <KpiTile label="In flight" value={stats.inFlight} hint="orders being fulfilled" />
+        <KpiTile label="In flight" value={stats.inFlight} hint="awaiting payment or delivery" />
       </KpiRow>
 
       <div
@@ -114,88 +97,42 @@ export default function OverviewPage() {
         }}
       >
         <Card
-          title="Spend — last 14 days"
+          title="Spend - last 14 days"
           actions={
-            <Link
-              href="/dashboard/analytics"
-              style={{
-                fontSize: '0.72rem',
-                color: 'var(--fg-dim)',
-                textDecoration: 'none',
-              }}
-            >
-              View analytics →
-            </Link>
+            <span style={{ fontSize: '0.72rem', color: 'var(--fg-dim)' }}>Analytics soon</span>
           }
         >
           <SpendChart data={chartData} height={220} />
         </Card>
 
-        {isPlatformOwner ? (
-          <Card title="System health">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
-              <HealthRow
-                label="Fulfillment"
-                ok={!info?.frozen}
-                okLabel="Operational"
-                failLabel="Frozen"
-              />
-              <HealthRow
-                label="Mainnet watcher"
-                ok={true}
-                okLabel="Synced"
-                failLabel="Disconnected"
-              />
-              <HealthRow label="CTX auth" ok={true} okLabel="Valid" failLabel="Re-auth required" />
-            </div>
-          </Card>
-        ) : (
-          <Card title="Top agents (7d)">
-            {stats.topAgents.length === 0 ? (
-              <EmptyState
-                title="No active agents yet"
-                description="Your highest-spending agents this week will show up here."
-              />
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
-                {stats.topAgents.map((a) => (
-                  <div
-                    key={a.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      fontSize: '0.8rem',
-                    }}
-                  >
-                    <Link
-                      href={`/dashboard/agents/${a.id}`}
-                      style={{
-                        color: 'var(--fg)',
-                        textDecoration: 'none',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        maxWidth: '65%',
-                      }}
-                    >
-                      {a.label || 'Unnamed'}
-                    </Link>
-                    <span
-                      style={{
-                        fontFamily: 'var(--font-mono)',
-                        color: 'var(--fg-dim)',
-                        fontSize: '0.75rem',
-                      }}
-                    >
-                      {formatUsd(a.spent)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
-        )}
+        <Card title="System health">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
+            <HealthRow
+              label="Order intake"
+              ok={!info?.frozen}
+              okLabel="Accepting orders"
+              failLabel="Paused"
+            />
+            <HealthRow
+              label="Casper verifier"
+              ok={info?.payment_provider === 'casper'}
+              okLabel="Casper testnet"
+              failLabel="Legacy mode"
+            />
+            <HealthRow
+              label="Mock issuer"
+              ok={info?.mock_card_mode !== false}
+              okLabel="Ready"
+              failLabel="Unknown"
+            />
+            <HealthRow
+              label="mockUSDC CEP-18"
+              ok={!!info?.mock_usdc?.enabled && !!info?.mock_usdc?.configured}
+              okLabel="Enabled"
+              failLabel={info?.mock_usdc?.enabled ? 'Needs package hash' : 'Disabled'}
+            />
+          </div>
+        </Card>
       </div>
 
       <Card
@@ -221,6 +158,7 @@ export default function OverviewPage() {
               <tr>
                 <th>Agent</th>
                 <th>Amount</th>
+                <th>Rail</th>
                 <th>Status</th>
                 <th>When</th>
               </tr>
@@ -232,6 +170,13 @@ export default function OverviewPage() {
                     {o.api_key_label || o.api_key_id.slice(0, 8)}
                   </td>
                   <td style={{ fontFamily: 'var(--font-mono)' }}>{formatUsd(o.amount_usdc)}</td>
+                  <td style={{ color: 'var(--fg-dim)', fontSize: '0.72rem' }}>
+                    {o.payment_asset === 'mock_usdc_cep18'
+                      ? 'mockUSDC'
+                      : o.payment_asset === 'cspr_casper'
+                        ? 'CSPR'
+                        : o.payment_asset}
+                  </td>
                   <td>
                     <OrderStatusPill status={o.status} />
                   </td>

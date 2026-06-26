@@ -3,7 +3,12 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
-import { ADMIN_SESSION_COOKIE, getBackendBaseUrl, verifySession } from '@/app/lib/admin-session';
+import {
+  ADMIN_SESSION_COOKIE,
+  PORTAL_API_KEY_COOKIE,
+  getBackendBaseUrl,
+  verifySession,
+} from '@/app/lib/admin-session';
 
 export const runtime = 'nodejs';
 
@@ -25,6 +30,13 @@ export async function POST(_req: NextRequest) {
 
   const res = NextResponse.json({ ok: true });
   res.cookies.set(ADMIN_SESSION_COOKIE, '', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: 0,
+    path: '/',
+  });
+  res.cookies.set(PORTAL_API_KEY_COOKIE, '', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',

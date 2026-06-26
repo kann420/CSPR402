@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 
-const SITE = 'https://cards402.com';
+const SITE = 'https://cspr402.xyz';
 
 // Static marketing + legal pages. The dashboard and API routes are
 // intentionally excluded — they're not meant to be indexed. New

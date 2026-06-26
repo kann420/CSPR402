@@ -6,15 +6,15 @@ import { ogForPage, twitterForPage } from '@/app/lib/seo';
 export const metadata: Metadata = {
   title: 'Security',
   description:
-    'How Cards402 secures API keys, payments, and infrastructure. Non-custodial by design, hashed keys, signed webhooks, and a responsible-disclosure policy.',
+    'How CSPR402 secures API keys, payment verification, and infrastructure. Non-custodial by design, hashed keys, signed webhooks, and a responsible-disclosure policy.',
   alternates: { canonical: 'https://cards402.com/security' },
   openGraph: ogForPage({
-    title: 'Security — Cards402',
+    title: 'Security - CSPR402',
     description: 'Non-custodial by design. Hashed keys. Signed webhooks. Responsible disclosure.',
     path: '/security',
   }),
   twitter: twitterForPage({
-    title: 'Security — Cards402',
+    title: 'Security - CSPR402',
     description: 'Non-custodial by design. Responsible disclosure.',
   }),
 };
@@ -23,27 +23,27 @@ const PILLARS = [
   {
     eyebrow: 'Custody',
     title: 'Non-custodial by architecture.',
-    body: 'Agents pay the Soroban receiver contract directly. Cards402 never holds funds — we observe on-chain events and broker fulfilment. If Cards402 disappeared tomorrow, nothing is trapped in our custody, because nothing is in our custody.',
+    body: 'Agents send the Casper testnet payment directly on-chain. CSPR402 verifies the finalized deploy before fulfilment and does not rely on a pre-funded customer balance sitting in custody while an order is pending.',
   },
   {
     eyebrow: 'Keys',
     title: 'Hashed at rest. Scoped at the edge.',
-    body: 'API keys are bcrypt-hashed with per-key salt before they touch the database. We can verify a key against the hash on request; we cannot recover the plaintext. A short key prefix is stored alongside the hash as an O(1) lookup index, so auth stays constant-time under load. Keys are scoped to USDC spend limits and can be revoked in one click from the dashboard.',
+    body: 'API keys are bcrypt-hashed with per-key salt before they touch the database. We can verify a key against the hash on request; we cannot recover the plaintext. A short key prefix is stored alongside the hash as an O(1) lookup index, so auth stays constant-time under load. Keys are scoped to configured spend limits and can be revoked in one click from the dashboard.',
   },
   {
     eyebrow: 'Onboarding',
     title: 'Claim codes instead of raw keys.',
-    body: 'The cards402 dashboard mints single-use claim codes so operators never paste API keys into LLM context. The agent redeems the code for a key on its own machine, over TLS, and the code is invalidated after use. No credential lives in the transcript.',
+    body: 'The dashboard mints single-use claim codes so operators never paste API keys into LLM context. The agent redeems the code for a key on its own machine, over TLS, and the code is invalidated after use. No credential lives in the transcript.',
   },
   {
     eyebrow: 'Webhooks',
     title: 'HMAC signed, replay protected.',
-    body: 'Outgoing webhooks carry X-Cards402-Signature (HMAC-SHA256 over timestamp + body) and X-Cards402-Timestamp. The documented client reference rejects anything older than five minutes. Webhook secrets rotate automatically on key revocation.',
+    body: 'Outgoing webhooks carry X-Cards402-Signature (HMAC-SHA256 over timestamp + body) and X-Cards402-Timestamp. Those historical header names are preserved for compatibility, but the verification model is the same: signed payloads, replay limits, and secret rotation on key revocation.',
   },
   {
     eyebrow: 'Circuit breaker',
     title: 'Fail-closed on the upstream.',
-    body: 'The fulfilment pipeline has a three-strike circuit breaker. After three consecutive upstream failures we freeze new orders and return 503 until an operator manually unfreezes. This stops cascading failures from draining agent wallets against a broken pipe.',
+    body: 'The fulfilment pipeline has a three-strike circuit breaker. After repeated failures we freeze new orders and return 503 until an operator manually unfreezes. This stops cascading failures from draining agent wallets against a broken pipe.',
   },
   {
     eyebrow: 'Infrastructure',
@@ -60,8 +60,14 @@ const POSTURE = [
   },
   { label: 'Keys at rest', value: 'bcrypt · per-key salt · 12-char lookup index' },
   { label: 'Database', value: 'SQLite · WAL mode · scheduled snapshot backup' },
-  { label: 'Agent keys', value: 'OWS encrypted vault file · 0600 · optional passphrase' },
-  { label: 'Treasury signer', value: 'Env-loaded secret · out-of-band rotation · audited spend' },
+  {
+    label: 'Agent keys',
+    value: 'Local wallet or key file · operator-managed secrets · no prompt storage',
+  },
+  {
+    label: 'Treasury signer',
+    value: 'Env or key-path loaded · out-of-band rotation · audited spend',
+  },
 ];
 
 export default function SecurityPage() {
@@ -71,10 +77,9 @@ export default function SecurityPage() {
         eyebrow="Security"
         title="Secure by architecture, not by"
         accent="trust"
-        intro="Cards402 is a small team running financial infrastructure. Everything below is a design choice, not a marketing bullet — we picked these specifically so a single compromise of any one component never exposes customer funds or credentials."
+        intro="CSPR402 is a small team running payment-verification infrastructure. Everything below is a design choice, not a marketing bullet - we picked these specifically so a single compromise of any one component never exposes customer funds or credentials."
       />
 
-      {/* Pillars */}
       <PageSection>
         <div
           style={{
@@ -131,7 +136,6 @@ export default function SecurityPage() {
         </div>
       </PageSection>
 
-      {/* Security posture table */}
       <PageSection background="surface" eyebrow="Posture" title="The technical specifics.">
         <div
           style={{
@@ -172,11 +176,10 @@ export default function SecurityPage() {
         </div>
       </PageSection>
 
-      {/* Responsible disclosure */}
       <PageSection eyebrow="Disclosure" title="Found something? Tell us. We'll pay.">
         <div style={{ maxWidth: 720 }}>
           <p className="type-body" style={{ fontSize: '0.98rem', marginBottom: '1.5rem' }}>
-            Cards402 operates a responsible-disclosure programme. If you find a vulnerability, email{' '}
+            CSPR402 operates a responsible-disclosure programme. If you find a vulnerability, email{' '}
             <a
               href="mailto:security@cards402.com"
               style={{
@@ -247,7 +250,7 @@ export default function SecurityPage() {
 
           <p className="type-body" style={{ fontSize: '0.86rem', color: 'var(--fg-dim)' }}>
             Out of scope: social engineering, volumetric DoS, physical attacks, anything requiring
-            root access to our treasury wallet. Public disclosure is embargoed until a fix ships.
+            root access to a treasury wallet. Public disclosure is embargoed until a fix ships.
           </p>
         </div>
       </PageSection>

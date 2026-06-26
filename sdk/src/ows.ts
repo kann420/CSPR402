@@ -30,7 +30,7 @@ import {
   type Transaction,
 } from '@stellar/stellar-sdk';
 
-import type { CardDetails, PaymentInstructions } from './client';
+import type { CardDetails, PaymentInstructions, SorobanPaymentInstructions } from './client';
 import { ResumableError, OrderFailedError, Cards402Error } from './errors';
 import {
   buildContractPaymentTx,
@@ -43,6 +43,14 @@ import {
 
 const USDC_ISSUER = 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN';
 const STELLAR_CHAIN = 'stellar';
+
+function assertSorobanPayment(
+  payment: PaymentInstructions,
+): asserts payment is SorobanPaymentInstructions {
+  if (payment.type !== 'soroban_contract') {
+    throw new Error(`Expected soroban_contract payment instructions, got ${payment.type}`);
+  }
+}
 
 function withTimeout<T>(promise: Promise<T>, ms = 15000): Promise<T> {
   return Promise.race([
@@ -431,6 +439,7 @@ export async function payViaContractOWS(
   const signTx = deps.owsSignTx ?? owsSignTx;
   const pubKeyOf = deps.getOWSPublicKey ?? getOWSPublicKey;
 
+  assertSorobanPayment(payment);
   if (!StrKey.isValidContract(payment.contract_id)) {
     throw new Error(`Invalid contract_id in order response: ${payment.contract_id}`);
   }

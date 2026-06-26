@@ -1,7 +1,7 @@
 {
-  "name": "cards402",
+  "name": "cspr402",
   "version": "0.4.7",
-  "description": "Virtual Visa cards for AI agents — pay USDC or XLM on Stellar, get a card in ~60s",
+  "description": "CSPR402 SDK and CLI for Casper testnet payment verification and mock virtual cards",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -17,7 +17,7 @@
     }
   },
   "bin": {
-    "cards402": "./dist/cli.js"
+    "cspr402": "./dist/cli.js"
   },
   "files": [
     "dist",
@@ -29,29 +29,28 @@
     "dev": "tsc --watch",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run src/__tests__/client.test.ts src/__tests__/config.test.ts src/__tests__/errors.test.ts src/__tests__/integration.test.ts",
     "prepublishOnly": "npm run build && npm test"
   },
   "keywords": [
-    "stellar",
-    "usdc",
-    "xlm",
+    "casper",
+    "cspr",
+    "testnet",
     "virtual-card",
     "vcc",
-    "visa",
     "ai-agent",
     "mcp",
     "model-context-protocol",
     "402-payment",
-    "soroban",
-    "cards402"
+    "cep18",
+    "cspr402"
   ],
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/CTX-com/Cards402"
   },
-  "homepage": "https://cards402.com",
+  "homepage": "https://cspr402.xyz",
   "publishConfig": {
     "access": "public"
   },

@@ -4,10 +4,10 @@
 // Transporter is created lazily so the module can be imported in test environments
 // without SMTP credentials configured.
 //
-// Visual language (aligned with the Cards402 brand refresh):
+// Visual language (aligned with the CSPR402 brand refresh):
 //   - Darker canvas (#050505) and softer borders so the emails read
 //     engineering-grade rather than marketing-flashy
-//   - Cards402 wordmark pulled from https://cards402.com/logo.svg with a
+//   - CSPR402 wordmark pulled from https://cspr402.xyz/logo.svg with a
 //     serif text fallback for Outlook (which strips SVG)
 //   - Muted green accent (#7cffb2) matching the dashboard + landing
 //   - Georgia-first serif stack for headlines so editorial character
@@ -93,12 +93,12 @@ async function sendMailStrict(transporter, options) {
 }
 
 // Wrap the bare address in SMTP_FROM with a display name so inboxes show
-// "Cards402" rather than the raw no-reply address. If the operator already
+// "CSPR402" rather than the raw no-reply address. If the operator already
 // set a display name in SMTP_FROM (e.g. "foo <bar@baz.com>"), keep it.
 function from() {
   const raw = process.env.SMTP_FROM || '';
   if (raw.includes('<')) return raw;
-  return `"Cards402" <${raw}>`;
+  return `"CSPR402" <${raw}>`;
 }
 
 function escapeHtml(s) {
@@ -139,29 +139,29 @@ const FONT_MONO = "ui-monospace,'SF Mono',Menlo,Consolas,'Liberation Mono',monos
 // light variant. The web app uses /logo.svg as a mask-image (colour from
 // currentColor), so we can't re-use it here — on a dark email background
 // it comes out invisible black.
-const LOGO_URL = 'https://cards402.com/logo-light.svg';
+const LOGO_URL = 'https://cspr402.xyz/logo-transparent.svg';
 // Public URL for the dashboard CTAs. All transactional emails deep-link
 // into the authenticated dashboard since operators need a session
 // regardless of email content.
-const DASHBOARD_URL = 'https://cards402.com/dashboard';
+const DASHBOARD_URL = 'https://cspr402.xyz/dashboard';
 
 // ── Shared chrome ─────────────────────────────────────────────────────────────
 
-// The header renders the Cards402 wordmark as an SVG <img> with a
+// The header renders the CSPR402 wordmark as an SVG <img> with a
 // serif text fallback inside the alt attribute. Most modern clients
 // (Gmail web + mobile, Apple Mail, iOS Mail) load the SVG; Outlook
 // shows the alt text styled via inline CSS so it degrades to a
-// readable "Cards402" in serif.
+// readable "CSPR402" in serif.
 function header() {
   return `
     <tr>
       <td style="padding:32px 36px 0 36px;">
-        <a href="https://cards402.com" style="text-decoration:none;color:${COLOR.text};" aria-label="Cards402">
+        <a href="https://cspr402.xyz" style="text-decoration:none;color:${COLOR.text};" aria-label="CSPR402">
           <img
             src="${LOGO_URL}"
             width="120"
             height="28"
-            alt="Cards402"
+            alt="CSPR402"
             style="display:block;border:0;outline:none;text-decoration:none;height:28px;width:120px;max-width:120px;font-family:${FONT_SERIF};font-style:italic;font-size:22px;font-weight:600;color:${COLOR.text};letter-spacing:-0.01em;"
           />
         </a>
@@ -178,7 +178,7 @@ function wrap(preheader, body) {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="dark light">
 <meta name="supported-color-schemes" content="dark light">
-<title>Cards402</title>
+<title>CSPR402</title>
 </head>
 <body style="margin:0;padding:0;background-color:${COLOR.bg};">
 <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:${COLOR.bg};opacity:0;">${escapeHtml(preheader)}</div>
@@ -194,7 +194,7 @@ function wrap(preheader, body) {
         </tr>
         <tr>
           <td style="padding:20px 36px;border-top:1px solid ${COLOR.border};font-family:${FONT_SANS};font-size:12px;color:${COLOR.faint};">
-            <a href="https://cards402.com" style="color:${COLOR.faint};text-decoration:none;">cards402.com</a>
+            <a href="https://cspr402.xyz" style="color:${COLOR.faint};text-decoration:none;">cspr402.xyz</a>
             &nbsp;·&nbsp;
             Transactional only — we don't send marketing.
           </td>
@@ -248,7 +248,7 @@ async function sendLoginCode(email, code) {
   const safeCode = escapeHtml(code);
   const body = `
     ${eyebrow('Sign in')}
-    ${headline('Your Cards402 login code')}
+    ${headline('Your CSPR402 login code')}
     <p style="margin:0 0 26px 0;color:${COLOR.muted};font-size:14px;">Enter this code to finish signing in to your operator dashboard.</p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
       <tr>
@@ -271,19 +271,19 @@ async function sendLoginCode(email, code) {
   // Subject is a constant — no interpolation means no header-injection
   // vector here. Still routed through sendMailStrict to surface any
   // per-recipient rejection instead of silently succeeding.
-  const subject = 'Your Cards402 login code';
+  const subject = 'Your CSPR402 login code';
   await sendMailStrict(getTransporter(), {
     from: from(),
     to: email,
     subject,
     text: [
-      `Your Cards402 login code:`,
+      `Your CSPR402 login code:`,
       ``,
       `    ${code}`,
       ``,
       `Expires in 15 minutes. If you didn't request it, you can ignore this email.`,
       ``,
-      `— cards402.com`,
+      `- cspr402.xyz`,
     ].join('\n'),
     html: wrap(subject, body),
   });
@@ -322,7 +322,7 @@ async function sendApprovalEmail(
   // orders.amount_usdc column (digit-string only) so it's already
   // safe, but pipe it through sanitizeHeader uniformly so future
   // refactors don't re-open the surface.
-  const safeSubject = `Cards402 — approval required for $${sanitizeHeader(amountUsdc)} USDC`;
+  const safeSubject = `CSPR402 - approval required for $${sanitizeHeader(amountUsdc)} USDC`;
   await sendMailStrict(getTransporter(), {
     from: from(),
     to: ownerEmail,
@@ -339,7 +339,7 @@ async function sendApprovalEmail(
       `Review in dashboard: ${DASHBOARD_URL}`,
       `Expires in 2 hours.`,
       ``,
-      `— cards402.com`,
+      `- cspr402.xyz`,
     ].join('\n'),
     html: wrap(`An agent needs approval for $${sanitizeHeader(amountUsdc)} USDC`, body),
   });
@@ -375,7 +375,7 @@ async function sendSpendAlertEmail(ownerEmail, { keyLabel, pct, spentUsdc, limit
   const safeLabel = sanitizeHeader(keyLabel);
   const safePct = sanitizeHeader(pct);
   const safeLimitType = sanitizeHeader(limitType);
-  const safeSubject = `Cards402 — ${safeLabel} at ${safePct}% of ${safeLimitType} limit`;
+  const safeSubject = `CSPR402 - ${safeLabel} at ${safePct}% of ${safeLimitType} limit`;
   await sendMailStrict(getTransporter(), {
     from: from(),
     to: ownerEmail,
@@ -388,7 +388,7 @@ async function sendSpendAlertEmail(ownerEmail, { keyLabel, pct, spentUsdc, limit
       ``,
       `Review in dashboard: ${DASHBOARD_URL}`,
       ``,
-      `— cards402.com`,
+      `- cspr402.xyz`,
     ].join('\n'),
     html: wrap(`${safeLabel} at ${safePct}% of its ${safeLimitType} spend limit`, body),
   });
@@ -416,7 +416,7 @@ async function sendAlertEmail({ to, subject, body }) {
     from: from(),
     to,
     subject: safeSubject,
-    text: `${body}\n\n— cards402.com`,
+    text: `${body}\n\n- cspr402.xyz`,
     html: wrap(safeSubject, htmlBody),
   });
 }

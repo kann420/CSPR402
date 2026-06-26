@@ -5,7 +5,10 @@ const assert = require('node:assert/strict');
 const { request, seedOrder, resetDb, db, createTestKey } = require('../helpers/app');
 
 describe('GET /status', () => {
-  beforeEach(() => resetDb());
+  beforeEach(() => {
+    process.env.PAYMENT_PROVIDER = 'casper';
+    resetDb();
+  });
 
   it('returns ok=true when system is healthy', async () => {
     const res = await request.get('/status');
@@ -47,7 +50,7 @@ describe('GET /status', () => {
   // /status now includes stellar_watcher_stalled in the ok composition
   // with a 120s threshold.
 
-  it('reports stalled and ok=false when stellar_start_ledger_at is older than 120s', async () => {
+  it('reports a stale Stellar watcher without failing Casper-mode health', async () => {
     // Seed a stale cursor timestamp. Anything > 120s triggers the
     // stalled flag; use 5 minutes for comfortable margin.
     const staleAt = new Date(Date.now() - 5 * 60 * 1000).toISOString();
@@ -59,12 +62,37 @@ describe('GET /status', () => {
     ).run(staleAt);
 
     const res = await request.get('/status');
-    assert.equal(res.body.ok, false, 'ok must flip to false when watcher is stalled');
+    assert.equal(res.body.payment_provider, 'casper');
+    assert.equal(res.body.ok, true, 'Casper mode must not fail health on Stellar watcher state');
+    assert.equal(res.body.stellar_watcher.enabled, false);
     assert.equal(res.body.stellar_watcher.stalled, true);
     assert.ok(res.body.stellar_watcher.age_seconds >= 120);
     assert.equal(res.body.stellar_watcher.max_age_seconds, 120);
 
     // Clean up so the next test doesn't inherit the stale state.
+    db.prepare(`DELETE FROM system_state WHERE key = 'stellar_start_ledger'`).run();
+    db.prepare(`DELETE FROM system_state WHERE key = 'stellar_start_ledger_at'`).run();
+  });
+
+  it('reports stalled and ok=false in Stellar mode when stellar_start_ledger_at is old', async () => {
+    process.env.PAYMENT_PROVIDER = 'stellar';
+
+    const staleAt = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    db.prepare(
+      `INSERT OR REPLACE INTO system_state (key, value) VALUES ('stellar_start_ledger', ?)`,
+    ).run('12345');
+    db.prepare(
+      `INSERT OR REPLACE INTO system_state (key, value) VALUES ('stellar_start_ledger_at', ?)`,
+    ).run(staleAt);
+
+    const res = await request.get('/status');
+    assert.equal(res.body.payment_provider, 'stellar');
+    assert.equal(res.body.ok, false, 'ok must flip to false when Stellar watcher is stalled');
+    assert.equal(res.body.stellar_watcher.enabled, true);
+    assert.equal(res.body.stellar_watcher.stalled, true);
+    assert.ok(res.body.stellar_watcher.age_seconds >= 120);
+    assert.equal(res.body.stellar_watcher.max_age_seconds, 120);
+
     db.prepare(`DELETE FROM system_state WHERE key = 'stellar_start_ledger'`).run();
     db.prepare(`DELETE FROM system_state WHERE key = 'stellar_start_ledger_at'`).run();
   });

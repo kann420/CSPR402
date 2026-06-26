@@ -20,6 +20,11 @@ describe('normalizeCardBrand', () => {
     assert.equal(normalizeCardBrand('Visa'), 'USD Visa Card');
   });
 
+  it('preserves mock card language', () => {
+    assert.equal(normalizeCardBrand('Mock Visa Test Card'), 'Mock Virtual Card');
+    assert.equal(normalizeCardBrand('Mock Virtual Card'), 'Mock Virtual Card');
+  });
+
   it('replaces Mastercard variants with USD Mastercard', () => {
     assert.equal(normalizeCardBrand('Mastercard® Prepaid'), 'USD Mastercard');
     assert.equal(normalizeCardBrand('Master Card eGift'), 'USD Mastercard');

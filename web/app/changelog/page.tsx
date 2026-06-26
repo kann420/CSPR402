@@ -6,25 +6,21 @@ import { CHANGELOG_ENTRIES as ENTRIES, type ChangelogTag as Tag } from './entrie
 export const metadata: Metadata = {
   title: 'Changelog',
   description:
-    'Everything shipped to Cards402. API changes, dashboard polish, security fixes, and upstream-issuer updates — chronologically.',
+    'Everything shipped to CSPR402. API changes, dashboard polish, security fixes, and Casper-first MVP updates - chronologically.',
   alternates: {
     canonical: 'https://cards402.com/changelog',
-    // Feed reader auto-discovery: this inserts
-    // <link rel="alternate" type="application/rss+xml" href=".../feed.xml">
-    // on the changelog head. NetNewsWire, Feedbin, Reeder et al.
-    // pick this up when you paste /changelog into "add feed".
     types: {
       'application/rss+xml': 'https://cards402.com/changelog/feed.xml',
     },
   },
   openGraph: ogForPage({
-    title: 'Changelog — Cards402',
-    description: 'Everything shipped to Cards402, chronologically.',
+    title: 'Changelog - CSPR402',
+    description: 'Everything shipped to CSPR402, chronologically.',
     path: '/changelog',
   }),
   twitter: twitterForPage({
-    title: 'Changelog — Cards402',
-    description: 'Everything shipped to Cards402, chronologically.',
+    title: 'Changelog - CSPR402',
+    description: 'Everything shipped to CSPR402, chronologically.',
   }),
 };
 
@@ -79,10 +75,6 @@ function TagChip({ tag }: { tag: Tag }) {
   );
 }
 
-// BlogPosting ItemList — each changelog entry as a structured
-// posting. Google treats this as an index of time-stamped updates
-// even though they all share the /changelog URL. Anchors are hash
-// fragments onto the same page.
 function slug(s: string) {
   return s
     .toLowerCase()
@@ -98,14 +90,14 @@ const changelogJsonLd = {
     position: i + 1,
     item: {
       '@type': 'BlogPosting',
-      headline: e.version ? `v${e.version} — ${e.title}` : e.title,
+      headline: e.version ? `v${e.version} - ${e.title}` : e.title,
       datePublished: e.date,
       description: e.body,
       url: `https://cards402.com/changelog#${e.date}-${slug(e.title)}`,
-      author: { '@type': 'Organization', name: 'Cards402' },
+      author: { '@type': 'Organization', name: 'CSPR402' },
       publisher: {
         '@type': 'Organization',
-        name: 'Cards402',
+        name: 'CSPR402',
         logo: {
           '@type': 'ImageObject',
           url: 'https://cards402.com/icon.png',
@@ -126,7 +118,7 @@ export default function ChangelogPage() {
         eyebrow="Changelog"
         title="Everything we've"
         accent="shipped"
-        intro="Cards402 is a platform, so every change matters. This page is updated the same day a change lands in production. Security-sensitive fixes are disclosed here after the patch is out. Breaking API changes are always announced 30 days before they take effect."
+        intro="CSPR402 is a narrow but fast-moving MVP, so every change matters. This page is updated the same day a change lands in the repo. Security-sensitive fixes are disclosed here after the patch is out. Breaking API changes are always announced before they take effect."
       />
 
       <section style={{ padding: '3rem 1.35rem 6rem' }}>
@@ -173,7 +165,7 @@ export default function ChangelogPage() {
                       marginTop: '0.35rem',
                       fontFamily: 'var(--font-mono)',
                       fontSize: '0.7rem',
-                      color: 'var(--green)',
+                      color: 'var(--fg-dim)',
                     }}
                   >
                     v{e.version}
@@ -181,39 +173,39 @@ export default function ChangelogPage() {
                 )}
               </div>
               <div>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '0.45rem',
+                    marginBottom: '0.7rem',
+                  }}
+                >
+                  {e.tags.map((tag) => (
+                    <TagChip key={tag} tag={tag} />
+                  ))}
+                </div>
                 <h2
                   style={{
                     fontFamily: 'var(--font-display)',
                     fontSize: '1.45rem',
                     fontWeight: 500,
-                    color: 'var(--fg)',
-                    margin: '0 0 0.75rem',
+                    lineHeight: 1.1,
                     letterSpacing: '-0.02em',
-                    lineHeight: 1.15,
+                    margin: '0 0 0.7rem',
+                    color: 'var(--fg)',
                   }}
                 >
                   {e.title}
                 </h2>
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: '0.45rem',
-                    flexWrap: 'wrap',
-                    marginBottom: '0.85rem',
-                  }}
-                >
-                  {e.tags.map((t) => (
-                    <TagChip key={t} tag={t} />
-                  ))}
-                </div>
                 <p
                   style={{
                     fontFamily: 'var(--font-body)',
                     fontSize: '0.92rem',
+                    lineHeight: 1.75,
                     color: 'var(--fg-muted)',
-                    lineHeight: 1.7,
                     margin: 0,
-                    maxWidth: 620,
+                    whiteSpace: 'pre-wrap',
                   }}
                 >
                   {e.body}
@@ -223,15 +215,6 @@ export default function ChangelogPage() {
           ))}
         </div>
       </section>
-
-      <style>{`
-        @media (max-width: 720px) {
-          .changelog-entry {
-            grid-template-columns: minmax(0, 1fr) !important;
-            gap: 0.75rem !important;
-          }
-        }
-      `}</style>
     </>
   );
 }

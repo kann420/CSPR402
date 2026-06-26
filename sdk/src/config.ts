@@ -24,6 +24,8 @@ export interface Cards402Config {
   webhook_secret?: string | null;
   wallet_name?: string;
   vault_path?: string;
+  casper_public_key?: string;
+  casper_key_path?: string;
   /**
    * Adversarial audit F12: the NAME of the environment variable that
    * holds the OWS wallet passphrase, NOT the passphrase value itself.
@@ -38,7 +40,11 @@ export interface Cards402Config {
 }
 
 function defaultConfigDir(): string {
-  return process.env.CARDS402_CONFIG_DIR || path.join(os.homedir(), '.cards402');
+  return (
+    process.env.CSPR402_CONFIG_DIR ||
+    process.env.CARDS402_CONFIG_DIR ||
+    path.join(os.homedir(), '.cspr402')
+  );
 }
 
 function defaultConfigPath(): string {
@@ -182,7 +188,10 @@ export function assertSafeBaseUrl(url: string, opts: { context?: string } = {}):
     );
   }
   if (parsed.protocol !== 'https:') {
-    if (process.env.CARDS402_ALLOW_INSECURE_BASE_URL === '1') {
+    if (
+      process.env.CSPR402_ALLOW_INSECURE_BASE_URL === '1' ||
+      process.env.CARDS402_ALLOW_INSECURE_BASE_URL === '1'
+    ) {
       return parsed.toString();
     }
     throw new Error(
@@ -277,8 +286,8 @@ export function saveCards402Config(config: Cards402Config, configPath?: string):
 /**
  * Resolve an api key + base URL at SDK call time, in priority order:
  *   1. Explicit `apiKey` / `baseUrl` passed to the call
- *   2. CARDS402_API_KEY / CARDS402_BASE_URL env vars
- *   3. ~/.cards402/config.json
+ *   2. CSPR402_API_KEY / CSPR402_BASE_URL env vars
+ *   3. ~/.cspr402/config.json
  *
  * The two fields resolve independently — passing `apiKey` to a call
  * that needs its `baseUrl` to come from config.json used to silently
@@ -295,7 +304,9 @@ export function resolveCredentials(
   let apiKey: string | undefined = opts.apiKey;
   let baseUrl: string | undefined = opts.baseUrl;
 
+  if (!apiKey && process.env.CSPR402_API_KEY) apiKey = process.env.CSPR402_API_KEY;
   if (!apiKey && process.env.CARDS402_API_KEY) apiKey = process.env.CARDS402_API_KEY;
+  if (!baseUrl && process.env.CSPR402_BASE_URL) baseUrl = process.env.CSPR402_BASE_URL;
   if (!baseUrl && process.env.CARDS402_BASE_URL) baseUrl = process.env.CARDS402_BASE_URL;
 
   if (!apiKey || !baseUrl) {

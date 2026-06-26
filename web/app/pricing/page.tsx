@@ -4,28 +4,28 @@ import { PageHero, PageSection } from '@/app/components/MarketingPage';
 import { ogForPage, twitterForPage } from '@/app/lib/seo';
 
 const DESCRIPTION =
-  'Cards402 sells Visa reward cards at face value — no signup fee, no markup. Only the standard issuer fees apply, listed in full on the page.';
+  'CSPR402 is a Casper testnet MVP. No signup fee, no issuer fee schedule, and no real card fulfilment - just clearly-scoped demo economics.';
 
 export const metadata: Metadata = {
   title: 'Pricing',
   description: DESCRIPTION,
   alternates: { canonical: 'https://cards402.com/pricing' },
   openGraph: ogForPage({
-    title: 'Pricing — Cards402',
-    description: 'Cards at face value. Honest fees. Pay in USDC or XLM on Stellar.',
+    title: 'Pricing - CSPR402',
+    description: 'Casper testnet demo economics. Wallet-paid network fees. Mock fulfilment only.',
     path: '/pricing',
   }),
   twitter: twitterForPage({
-    title: 'Pricing — Cards402',
-    description: 'Cards at face value. Honest fees.',
+    title: 'Pricing - CSPR402',
+    description: 'Casper testnet demo economics.',
   }),
 };
 
 const FEE_ROWS = [
   {
-    label: 'Cards402 service fee',
+    label: 'CSPR402 service fee',
     value: '$0.00',
-    note: 'We take zero markup on the card face value. You pay exactly what the card loads with.',
+    note: 'No platform fee is charged in this MVP. The demo is about payment verification, not revenue collection.',
     highlight: true,
   },
   {
@@ -35,69 +35,66 @@ const FEE_ROWS = [
     highlight: true,
   },
   {
-    label: 'Order cancellation',
+    label: 'Casper testnet network fee',
+    value: 'Wallet-paid',
+    note: 'Your wallet pays the normal on-chain fee for submitting the deploy. CSPR402 does not add a separate network surcharge.',
+  },
+  {
+    label: 'Mock fulfilment',
     value: '$0.00',
-    note: 'Unpaid orders expire after 2 hours. No funds taken, no fee.',
+    note: 'Returned card data is simulated for the hackathon MVP. There is no real issuer or production card programme behind this flow.',
     highlight: true,
   },
   {
-    label: 'Foreign transaction fee',
-    value: '$2.00 + 2%',
-    note: 'Charged by the issuer (Pathward) on transactions in any currency or country other than the card currency.',
+    label: 'Expired unpaid order',
+    value: '$0.00',
+    note: 'If the payment window expires before verification, the order simply times out. No funds are taken by the backend.',
   },
   {
-    label: 'Card replacement',
-    value: '$5.95',
-    note: 'Issuer fee for mailing a physical replacement. Replacements due to expiration are free.',
-  },
-  {
-    label: 'Inactivity fee',
-    value: '$2.50 / month',
-    note: 'Applied by the issuer to the remaining balance after the 6th month following activation. Spend the balance within six months and you pay nothing.',
+    label: 'Compatibility overhead',
+    value: 'Legacy',
+    note: 'Some public surfaces still preserve historical names like cards402.com or X-Cards402-* for compatibility while the user-facing copy moves Casper-first.',
   },
 ];
 
 const LIMITS = [
-  { label: 'Minimum order', value: '$0.01' },
-  { label: 'Maximum per order', value: '$10,000' },
-  { label: 'Max single card transaction', value: '$5,000' },
-  { label: 'Maximum card balance', value: '$10,000' },
+  { label: 'Settlement rail', value: 'Casper testnet CSPR' },
+  { label: 'Verification mode', value: 'Deploy hash + transfer_id' },
+  { label: 'Fulfilment', value: 'Mock virtual card only' },
+  { label: 'Optional bonus rail', value: 'mockUSDC CEP-18' },
 ];
 
 const FAQ = [
   {
-    q: 'How can cards be free?',
-    a: 'Cards402 makes money on volume discounts we negotiate with our card suppliers. When an agent buys a $25 card, we settle with the supplier at a rate slightly below $25 and pass the full face value through to the agent. We break even on every individual card and profit on aggregate flow. No surprise markup.',
+    q: 'Am I paying for a real card here?',
+    a: 'No. CSPR402 returns a simulated virtual card as part of the hackathon MVP. The point of this demo is proving payment instruction generation, Casper deploy verification, and idempotent fulfilment behavior.',
   },
   {
-    q: 'Do I pay Stellar network fees?',
-    a: 'Yes. Each card purchase triggers a Soroban contract call from your agent wallet, which costs roughly 0.005–0.02 XLM (a fraction of a cent) in network fees depending on execution cost. Your wallet pays it directly — Cards402 never touches it.',
+    q: 'Do I pay network fees?',
+    a: 'Yes. Your wallet pays the normal Casper testnet fee for the deploy you submit. CSPR402 does not add a second fee layer on top of that.',
   },
   {
-    q: 'What does "$2.00 + 2%" actually look like?',
-    a: 'A €50 purchase in Paris on a $200 USD card settles at ~$54 depending on the Visa network rate, plus $2.00 + $1.08 (2% of $54) = a $3.08 foreign transaction fee added on top.',
+    q: 'What assets are supported?',
+    a: 'The MVP path is native Casper testnet CSPR. mockUSDC CEP-18 is an optional bonus path for demos, but the product language should stay explicit that it is a mock token rail.',
   },
   {
-    q: 'Why is there a 6-month inactivity fee?',
-    a: 'This is a standard Pathward reward-card term. The card itself does not expire — only the fee-free window does. If your agent uses the balance within six months (most do), you never encounter it. If the balance sits for longer, $2.50 is deducted each month until it reaches zero.',
+    q: 'What exactly gets verified?',
+    a: 'The backend checks the chain, deploy success, deploy hash, recipient, amount, transfer_id, expiration window, and order state before it fulfils anything.',
   },
   {
     q: 'Can I get a refund?',
-    a: "If an order fails before the card is issued, the USDC/XLM you paid is automatically refunded to your sender address. Once a card is issued, the funds sit on the card — we can't reverse them, but your agent can spend them.",
+    a: 'This MVP is intentionally narrow. If a payment does not match the order requirements, the backend rejects fulfilment. Recovery or refund behavior beyond the verified happy path should be treated as implementation work, not assumed product behavior.',
   },
   {
-    q: 'What are the order size limits?',
-    a: "Cards402 accepts orders between $0.01 and $10,000 per card. The floor exists because the issuer can't represent sub-cent balances; the ceiling is Pathward's per-card balance cap. Inside that range, any amount works — there's no step function or reload fee. If you need an aggregate spend above $10,000 for one agent task, issue multiple cards and split the purchase: it keeps blast radius contained and is usually what an auditor wants to see anyway.",
+    q: 'Why keep a pricing page if this is a demo?',
+    a: 'Because operators still need a plain-English page that says what is and is not charged, what the wallet pays on-chain, and where the mock/demo boundary starts.',
   },
   {
-    q: 'How does Cards402 stay non-custodial if you can refund me?',
-    a: "Refunds go from the Cards402 treasury wallet, not from a hold on your funds. Your payment already settled to the receiver contract at the time of the order — the refund is a separate outbound Stellar payment that we send you after verifying the order failed. We never take custody of your inbound USDC/XLM and we never promise your funds will be returned if our treasury is drained; the architecture is non-custodial because you can always verify where your funds went on-chain, not because we're holding them for you in escrow.",
+    q: 'How does CSPR402 stay non-custodial?',
+    a: 'The agent sends the Casper testnet payment directly on-chain and the backend verifies the finalized deploy. The service does not hold a pre-funded customer balance in escrow while the order is pending.',
   },
 ];
 
-// FAQPage structured data — Google uses this to surface FAQ rich
-// results directly in the SERP. Keep the mainEntity array in sync
-// with the FAQ array above.
 const faqJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'FAQPage',
@@ -111,15 +108,13 @@ const faqJsonLd = {
   })),
 };
 
-// Product schema for the pricing page itself. Positions Cards402 as
-// a free service in Google's SERP UI when price filters are active.
 const productJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Product',
-  name: 'Cards402 — Virtual Visa cards for AI agents',
+  name: 'CSPR402 - Casper testnet payment demo for AI agents',
   description:
-    'Non-custodial virtual Visa card issuance for autonomous agents. Cards sold at face value, settled in USDC or XLM on Stellar.',
-  brand: { '@type': 'Brand', name: 'Cards402' },
+    'Casper-first payment verification for autonomous agents. Native CSPR in, mock virtual card receipt out.',
+  brand: { '@type': 'Brand', name: 'CSPR402' },
   offers: {
     '@type': 'Offer',
     url: 'https://cards402.com/pricing',
@@ -142,12 +137,11 @@ export default function PricingPage() {
       />
       <PageHero
         eyebrow="Pricing"
-        title="Cards at face value. No"
-        accent="markup"
-        intro="Every Cards402 order settles exactly 1:1 against the card's USD face value. There is no subscription, no signup fee, and no per-transaction surcharge from us. The only fees you'll ever see are the ones the card issuer charges directly — listed in full below."
+        title="Casper testnet in. Mock"
+        accent="fulfilment"
+        intro="CSPR402 is a hackathon MVP, not a production issuer. There is no subscription, no signup fee, and no hidden platform charge. The only real cost in the happy path is the on-chain Casper testnet fee your wallet pays to submit the deploy."
       />
 
-      {/* Fee table */}
       <PageSection>
         <div className="pricing-fee-grid">
           {FEE_ROWS.map((row) => (
@@ -184,7 +178,6 @@ export default function PricingPage() {
         </div>
       </PageSection>
 
-      {/* Limits + issuer row */}
       <PageSection background="surface">
         <div
           style={{
@@ -197,7 +190,7 @@ export default function PricingPage() {
         >
           <div>
             <div className="type-eyebrow" style={{ color: 'var(--green)', marginBottom: '1rem' }}>
-              Spend limits
+              MVP boundaries
             </div>
             <h2
               className="type-display-tight"
@@ -208,14 +201,15 @@ export default function PricingPage() {
                 maxWidth: 480,
               }}
             >
-              The card is a real Visa. Limits match.
+              What this demo actually covers.
             </h2>
             <p
               className="type-body"
               style={{ maxWidth: 500, fontSize: '0.95rem', marginBottom: '2rem' }}
             >
-              Reward cards are bound by the Pathward cardholder agreement. These are the numbers
-              your agent needs to plan against.
+              Keep the language precise: Casper testnet payment, backend verification, and simulated
+              virtual card fulfilment. Nothing on this page should be read as a production card
+              programme.
             </p>
 
             <div
@@ -265,7 +259,7 @@ export default function PricingPage() {
             }}
           >
             <div className="type-eyebrow" style={{ color: 'var(--fg-dim)', marginBottom: '1rem' }}>
-              Card issuer
+              Fulfilment mode
             </div>
             <h3
               style={{
@@ -277,7 +271,7 @@ export default function PricingPage() {
                 letterSpacing: '-0.02em',
               }}
             >
-              Pathward, N.A. · Member FDIC
+              Mock virtual card only
             </h3>
             <p
               style={{
@@ -288,9 +282,8 @@ export default function PricingPage() {
                 margin: '0 0 1rem',
               }}
             >
-              Every Cards402 card is a Visa Reward Card issued by Pathward, N.A. pursuant to a
-              license from Visa U.S.A. Inc. Cards are subject to the standard Pathward cardholder
-              agreement.
+              The API returns simulated card details for demo purposes only. They are not real Visa
+              credentials, not reloadable balances, and not tied to a live issuer.
             </p>
             <ul
               style={{
@@ -305,19 +298,18 @@ export default function PricingPage() {
                 gap: '0.35rem',
               }}
             >
-              <li>Card network · Visa</li>
-              <li>Card type · Non-reloadable reward</li>
-              <li>Cash access · None (no ATM, no cashback)</li>
-              <li>Recurring charges · Not permitted by issuer</li>
+              <li>Payment rail · Casper testnet native CSPR</li>
+              <li>Correlation · order_id + transfer_id + deploy hash</li>
+              <li>Card mode · simulated / mock only</li>
+              <li>Issuer dependency · none in this MVP path</li>
             </ul>
             <Link href="/legal/cardholder-agreement" className="link-arrow">
-              Full cardholder agreement
+              Mock-card disclosure
             </Link>
           </div>
         </div>
       </PageSection>
 
-      {/* FAQ */}
       <PageSection eyebrow="Common questions" title="Pricing, in plain English.">
         <div
           style={{
@@ -382,7 +374,6 @@ export default function PricingPage() {
         </div>
       </PageSection>
 
-      {/* Final CTA */}
       <section style={{ padding: '3rem 1.35rem 6rem' }}>
         <div
           style={{
@@ -413,7 +404,7 @@ export default function PricingPage() {
                 maxWidth: 620,
               }}
             >
-              The first card is two API calls away.
+              The first verified demo receipt is two API calls away.
             </h2>
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
               <Link
@@ -431,7 +422,7 @@ export default function PricingPage() {
                   fontWeight: 600,
                 }}
               >
-                5-minute quickstart →
+                5-minute quickstart {'->'}
               </Link>
               <Link
                 href="/dashboard"

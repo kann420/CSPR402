@@ -1,25 +1,9 @@
 #!/usr/bin/env node
-// cards402 CLI dispatcher.
-//
-// Subcommands:
-//   onboard    Trade a one-time claim code for an api key + create an
-//              OWS wallet. The agent-facing setup path (see skill.md).
-//   mcp        Start the MCP server over stdio (default when no
-//              subcommand is given, so `npx cards402` in an MCP
-//              client's config "just works").
-//   version    Print the installed SDK version and exit.
-//
-// Each subcommand lives in its own module and is imported dynamically
-// so `cards402 onboard` doesn't pay the cost of loading the MCP server
-// handlers (~500 lines of tool registration) and vice versa.
+// cspr402 CLI dispatcher.
 
 async function main(): Promise<number> {
   const [, , cmd = 'mcp', ...rest] = process.argv;
 
-  // Fire-and-forget update check. Runs in parallel with the command;
-  // warns on stderr if this install is older than the latest on npm.
-  // Never blocks, never throws. Skipped for `version` / help since
-  // those exit too quickly for the fetch to race.
   if (
     cmd !== 'version' &&
     cmd !== '--version' &&
@@ -32,29 +16,27 @@ async function main(): Promise<number> {
       const { checkForUpdates } = await import('./version-check');
       checkForUpdates();
     } catch {
-      /* version-check module load failed — non-fatal */
+      /* non-fatal */
     }
   }
 
   if (cmd === '-h' || cmd === '--help' || cmd === 'help') {
-    process.stdout.write(`cards402 — virtual Visa cards for AI agents
+    process.stdout.write(`cspr402 - Casper testnet payment verification for AI agents
 
 Usage:
-  cards402 onboard --claim <code>    Set up an agent from a dashboard claim code
-  cards402 purchase --amount <USDC>  Buy a card using the wallet from onboard
-  cards402 wallet address            Print this agent's Stellar address
-  cards402 wallet balance            Print XLM + USDC balances from Horizon
-  cards402 wallet trustline          Open the USDC trustline (required before
-                                     the wallet can receive USDC)
-  cards402 mcp                       Start the MCP server over stdio (default)
-  cards402 version                   Print the SDK version
-  cards402 --help                    Show this message
+  cspr402 onboard --claim <code>    Set up an agent from a dashboard claim code
+  cspr402 purchase --amount <USD>   Create a native CSPR order
+  cspr402 wallet address            Print this agent's Casper public key
+  cspr402 wallet balance            Print this agent's testnet CSPR balance
+  cspr402 mcp                       Start the MCP server over stdio (default)
+  cspr402 version                   Print the SDK version
+  cspr402 --help                    Show this message
 
-All the 'purchase' and 'wallet' subcommands read ~/.cards402/config.json
-(written by 'cards402 onboard') so you don't need to pass an api key.
+Commands read ~/.cspr402/config.json (written by 'cspr402 onboard') so you
+don't need to pass an api key.
 
-Docs: https://cards402.com/docs
-Onboarding guide for agents: https://cards402.com/skill.md
+Docs: https://cspr402.xyz/docs
+Onboarding guide for agents: https://cspr402.xyz/skill.md
 `);
     return 0;
   }
@@ -88,7 +70,7 @@ Onboarding guide for agents: https://cards402.com/skill.md
   }
 
   process.stderr.write(`error: unknown command '${cmd}'\n`);
-  process.stderr.write(`Run 'cards402 --help' to see available commands.\n`);
+  process.stderr.write(`Run 'cspr402 --help' to see available commands.\n`);
   return 2;
 }
 

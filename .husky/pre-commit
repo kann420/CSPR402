@@ -8,7 +8,12 @@
 # POSIX-strict shells (dash, bash in POSIX mode). The `|| true` is load-bearing
 # — without it, a clean commit with no .env files staged would fail the hook
 # silently at the variable assignment before we ever reach the check.
-staged_env=$(git diff --cached --name-only | grep -E '(^|/)\.env(\.|$)' || true)
+staged_env=$(
+  git diff --cached --name-only |
+    grep -E '(^|/)\.env(\.|$)' |
+    grep -Ev '\.example$' ||
+    true
+)
 if [ -n "$staged_env" ]; then
   echo "ERROR: Refusing to commit .env file(s):"
   echo "$staged_env"

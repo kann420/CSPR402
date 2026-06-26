@@ -1,25 +1,62 @@
-// Minimal OTP sign-in splash. Posts { email } to /api/auth/login to
-// receive an OTP, then posts { email, code } to /api/auth/verify which
-// sets the HttpOnly session cookie and responds with the user object.
-// On success we reload — the DashboardProvider picks up the new session.
-
 'use client';
 
 import { useState } from 'react';
 import { Button } from '../_ui/Button';
 import { Input } from '../_ui/Input';
 import { Wordmark } from '@/app/components/Wordmark';
+import { connectWallet, signWalletMessage } from '@/app/lib/csprclick-client';
+
+const ENABLE_EMAIL_FALLBACK = process.env.NEXT_PUBLIC_ENABLE_EMAIL_LOGIN === 'true';
+
+async function readJson(res: Response) {
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body?.message || body?.error || `HTTP ${res.status}`);
+  return body;
+}
 
 export function AuthGate() {
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [stage, setStage] = useState<'email' | 'code'>('email');
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<'wallet' | 'email' | 'code' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [walletPublicKey, setWalletPublicKey] = useState<string | null>(null);
+
+  async function connectAndSignIn() {
+    setError(null);
+    setBusy('wallet');
+    try {
+      const publicKey = await connectWallet();
+      setWalletPublicKey(publicKey);
+      const challenge = await fetch('/api/auth/wallet/challenge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          public_key: publicKey,
+          domain: window.location.host,
+        }),
+      }).then(readJson);
+      const signatureHex = await signWalletMessage(challenge.message, publicKey);
+      await fetch('/api/auth/wallet/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          public_key: publicKey,
+          nonce: challenge.nonce,
+          signature_hex: signatureHex,
+        }),
+      }).then(readJson);
+      window.location.reload();
+    } catch (err) {
+      setError((err as Error).message || 'Wallet login failed.');
+    } finally {
+      setBusy(null);
+    }
+  }
 
   async function sendCode() {
     setError(null);
-    setBusy(true);
+    setBusy('email');
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -31,13 +68,13 @@ export function AuthGate() {
     } catch (err) {
       setError((err as Error).message || 'failed');
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
   async function verifyCode() {
     setError(null);
-    setBusy(true);
+    setBusy('code');
     try {
       const res = await fetch('/api/auth/verify', {
         method: 'POST',
@@ -49,7 +86,7 @@ export function AuthGate() {
     } catch (err) {
       setError((err as Error).message || 'failed');
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
@@ -67,99 +104,117 @@ export function AuthGate() {
       <div
         style={{
           width: '100%',
-          maxWidth: 360,
+          maxWidth: 400,
           background: 'var(--surface)',
           border: '1px solid var(--border)',
-          borderRadius: 12,
-          padding: '2rem',
+          borderRadius: 8,
+          padding: '1.7rem',
           boxShadow: 'var(--shadow-card)',
         }}
       >
-        <div
-          style={{
-            marginBottom: '0.5rem',
-            color: 'var(--fg)',
-          }}
-        >
-          <Wordmark height={22} />
+        <div style={{ marginBottom: '1rem', color: 'var(--fg)' }}>
+          <Wordmark height={42} />
         </div>
         <div
           style={{
             fontSize: '0.8rem',
             color: 'var(--fg-dim)',
-            marginBottom: '1.5rem',
+            marginBottom: '1.1rem',
+            lineHeight: 1.5,
           }}
         >
-          Sign in to your operator dashboard
+          Sign in with a Casper testnet wallet to open the demo dashboard.
         </div>
 
-        {stage === 'email' ? (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!busy && email) sendCode();
+        <Button
+          type="button"
+          variant="primary"
+          onClick={connectAndSignIn}
+          disabled={busy !== null}
+          style={{ width: '100%', justifyContent: 'center' }}
+        >
+          {busy === 'wallet' ? 'Waiting for wallet...' : 'Connect Casper Wallet'}
+        </Button>
+
+        {walletPublicKey && (
+          <div
+            style={{
+              marginTop: '0.85rem',
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.68rem',
+              lineHeight: 1.5,
+              color: 'var(--fg-dim)',
+              overflowWrap: 'anywhere',
             }}
-            style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}
           >
-            <Input
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoFocus
-            />
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={busy || !email}
-              style={{ width: '100%', justifyContent: 'center' }}
-            >
-              {busy ? 'Sending…' : 'Send code'}
-            </Button>
-          </form>
-        ) : (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!busy && code.length >= 6) verifyCode();
+            {walletPublicKey}
+          </div>
+        )}
+
+        {ENABLE_EMAIL_FALLBACK && (
+          <div
+            style={{
+              marginTop: '1.3rem',
+              paddingTop: '1.1rem',
+              borderTop: '1px solid var(--border)',
             }}
-            style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}
           >
-            <div style={{ fontSize: '0.75rem', color: 'var(--fg-dim)' }}>
-              Code sent to <strong style={{ color: 'var(--fg)' }}>{email}</strong>
-            </div>
-            <Input
-              placeholder="6-digit code"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              autoFocus
-            />
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={busy || code.length < 6}
-              style={{ width: '100%', justifyContent: 'center' }}
-            >
-              {busy ? 'Verifying…' : 'Sign in'}
-            </Button>
-            <button
-              type="button"
-              onClick={() => {
-                setStage('email');
-                setCode('');
-              }}
+            <div
               style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--fg-dim)',
                 fontSize: '0.72rem',
-                cursor: 'pointer',
-                marginTop: '0.25rem',
+                color: 'var(--fg-dim)',
+                marginBottom: '0.8rem',
               }}
             >
-              ← use different email
-            </button>
-          </form>
+              Developer email fallback
+            </div>
+            {stage === 'email' ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!busy && email) void sendCode();
+                }}
+                style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}
+              >
+                <Input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+                <Button
+                  type="submit"
+                  variant="secondary"
+                  disabled={busy !== null || !email}
+                  style={{ width: '100%', justifyContent: 'center' }}
+                >
+                  {busy === 'email' ? 'Sending...' : 'Send code'}
+                </Button>
+              </form>
+            ) : (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!busy && code.length >= 6) void verifyCode();
+                }}
+                style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}
+              >
+                <Input
+                  placeholder="6-digit code"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                />
+                <Button
+                  type="submit"
+                  variant="secondary"
+                  disabled={busy !== null || code.length < 6}
+                  style={{ width: '100%', justifyContent: 'center' }}
+                >
+                  {busy === 'code' ? 'Verifying...' : 'Sign in'}
+                </Button>
+              </form>
+            )}
+          </div>
         )}
 
         {error && (

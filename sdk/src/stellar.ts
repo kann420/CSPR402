@@ -11,7 +11,7 @@ import {
   BASE_FEE,
   StrKey,
 } from '@stellar/stellar-sdk';
-import type { CardDetails, PaymentInstructions } from './client';
+import type { CardDetails, PaymentInstructions, SorobanPaymentInstructions } from './client';
 import {
   buildContractPaymentTx,
   submitSorobanTx,
@@ -22,6 +22,14 @@ import {
 
 const USDC_ISSUER = 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN';
 const HORIZON_TIMEOUT_MS = 15000;
+
+function assertSorobanPayment(
+  payment: PaymentInstructions,
+): asserts payment is SorobanPaymentInstructions {
+  if (payment.type !== 'soroban_contract') {
+    throw new Error(`Expected soroban_contract payment instructions, got ${payment.type}`);
+  }
+}
 
 function getHorizonUrl(networkPassphrase?: string): string {
   return networkPassphrase === Networks.TESTNET
@@ -113,6 +121,7 @@ export async function payViaContract(opts: PayOpts): Promise<string> {
     sorobanRpcUrl,
   } = opts;
 
+  assertSorobanPayment(payment);
   if (!StrKey.isValidContract(payment.contract_id)) {
     throw new Error(`Invalid contract_id in order response: ${payment.contract_id}`);
   }

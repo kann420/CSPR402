@@ -67,6 +67,7 @@ function normalizeCardBrand(rawBrand) {
   if (trimmed.length === 0) return null;
 
   const lower = trimmed.toLowerCase();
+  if (lower.includes('mock')) return 'Mock Virtual Card';
   if (lower.includes('visa')) return 'USD Visa Card';
   if (lower.includes('master')) return 'USD Mastercard';
   if (lower.includes('amex') || lower.includes('american express')) return 'USD Amex Card';

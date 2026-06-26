@@ -1,5 +1,11 @@
 # cards402
 
+> CardCasper402 hackathon fork note: the default SDK root export is now kept to
+> API/client helpers so Windows CI and demos do not load the legacy Stellar OWS
+> native package. The active MVP path is Casper testnet CSPR order creation and
+> deploy verification, with optional mockUSDC CEP-18 test-token payments. The Stellar/OWS sections below are upstream legacy
+> reference material until they are rewritten or moved.
+
 Virtual Visa cards for AI agents — pay with USDC or XLM on Stellar, get a card number, CVV, and expiry in ~60 seconds.
 
 [cards402.com](https://cards402.com) issues prepaid Visa virtual cards on demand. This SDK lets AI agents create an order, pay the cards402 Soroban receiver contract on Stellar, and receive card details programmatically — all in one call.
@@ -88,6 +94,23 @@ console.log(`Pay ${order.payment.xlm.amount} XLM to contract ${order.payment.con
 const card = await client.waitForCard(order.order_id, { timeoutMs: 120000 });
 console.log(card.number, card.cvv, card.expiry);
 ```
+
+### CardCasper402 Casper testnet flow
+
+```typescript
+const csprOrder = await client.createOrder({ amount_usdc: '10.00' });
+// Submit csprOrder.payment as a Casper native transfer, then verify:
+await client.verifyCasperPayment(csprOrder.order_id, deployHash, { senderPublicKey });
+
+const mockUsdcOrder = await client.createOrder({
+  amount_usdc: '10.00',
+  payment_asset: 'mock_usdc_cep18',
+  payer_public_key: senderPublicKey,
+});
+// Submit mockUsdcOrder.payment as a CEP-18 transfer, then verify with the same method.
+```
+
+`mock_usdc_cep18` is a Casper testnet mock token rail for demos, not official USDC.
 
 ## MCP server — for Claude Desktop, Cursor, and other MCP clients
 

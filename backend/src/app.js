@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
+const { PublicKey } = require('casper-js-sdk');
 const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 const db = require('./db');
 const { log } = require('./lib/logger');
@@ -23,6 +24,7 @@ const vccCallbackRouter = require('./api/vcc-callback');
 const { MAX_WEBHOOK_ATTEMPTS: MAX_WEBHOOK_ATTEMPTS_FOR_STATUS } = require('./fulfillment');
 
 const app = express();
+const CASPER_PUBLIC_KEY_RE = /^(01[0-9a-fA-F]{64}|02[0-9a-fA-F]{66})$/;
 
 // B-13: Attach a unique request ID to every request for log correlation.
 //
@@ -249,7 +251,12 @@ app.get('/api/version', versionLimiter, (_req, res) => {
     service: 'cards402',
     version: '0.1.0',
     hmac_protocol: 'v3',
-    features: ['idempotency_key', 'soroban_contract', 'webhook_circuit_breaker', 'callback_nonce'],
+    features: [
+      'idempotency_key',
+      'casper_cspr_transfer',
+      'webhook_circuit_breaker',
+      'callback_nonce',
+    ],
   });
 });
 
@@ -446,7 +453,7 @@ app.post('/v1/agent/claim', claimLimiter, (req, res) => {
     webhook_secret: payload.webhook_secret ?? null,
     api_key_id: row.api_key_id,
     label: key?.label ?? null,
-    api_url: process.env.PUBLIC_API_BASE_URL || 'https://api.cards402.com/v1',
+    api_url: process.env.PUBLIC_API_BASE_URL || 'https://api.cspr402.xyz/v1',
   });
 });
 
@@ -592,14 +599,13 @@ app.get('/status', statusLimiter, (req, res) => {
         )
         .get(MAX_WEBHOOK_ATTEMPTS_FOR_STATUS, since24h)
     )?.n ?? 0;
+  const paymentProvider = process.env.PAYMENT_PROVIDER || 'casper';
+  const stellarSignalsOk =
+    paymentProvider !== 'stellar' || (stellarDeadLetter24h === 0 && !stellarWatcherStalled);
 
   res.json({
-    ok:
-      !frozen &&
-      consecutiveFailures < 3 &&
-      stellarDeadLetter24h === 0 &&
-      webhooksFailedPermanent24h < 5 &&
-      !stellarWatcherStalled,
+    ok: !frozen && consecutiveFailures < 3 && webhooksFailedPermanent24h < 5 && stellarSignalsOk,
+    payment_provider: paymentProvider,
     frozen,
     consecutive_failures: consecutiveFailures,
     orders: {
@@ -616,6 +622,7 @@ app.get('/status', statusLimiter, (req, res) => {
       success_rate: successRate24h, // 0..1 or null if no terminal orders
     },
     stellar_watcher: {
+      enabled: paymentProvider === 'stellar',
       last_ledger: lastLedger || null,
       last_ledger_at: lastLedgerAt,
       age_seconds: lastLedgerAgeSeconds,
@@ -740,7 +747,6 @@ const agentStatusLimiter = rateLimit({
 });
 app.post('/v1/agent/status', agentStatusLimiter, (req, res) => {
   const { emit: emitBusEvent } = require('./lib/event-bus');
-  const { StrKey } = require('@stellar/stellar-sdk');
   const ALLOWED_STATES = new Set(['initializing', 'awaiting_funding', 'funded']);
   const { state, wallet_public_key, detail } = req.body || {};
 
@@ -758,13 +764,20 @@ app.post('/v1/agent/status', agentStatusLimiter, (req, res) => {
   // account loader. Fail at the write boundary so the bad value never
   // enters the DB.
   if (wallet_public_key !== undefined && wallet_public_key !== null) {
-    if (
-      typeof wallet_public_key !== 'string' ||
-      !StrKey.isValidEd25519PublicKey(wallet_public_key)
-    ) {
+    const normalized =
+      typeof wallet_public_key === 'string' ? wallet_public_key.trim().toLowerCase() : '';
+    let validCasperPublicKey = CASPER_PUBLIC_KEY_RE.test(normalized);
+    if (validCasperPublicKey) {
+      try {
+        PublicKey.fromHex(normalized);
+      } catch {
+        validCasperPublicKey = false;
+      }
+    }
+    if (!validCasperPublicKey) {
       return res.status(400).json({
         error: 'invalid_wallet_public_key',
-        message: 'wallet_public_key must be a valid Stellar G-address (base32 + checksum)',
+        message: 'wallet_public_key must be a valid Casper public key hex string.',
       });
     }
   }
@@ -786,8 +799,11 @@ app.post('/v1/agent/status', agentStatusLimiter, (req, res) => {
   }
   if (wallet_public_key !== undefined) {
     fields.push('wallet_public_key = @wallet_public_key');
-    params.wallet_public_key = wallet_public_key || null;
-    eventPayload.wallet_public_key = wallet_public_key || null;
+    params.wallet_public_key =
+      typeof wallet_public_key === 'string' && wallet_public_key.trim()
+        ? wallet_public_key.trim().toLowerCase()
+        : null;
+    eventPayload.wallet_public_key = params.wallet_public_key;
   }
   if (detail !== undefined) {
     // Reject non-string detail — without the typeof guard an object

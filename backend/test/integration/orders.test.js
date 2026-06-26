@@ -71,7 +71,7 @@ describe('POST /v1/orders', () => {
     assert.equal(res.body.error, 'invalid_api_key');
   });
 
-  it('creates an order and returns Soroban contract payment instructions', async () => {
+  it('creates an order and returns Casper CSPR transfer payment instructions', async () => {
     const res = await request
       .post('/v1/orders')
       .set('X-Api-Key', key.key)
@@ -82,16 +82,53 @@ describe('POST /v1/orders', () => {
     assert.equal(res.body.status, 'pending_payment');
 
     const { payment } = res.body;
-    assert.equal(payment.type, 'soroban_contract', 'payment.type must be soroban_contract');
-    assert.ok(payment.contract_id?.startsWith('C'), 'contract_id must be a Soroban C-address');
+    assert.equal(payment.type, 'casper_cspr_transfer', 'payment.type must be casper_cspr_transfer');
+    assert.equal(payment.network, 'testnet');
+    assert.equal(payment.chain_name, 'casper-test');
+    assert.equal(payment.recipient, process.env.CASPER_TREASURY_PUBLIC_KEY);
     assert.equal(payment.order_id, res.body.order_id, 'payment.order_id must match order_id');
-    assert.ok(payment.usdc?.amount, 'usdc.amount must be present');
-    assert.ok(payment.usdc?.asset?.startsWith('USDC:'), 'usdc.asset must identify the USDC issuer');
+    assert.equal(payment.amount_usdc, '10');
+    assert.equal(payment.amount_cspr, '1000.000000000');
+    assert.equal(payment.amount_motes, '1000000000000');
+    assert.equal(typeof payment.transfer_id, 'number');
+    assert.ok(Number.isSafeInteger(payment.transfer_id));
+    assert.ok(payment.expires_at);
     // xlm quote is best-effort (depends on the stubbed usdToXlm) — allow either present or absent
 
     assert.ok(res.body.poll_url.startsWith('/v1/orders/'));
     assert.ok(res.body.budget);
     assert.equal(res.body.budget.spent_usdc, '0.00');
+
+    const { db } = require('../helpers/app');
+    const row = db
+      .prepare(`SELECT payment_asset, casper_transfer_id FROM orders WHERE id = ?`)
+      .get(res.body.order_id);
+    assert.equal(row.payment_asset, 'cspr_casper');
+    assert.equal(row.casper_transfer_id, payment.transfer_id);
+  });
+
+  it('rejects native CSPR orders below the Casper transfer minimum', async () => {
+    const res = await request.post('/v1/orders').set('X-Api-Key', key.key).send({
+      amount_usdc: '0.01',
+      payment_asset: 'cspr_casper',
+      payer_public_key: '0202f4be916409e6e781babb6715de852a4fc92cb01fcf7ce2f39f84d82eee389609',
+    });
+
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error, 'casper_min_transfer_amount');
+    assert.equal(res.body.details.minimum_motes, '2500000000');
+    assert.equal(res.body.details.amount_motes, '1000000000');
+  });
+
+  it('rejects CSPR orders whose payer is the configured treasury recipient', async () => {
+    const res = await request.post('/v1/orders').set('X-Api-Key', key.key).send({
+      amount_usdc: '1.00',
+      payment_asset: 'cspr_casper',
+      payer_public_key: process.env.CASPER_TREASURY_PUBLIC_KEY,
+    });
+
+    assert.equal(res.status, 409);
+    assert.equal(res.body.error, 'self_payment_not_supported');
   });
 
   it('returns 400 for missing amount', async () => {
@@ -185,6 +222,7 @@ describe('POST /v1/orders', () => {
     assert.equal(first.status, 201);
     assert.equal(second.status, 201);
     assert.equal(first.body.order_id, second.body.order_id);
+    assert.equal(first.body.payment.transfer_id, second.body.payment.transfer_id);
 
     // Only one order should exist in the DB
     const { db } = require('../helpers/app');
@@ -245,6 +283,18 @@ describe('GET /v1/orders/:id', () => {
     assert.equal(res.body.order_id, orderId);
     assert.equal(res.body.phase, 'awaiting_payment');
     assert.equal(res.body.status, 'pending_payment');
+  });
+
+  it('returns the pending Casper payment object from GET /v1/orders/:id', async () => {
+    const create = await request
+      .post('/v1/orders')
+      .set('X-Api-Key', key.key)
+      .send({ amount_usdc: '10.00' });
+    assert.equal(create.status, 201);
+
+    const res = await request.get(`/v1/orders/${create.body.order_id}`).set('X-Api-Key', key.key);
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body.payment, create.body.payment);
   });
 
   it('returns phase=processing for ordering status', async () => {

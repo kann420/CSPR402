@@ -5,15 +5,15 @@ import { ogForPage, twitterForPage } from '@/app/lib/seo';
 export const metadata: Metadata = {
   title: 'Press',
   description:
-    'Press, media, and podcast inquiries for Cards402. Contact, press kit, quick facts, and expert quotes on agent payments.',
+    'Press, media, and podcast inquiries for CSPR402. Contact, press kit, quick facts, and expert quotes on agent payments.',
   alternates: { canonical: 'https://cards402.com/press' },
   openGraph: ogForPage({
-    title: 'Press — Cards402',
+    title: 'Press - CSPR402',
     description: 'Press kit, media contact, and expert quotes on autonomous agent payments.',
     path: '/press',
   }),
   twitter: twitterForPage({
-    title: 'Press — Cards402',
+    title: 'Press - CSPR402',
     description: 'Press kit, media contact, and expert quotes.',
   }),
 };
@@ -21,9 +21,9 @@ export const metadata: Metadata = {
 const FACTS = [
   { label: 'Founded', value: '2026' },
   { label: 'Headquarters', value: 'Remote · London · Vancouver' },
-  { label: 'Category', value: 'Agent infrastructure' },
-  { label: 'Settlement', value: 'Stellar mainnet' },
-  { label: 'Issuer', value: 'Pathward, N.A.' },
+  { label: 'Category', value: 'Agent payment infrastructure' },
+  { label: 'Settlement', value: 'Casper testnet CSPR' },
+  { label: 'Fulfilment', value: 'Mock virtual card' },
   { label: 'Funding', value: 'Bootstrapped' },
 ];
 
@@ -33,16 +33,16 @@ const TOPICS = [
     body: 'How the HTTP 402 pattern is becoming the default for machine-authenticated commerce, and what it unlocks beyond card-not-present fraud.',
   },
   {
-    title: 'Non-custodial card issuance',
-    body: 'Why agents should pay card networks directly via stablecoins instead of sharing custody with a middleman. Failure modes, design trade-offs, and what it means for regulatory posture.',
+    title: 'Casper-first payment verification',
+    body: 'Why the MVP starts with native Casper testnet transfers, strict backend deploy verification, and a clearly-labeled mock fulfilment path.',
   },
   {
-    title: 'Stellar for real-world payments',
-    body: "Stellar's Soroban smart contracts as a settlement layer for existing rails — stablecoin in, USD out, quoted at order time.",
+    title: 'Mock rails without fake claims',
+    body: 'How to ship a credible hackathon payments demo without pretending you already have a production issuer, mainnet stablecoin rail, or live compliance stack.',
   },
   {
     title: 'The autonomous agent economy',
-    body: 'Practical observations from running live traffic: what agents actually buy, what goes wrong, how long the feedback loop is, and what operators learn from watching programs spend money.',
+    body: 'Practical observations from running agent payment prototypes: what goes wrong, what needs verification, and what operators actually learn from watching programs spend money.',
   },
 ];
 
@@ -53,10 +53,9 @@ export default function PressPage() {
         eyebrow="Press"
         title="Writing about agent payments? Let's"
         accent="talk"
-        intro="Cards402 is one of a small number of teams shipping live infrastructure at the intersection of autonomous agents and traditional card rails. We're happy to do on-the-record interviews, background calls, podcast appearances, and expert quotes for anything in our lane."
+        intro="CSPR402 is a Casper-first hackathon MVP at the intersection of autonomous agents and payment verification. We're happy to do on-the-record interviews, background calls, podcast appearances, and expert quotes for anything in our lane."
       />
 
-      {/* Contact block */}
       <PageSection>
         <div
           style={{
@@ -88,7 +87,7 @@ export default function PressPage() {
             >
               We respond within 24 hours for anything time-sensitive and within three business days
               for everything else. Include your outlet, deadline, and a one-line summary of the
-              angle — we&apos;ll come back with the right person.
+              angle - we'll come back with the right person.
             </p>
             <ul
               style={{
@@ -109,14 +108,14 @@ export default function PressPage() {
               </li>
               <li>
                 <strong style={{ color: 'var(--fg)' }}>Quotes.</strong> Happy to give a paragraph on
-                short notice for any piece in our lane — just send the draft context.
+                short notice for any piece in our lane - just send the draft context.
               </li>
               <li>
                 <strong style={{ color: 'var(--fg)' }}>Podcasts.</strong> Especially anything
-                covering AI agents, payments infrastructure, or Stellar.
+                covering AI agents, payments infrastructure, or Casper.
               </li>
               <li>
-                <strong style={{ color: 'var(--fg)' }}>Background.</strong> We&apos;ll talk off the
+                <strong style={{ color: 'var(--fg)' }}>Background.</strong> We'll talk off the
                 record if it helps you get a story right.
               </li>
             </ul>
@@ -184,7 +183,6 @@ export default function PressPage() {
         </div>
       </PageSection>
 
-      {/* Topics we cover */}
       <PageSection background="surface" eyebrow="Topics" title="What we can speak to.">
         <div
           style={{
@@ -231,7 +229,6 @@ export default function PressPage() {
         </div>
       </PageSection>
 
-      {/* Press kit */}
       <PageSection eyebrow="Press kit" title="Assets, ready to ship.">
         <div
           style={{
@@ -278,7 +275,7 @@ export default function PressPage() {
                   color: 'var(--green)',
                 }}
               >
-                ↓
+                v
               </span>
             </a>
           ))}
@@ -291,9 +288,9 @@ export default function PressPage() {
             maxWidth: 720,
           }}
         >
-          Cards402, the Cards402 wordmark, and the Cards402 mark are trademarks of CTX.com Inc. Use
-          them to reference us accurately in editorial contexts — don&apos;t modify, recolour, or
-          combine them with other marks.
+          CSPR402, the CSPR402 wordmark, and the CSPR402 mark are trademarks of CTX.com Inc. Use
+          them to reference us accurately in editorial contexts - don't modify, recolour, or combine
+          them with other marks.
         </p>
       </PageSection>
     </>

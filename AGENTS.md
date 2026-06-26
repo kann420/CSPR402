@@ -1,295 +1,176 @@
-# cards402 — Agent Guide
+# CSPR402 Agent Guide
 
-cards402 issues prepaid Visa virtual cards on demand. AI agents pay USDC or XLM on Stellar via a smart contract and get back a card number, CVV, and expiry — ready to use for online purchases.
+This repo is a hackathon fork of `CTX-com/Cards402`. The target product is
+CSPR402: an x402-inspired API where an AI agent or user pays on Casper
+testnet, the backend verifies the payment, then returns a simulated virtual
+card and receipt.
 
-## Quick orientation
+The original repo is Stellar/Soroban-oriented. Do not assume original Stellar
+payment code is still the right behavior. Treat Stellar files as reference
+material until the Casper adapter replaces them.
 
-- **API base**: `https://api.cards402.com/v1`
-- **Auth**: `X-Api-Key: cards402_...` header on every request
-- **Payment**: Stellar network — USDC or XLM via Soroban contract call
-- **Typical latency**: 45–120 seconds from payment confirmation to card delivery
-- **SDK**: `npm install cards402` — includes MCP server and `purchaseCardOWS()` all-in-one
+## Non-negotiable Rules
 
-## Core flow
+- NEVER hardcode API keys, private keys, mnemonics, bearer tokens, webhook
+  secrets, RPC provider secrets, or faucet credentials in source code.
+- NEVER commit `.env`, wallet key files, generated private keys, local
+  databases, devnet state, or real API responses containing secrets.
+- If something is unknown, do not guess. Verify with local code, official docs,
+  a test transaction, or ask the user.
+- Always debug and verify changes. Every implementation step should end with a
+  relevant command, test, smoke check, or documented blocker.
+- Use Casper testnet only for the MVP. Do not claim production Visa issuance or
+  production USDC support unless it has been explicitly implemented and
+  verified.
+- The virtual card issuer is mocked for this hackathon MVP. Never represent
+  mock card data as a real Visa card or a spendable instrument.
 
-```
-POST /v1/orders          → get Soroban contract payment instructions
-  ↓
-Call contract.pay_usdc() or contract.pay_xlm()   → send funds to receiver contract
-  ↓
-GET /v1/orders/:id       → poll until phase = "ready"
-  ↓
-Use card.number, card.cvv, card.expiry
-```
+## MVP Scope
 
-## Creating an order
+Ship the smallest credible demo first:
 
-```http
-POST /v1/orders
-X-Api-Key: cards402_...
-Content-Type: application/json
-Idempotency-Key: <uuid>     ← always send this; safe to retry on network error
+1. Create an order via API.
+2. Return Casper testnet payment instructions.
+3. Pay with native CSPR on Casper testnet.
+4. Backend verifies the finalized payment.
+5. Backend marks the order paid and fulfills a mock virtual card.
+6. API returns card details, receipt, and Casper deploy hash.
 
-{
-  "amount_usdc": "25.00",
-  "webhook_url": "https://your-app.com/webhook"   ← optional
-}
-```
+`mockUSDC` via CEP-18 is a bonus after the CSPR path works. Do not block the
+MVP on finding an official Casper testnet USDC faucet.
 
-The asset is **not** chosen at order-creation time — every response
-includes both a USDC and an XLM quote, and the agent picks which one to
-pay by invoking either `pay_usdc` or `pay_xlm` on the receiver contract.
-A `payment_asset` field on this request is silently ignored by the
-backend; older drafts of this doc said otherwise (see audit F14).
+## Architecture Direction
 
-**Response:**
+- `backend/`: keep the Express API and SQLite order state machine, but replace
+  Stellar/Soroban verification with Casper verification.
+- `sdk/`: replace Stellar payment helpers with Casper payment helpers and an
+  agent-friendly client.
+- `web/`: keep the dashboard/demo surface, but rename product copy and remove
+  production Visa/Stellar claims.
+- `contract/`: original Soroban contract remains as reference. Add Casper
+  contract work only if the MVP needs it; native CSPR transfer with
+  `transfer_id` is preferred for day-one speed.
+- `examples/`: keep one Node agent demo and one simple HTTP/curl flow working.
 
-```json
-{
-  "order_id": "uuid",
-  "status": "pending_payment",
-  "payment": {
-    "type": "soroban_contract",
-    "contract_id": "C...",                      ← Cards402 receiver contract ID
-    "order_id": "uuid",                         ← pass this to the contract call
-    "usdc": {
-      "amount": "25.00",                        ← USDC amount (decimal string)
-      "asset": "USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"
-    },
-    "xlm": { "amount": "161.2903226" }          ← XLM quote, always present
-  },
-  "poll_url": "/v1/orders/uuid",
-  "budget": {
-    "spent_usdc": "15.00",
-    "limit_usdc": "100.00",
-    "remaining_usdc": "85.00"
-  }
-}
-```
+## Casper Payment Design
 
-Both `usdc` and `xlm` quotes are returned on every response. The agent picks
-one and invokes either `pay_usdc` or `pay_xlm` on the receiver contract — the
-SDK helpers pick the right function based on `paymentAsset`.
+For native CSPR MVP payments:
 
-## Sending the payment
+- Store money as integers in motes or typed decimal strings. Do not use JS
+  floating point for balances, quotes, fees, or comparisons.
+- Generate an order id and a numeric Casper `transfer_id` that maps uniquely to
+  the order.
+- Payment instructions must include chain name, recipient public key, exact
+  amount, transfer id, expiration time, and verification endpoint.
+- Verify the finalized deploy before fulfillment:
+  - chain is Casper testnet
+  - execution succeeded
+  - deploy hash matches the submitted payment
+  - sender is the expected payer when known
+  - recipient is the configured treasury/payment account
+  - amount equals or exceeds the required amount
+  - transfer id maps to the order
+  - order is not expired and not already fulfilled
+- Payment verification must be idempotent. Repeated callbacks, polls, or manual
+  verify requests must not mint multiple cards for the same order.
 
-Use the SDK's `purchaseCardOWS()` which does everything in one call:
+For `mockUSDC`:
 
-```typescript
-import { purchaseCardOWS } from 'cards402';
+- Use CEP-18 on testnet or local devnet.
+- Name it clearly as mock/test token in API responses and UI.
+- Verify contract hash/package, entry point, sender, recipient, amount, and
+  order correlation.
 
-const card = await purchaseCardOWS({
-  apiKey: process.env.CARDS402_API_KEY!,
-  walletName: process.env.OWS_WALLET_NAME!,
-  amountUsdc: '25.00',
-  paymentAsset: 'usdc', // or 'xlm'
-});
-// card: { number, cvv, expiry, brand, order_id }
-```
+## Environment
 
-Or step by step with `payViaContractOWS()` — pass the `payment` object from
-the `POST /v1/orders` response directly:
+Keep real values in local `.env` files only. Use checked-in examples for names
+and documentation.
 
-```typescript
-import { Cards402Client, payViaContractOWS } from 'cards402';
+Recommended Casper variables:
 
-const client = new Cards402Client({ apiKey: process.env.CARDS402_API_KEY! });
-const order = await client.createOrder({ amount_usdc: '25.00' });
-
-const txHash = await payViaContractOWS({
-  walletName: process.env.OWS_WALLET_NAME!,
-  payment: order.payment,
-  paymentAsset: 'usdc', // or 'xlm'
-});
-
-const card = await client.waitForCard(order.order_id);
-```
-
-The same `payViaContractOWS` call handles both USDC and XLM — it reads
-`payment.usdc.amount` or `payment.xlm.amount` based on `paymentAsset` and
-invokes `pay_usdc` / `pay_xlm` on the receiver contract.
-
-If you're using a raw Stellar secret instead of an OWS wallet, replace
-`payViaContractOWS` with `payViaContract` and pass `walletSecret` instead of
-`walletName`.
-
-## Polling for the card
-
-```http
-GET /v1/orders/:id
-X-Api-Key: cards402_...
+```bash
+PAYMENT_PROVIDER=casper
+CASPER_NETWORK=testnet
+CASPER_CHAIN_NAME=casper-test
+CASPER_NODE_RPC_URL=https://node.testnet.casper.network/rpc
+CASPER_EVENT_STREAM_URL=https://node.testnet.casper.network/events
+CASPER_TREASURY_PUBLIC_KEY=
+CASPER_TREASURY_PRIVATE_KEY_PATH=
+CSPR_USD_RATE=0.01
+CASPER_MIN_TRANSFER_MOTES=2500000000
+CASPER_PAYMENT_TTL_MINUTES=60
+CASPER_MIN_CONFIRMATIONS=1
+CASPER_PAYMENT_TIMEOUT_MS=900000
+MOCK_CARD_MODE=true
+VIRTUAL_CARD_PROVIDER=mock
+MOCK_USDC_CONTRACT_HASH=
 ```
 
-**Response when ready:**
+Do not store private key material directly in env unless there is no safer
+local-dev alternative. Prefer a key file path that points to an ignored local
+file.
 
-```json
-{
-  "order_id": "uuid",
-  "status": "delivered",
-  "phase": "ready",
-  "amount_usdc": "25.00",
-  "card": {
-    "number": "4111111111111111",
-    "cvv": "123",
-    "expiry": "12/27",
-    "brand": "Visa"
-  }
-}
+## Tooling And Skills
+
+Current local setup notes live in `docs/agent/casper-tooling.md`.
+
+Important status:
+
+- No relevant Casper blockchain Codex skill was found with `npx skills find`.
+  Results for `casper` mostly refer to unrelated "Casper Studios" skills.
+- `casper-devnet` is the desired MCP/local-chain tool for contract work, but
+  this machine currently needs Windows SDK libraries before the Cargo install
+  can succeed.
+- Do not install random blockchain skills/plugins unless they directly help
+  Casper and the reason is documented.
+
+## Verification Commands
+
+Use the narrowest command that proves the change:
+
+```bash
+npm install
+npm test
+npm run lint
+npm run typecheck
+cd backend && npm test
+cd sdk && npm test
+cd web && npm run build
 ```
 
-**Phase values** (stable, use these in your code):
+For Casper-specific work, add or run smoke tests that prove:
 
-| Phase               | Meaning                                                                                                                                        |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `awaiting_approval` | Order is held for owner approval (triggered by spend policy). Poll `approval_request_id` to watch for a decision; no payment instructions yet. |
-| `awaiting_payment`  | Ready to be paid. Response includes `payment` — call the receiver contract.                                                                    |
-| `processing`        | Payment detected on-chain; fulfillment in progress.                                                                                            |
-| `ready`             | Card delivered — check `card` object.                                                                                                          |
-| `failed`            | Fulfillment failed — check `error`; refund queued if possible.                                                                                 |
-| `refunded`          | USDC refunded — check `refund.stellar_txid`.                                                                                                   |
-| `rejected`          | Owner rejected the approval request; `error` contains the decision note.                                                                       |
-| `expired`           | Payment window expired (2 hours); no funds taken.                                                                                              |
+- an order can be created
+- a Casper payment can be submitted or mocked deterministically
+- the backend rejects wrong amount, wrong recipient, wrong transfer id, failed
+  deploys, expired orders, and duplicate fulfillment
+- the happy path returns one card and one receipt
 
-## Order lifecycle
+If a command cannot run because of missing local dependencies, document the
+exact command, error, and fix.
 
-```
-awaiting_approval → awaiting_payment → processing → ready
-      ↓ rejected              ↓ expired    ↓ failed → refunded
-```
+## Development Style
 
-Agents should only care about the `phase` field (not the internal `status`).
-The internal status has more granularity for debugging.
+- Use `rg` or `rg --files` first when exploring.
+- Keep changes scoped to the MVP. Avoid broad refactors until the CSPR payment
+  path works end to end.
+- Preserve user changes. Do not reset, checkout, or delete work you did not
+  create.
+- Add tests close to the changed behavior.
+- Update docs when behavior, env vars, or API response shapes change.
+- Prefer official Casper docs and repo references:
+  - https://docs.casper.network/
+  - https://github.com/casper-network
+  - https://github.com/veles-labs/casper-devnet
+  - https://docs.cspr.cloud/
 
-## Polling recommendations
+## Product Language
 
-- Poll every 3–5 seconds until `phase` is terminal (`ready`, `failed`, `refunded`, `rejected`, `expired`).
-- `awaiting_approval` can last up to 2 hours — check `expires_at` on the response and back off polling (e.g. every 30s).
-- Set a client-side timeout (5–10 minutes for the payment phase) and handle `WaitTimeoutError` from the SDK.
-- Use `client.waitForCard(orderId)` from the SDK — it handles terminal phases and timeouts for you.
+Use precise hackathon language:
 
-## Webhook events
-
-Optionally provide `webhook_url` in `POST /v1/orders`. cards402 will POST to that URL on delivery or failure.
-
-**Delivery event:**
-
-```json
-{
-  "order_id": "uuid",
-  "status": "delivered",
-  "card": { "number": "...", "cvv": "...", "expiry": "...", "brand": "Visa" }
-}
-```
-
-**Failure event:**
-
-```json
-{
-  "order_id": "uuid",
-  "status": "failed",
-  "error": "human-readable error message"
-}
-```
-
-Webhooks include `X-Cards402-Signature: sha256=<hmac>` and `X-Cards402-Timestamp: <unix-ms>` headers. The signature covers `<timestamp>.<body>` — verify the HMAC and reject if the timestamp is >5 minutes old.
-
-**Delivery guarantees.** Webhook delivery is best-effort but retried. Each
-event is attempted immediately; on any non-2xx response or network error,
-cards402 queues a retry on an exponential backoff (~30s, ~5m, ~30m) for up to
-four total deliveries (one initial + three retries, about 35 minutes end-to-end). After the final failure,
-the event is marked abandoned and not retried. **Your handler must be
-idempotent** — the same event may arrive more than once, and the signature
-plus `order_id` + terminal `status` let you dedupe safely.
-
-## Checking your budget
-
-```http
-GET /v1/usage
-X-Api-Key: cards402_...
-```
-
-```json
-{
-  "budget": {
-    "spent_usdc": "15.00",
-    "limit_usdc": "100.00",
-    "remaining_usdc": "85.00"
-  },
-  "orders": {
-    "total": 3,
-    "delivered": 2,
-    "failed": 0,
-    "refunded": 1,
-    "in_progress": 0
-  }
-}
-```
-
-Use `client.getUsage()` in the SDK or call the `check_budget` MCP tool.
-
-## Error responses
-
-All errors return `{ "error": "error_code", "message": "..." }`.
-
-| HTTP | error                             | Meaning                                           |
-| ---- | --------------------------------- | ------------------------------------------------- |
-| 400  | `invalid_amount`                  | `amount_usdc` must be a positive number ≤ $10,000 |
-| 400  | `invalid_webhook_url`             | webhook URL failed SSRF validation                |
-| 401  | `missing_api_key`                 | No `X-Api-Key` header                             |
-| 401  | `invalid_api_key`                 | Key not found or disabled                         |
-| 403  | `spend_limit_exceeded`            | Would exceed the key's spend limit                |
-| 404  | `order_not_found`                 | Order doesn't exist or belongs to another key     |
-| 429  | `rate_limit_exceeded`             | 60 orders/hour or 600 polls/min exceeded          |
-| 503  | `service_temporarily_unavailable` | System frozen after repeated failures             |
-
-## Idempotency
-
-Always send `Idempotency-Key: <uuid>` on `POST /v1/orders`. If the request fails at the network level and you retry with the same key within 24 hours, you'll get the original response — not a duplicate order.
-
-## Wallet setup
-
-Cards402 agents use OWS (Open Wallet Standard) — keys are stored encrypted in a local vault file, never as plaintext env vars.
-
-1. **Set env vars**:
-   ```
-   OWS_WALLET_NAME=my-agent       # wallet identifier
-   OWS_WALLET_PASSPHRASE=secret   # encryption passphrase (recommended)
-   CARDS402_API_KEY=cards402_...  # your API key from cards402.com
-   ```
-2. **Create the wallet** — run `setup_wallet` via MCP, or:
-   ```typescript
-   import { createOWSWallet } from 'cards402';
-   const { publicKey } = createOWSWallet('my-agent', process.env.OWS_WALLET_PASSPHRASE);
-   ```
-3. **Send at least 2 XLM** to the public key — activates the Stellar account and covers network reserves.
-4. **Run `setup_wallet` again** — the USDC trustline is added automatically once the account has XLM. No manual trustline step needed.
-5. **Fund with USDC** (if paying with USDC) — or just top up XLM to pay with native XLM. The asset choice happens at payment time (`pay_usdc` vs `pay_xlm` on the receiver contract), not at order creation.
-
-The vault file lives at `~/.ows/wallets/<name>.vault` by default. Set `OWS_VAULT_PATH` to override.
-
-## MCP server
-
-For Claude Desktop, Cursor, or any MCP host:
-
-```json
-{
-  "mcpServers": {
-    "cards402": {
-      "command": "npx",
-      "args": ["cards402"],
-      "env": {
-        "CARDS402_API_KEY": "cards402_...",
-        "OWS_WALLET_NAME": "my-agent",
-        "OWS_WALLET_PASSPHRASE": "...",
-        "OWS_VAULT_PATH": "/path/to/vault"
-      }
-    }
-  }
-}
-```
-
-The `cards402` bin defaults to the `mcp` subcommand when no other
-subcommand is passed, so `npx cards402` with no args boots the MCP
-server. `npx cards402 mcp` is equivalent and more explicit.
-
-Tools available: `purchase_vcc`, `setup_wallet`, `check_order`, `check_budget`.
+- Say "simulated virtual card" or "mock virtual card" for this MVP.
+- Say "Casper testnet CSPR" for native testnet payment.
+- Say "mockUSDC CEP-18" unless an official, verified Casper testnet USDC path is
+  implemented.
+- Do not say "real Visa", "production card", "mainnet payment", or "real USDC"
+  unless that capability has been implemented and verified.

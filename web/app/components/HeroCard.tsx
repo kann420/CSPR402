@@ -171,7 +171,7 @@ export function HeroCard() {
     <>
       <div className="hc-card-wrap">
         <div className="hc-card-shadow" aria-hidden />
-        <article ref={cardRef} className="hc-card" aria-label="Cards402 virtual card">
+        <article ref={cardRef} className="hc-card" aria-label="CSPR402 mock virtual card">
           {/* Load-in choreography elements (rendered first so they sit
               underneath the noise + content layers in z-order):
                 · outline-glow: soft radial that pulses outward
@@ -194,7 +194,7 @@ export function HeroCard() {
           <div className="hc-orb hc-orb-two" aria-hidden />
           <div className="hc-card-content">
             <header className="hc-topline">
-              <span className="hc-brand-wordmark" role="img" aria-label="Cards402" />
+              <img className="hc-brand-wordmark" src="/logo-transparent.svg" alt="CSPR402" />
               <div className="hc-topline-right">Virtual Card</div>
             </header>
             <div className="hc-middle">
@@ -640,18 +640,11 @@ function CardStyles() {
 
       /* Cards402 wordmark on the card face — SVG mask coloured with cream ink. */
       .hc-brand-wordmark {
-        display: inline-block;
-        width: 5.4rem;
-        height: 1.25rem;
-        background-color: #fff9ee;
-        mask-image: url(/logo.svg);
-        -webkit-mask-image: url(/logo.svg);
-        mask-repeat: no-repeat;
-        -webkit-mask-repeat: no-repeat;
-        mask-size: contain;
-        -webkit-mask-size: contain;
-        mask-position: left center;
-        -webkit-mask-position: left center;
+        display: block;
+        width: 4.1rem;
+        height: 2.4rem;
+        object-fit: contain;
+        object-position: left center;
         filter: drop-shadow(0 0 12px rgba(255, 207, 110, 0.25));
         flex-shrink: 0;
       }

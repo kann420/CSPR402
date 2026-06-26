@@ -243,7 +243,12 @@ export async function sendTestWebhook(body: {
   );
 }
 
-export async function fetchPlatformWallet(): Promise<{ public_key: string; network: string }> {
+export async function fetchPlatformWallet(): Promise<{
+  public_key: string;
+  network: string;
+  chain_name?: string;
+  payment_provider?: string;
+}> {
   return json(await fetch(`${API_BASE}/dashboard/platform-wallet`));
 }
 

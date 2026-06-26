@@ -57,6 +57,36 @@ function stellarStrkey(prefix, fieldName) {
     );
 }
 
+const CASPER_PUBLIC_KEY_RE = /^(01[0-9a-fA-F]{64}|02[0-9a-fA-F]{66})$/;
+const CASPER_HASH_RE = /^(hash-)?[0-9a-fA-F]{64}$/;
+function casperPublicKey(fieldName) {
+  return z.string().refine((v) => CASPER_PUBLIC_KEY_RE.test(v), {
+    message: `${fieldName} must be a Casper public key hex string (01 + 32 bytes or 02 + 33 bytes)`,
+  });
+}
+
+function casperHash(fieldName) {
+  return z.string().refine((v) => CASPER_HASH_RE.test(v), {
+    message: `${fieldName} must be 64 hex characters, optionally prefixed with hash-`,
+  });
+}
+
+function positiveDecimal(fieldName) {
+  return z
+    .string()
+    .regex(/^\d+(\.\d+)?$/, `${fieldName} must be a positive decimal string`)
+    .refine((v) => {
+      try {
+        const [whole, frac = ''] = v.split('.');
+        const scale = 10n ** BigInt(frac.length);
+        const units = BigInt(whole || '0') * scale + BigInt(frac || '0');
+        return units > 0n;
+      } catch {
+        return false;
+      }
+    }, `${fieldName} must be greater than zero`);
+}
+
 // F4-env: URL with http(s) scheme only. Rejects ftp://, file://,
 // javascript:, chrome-extension://, etc. at boot.
 function httpUrl(fieldName) {
@@ -153,6 +183,34 @@ const EnvSchema = z
     // Database
     DB_PATH: z.string().default('./cards402.db'),
 
+    // Payment provider. CardCasper402 defaults to Casper testnet; the
+    // original Stellar/Soroban path remains available by explicitly
+    // setting PAYMENT_PROVIDER=stellar.
+    PAYMENT_PROVIDER: z.enum(['casper', 'stellar']).optional().default('casper'),
+
+    // Casper testnet CSPR payment instructions.
+    CASPER_NETWORK: z.enum(['testnet']).optional(),
+    CASPER_CHAIN_NAME: z.enum(['casper-test']).optional(),
+    CASPER_NODE_RPC_URL: httpUrl('CASPER_NODE_RPC_URL').optional(),
+    CASPER_TREASURY_PUBLIC_KEY: casperPublicKey('CASPER_TREASURY_PUBLIC_KEY').optional(),
+    CSPR_USD_RATE: positiveDecimal('CSPR_USD_RATE').optional(),
+    CASPER_MIN_TRANSFER_MOTES: z
+      .string()
+      .regex(/^\d+$/, 'CASPER_MIN_TRANSFER_MOTES must be a positive integer')
+      .optional(),
+    CASPER_PAYMENT_TTL_MINUTES: z
+      .string()
+      .regex(/^\d+$/, 'CASPER_PAYMENT_TTL_MINUTES must be a positive integer')
+      .optional(),
+    MOCK_USDC_ENABLED: z.enum(['true', 'false']).optional().default('false'),
+    MOCK_USDC_CONTRACT_PACKAGE_HASH: casperHash('MOCK_USDC_CONTRACT_PACKAGE_HASH').optional(),
+    MOCK_USDC_CONTRACT_HASH: casperHash('MOCK_USDC_CONTRACT_HASH').optional(),
+    MOCK_USDC_DECIMALS: z
+      .string()
+      .regex(/^\d+$/, 'MOCK_USDC_DECIMALS must be a non-negative integer')
+      .optional()
+      .default('6'),
+
     // Stellar — treasury wallet used for USDC/XLM refunds to agents.
     // F1-env: full Stellar StrKey format validated (56 base32 chars,
     // not just first-char check). A typo like 'S' or 'Gbadkey' fails
@@ -161,10 +219,10 @@ const EnvSchema = z
     STELLAR_USDC_ISSUER: stellarStrkey('G', 'STELLAR_USDC_ISSUER').default(
       'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN',
     ),
-    STELLAR_XLM_SECRET: stellarStrkey('S', 'STELLAR_XLM_SECRET'),
+    STELLAR_XLM_SECRET: stellarStrkey('S', 'STELLAR_XLM_SECRET').optional(),
 
     // Soroban receiver contract — agents pay this; the watcher detects events and triggers VCC
-    RECEIVER_CONTRACT_ID: stellarStrkey('C', 'RECEIVER_CONTRACT_ID'),
+    RECEIVER_CONTRACT_ID: stellarStrkey('C', 'RECEIVER_CONTRACT_ID').optional(),
     SOROBAN_RPC_URL: httpUrl('SOROBAN_RPC_URL').optional(),
 
     // VCC fulfillment service (vcc.ctx.com) — handles CTX ordering + card scraping
@@ -264,6 +322,80 @@ const EnvSchema = z
       .string()
       .regex(/^[0-9a-fA-F]{64}$/, 'CARDS402_SECRET_BOX_KEY must be 64 hex characters (32 bytes)')
       .optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.PAYMENT_PROVIDER !== 'casper') return;
+    for (const field of [
+      'CASPER_NETWORK',
+      'CASPER_CHAIN_NAME',
+      'CASPER_NODE_RPC_URL',
+      'CASPER_TREASURY_PUBLIC_KEY',
+      'CSPR_USD_RATE',
+      'CASPER_PAYMENT_TTL_MINUTES',
+    ]) {
+      if (!val[field]) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `${field} is required when PAYMENT_PROVIDER=casper`,
+          path: [field],
+        });
+      }
+    }
+    if (val.CASPER_PAYMENT_TTL_MINUTES) {
+      const ttl = Number(val.CASPER_PAYMENT_TTL_MINUTES);
+      if (!Number.isSafeInteger(ttl) || ttl <= 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'CASPER_PAYMENT_TTL_MINUTES must be greater than zero',
+          path: ['CASPER_PAYMENT_TTL_MINUTES'],
+        });
+      }
+    }
+    if (val.CASPER_MIN_TRANSFER_MOTES) {
+      const minTransferMotes = BigInt(val.CASPER_MIN_TRANSFER_MOTES);
+      if (minTransferMotes <= 0n) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'CASPER_MIN_TRANSFER_MOTES must be greater than zero',
+          path: ['CASPER_MIN_TRANSFER_MOTES'],
+        });
+      }
+    }
+    if (val.MOCK_USDC_ENABLED === 'true') {
+      if (!val.MOCK_USDC_CONTRACT_PACKAGE_HASH) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'MOCK_USDC_CONTRACT_PACKAGE_HASH is required when MOCK_USDC_ENABLED=true',
+          path: ['MOCK_USDC_CONTRACT_PACKAGE_HASH'],
+        });
+      }
+      if (val.MOCK_USDC_DECIMALS !== '6') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'MOCK_USDC_DECIMALS must be 6 for mockUSDC',
+          path: ['MOCK_USDC_DECIMALS'],
+        });
+      }
+    }
+  })
+  .superRefine((val, ctx) => {
+    const needsStellar = val.PAYMENT_PROVIDER === 'stellar' || val.MPP_ENABLED === 'true';
+    if (!needsStellar) return;
+    if (!val.STELLAR_XLM_SECRET) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'STELLAR_XLM_SECRET is required when PAYMENT_PROVIDER=stellar or MPP_ENABLED=true',
+        path: ['STELLAR_XLM_SECRET'],
+      });
+    }
+    if (!val.RECEIVER_CONTRACT_ID) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'RECEIVER_CONTRACT_ID is required when PAYMENT_PROVIDER=stellar or MPP_ENABLED=true',
+        path: ['RECEIVER_CONTRACT_ID'],
+      });
+    }
   })
   .superRefine((val, ctx) => {
     // Production must have a secret-box key set. Dev/test can skip it and

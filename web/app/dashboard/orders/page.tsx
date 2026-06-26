@@ -1,9 +1,6 @@
-// Orders — fleet-wide order history with filters, presets, and a
-// detail drawer that shows the full lifecycle for one order.
-
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useDashboard } from '../_lib/DashboardProvider';
 import { Card } from '../_ui/Card';
 import { Input } from '../_ui/Input';
@@ -27,12 +24,12 @@ export default function OrdersPage() {
 
   const filtered = useMemo(() => {
     const now = Date.now();
-    const DAY = 86_400_000;
+    const day = 86_400_000;
     let list = orders;
     switch (preset) {
       case 'failed_today':
         list = list.filter(
-          (o) => o.status === 'failed' && now - parseTimestamp(o.created_at) < DAY,
+          (o) => o.status === 'failed' && now - parseTimestamp(o.created_at) < day,
         );
         break;
       case 'in_flight':
@@ -40,7 +37,7 @@ export default function OrdersPage() {
         break;
       case 'delivered_7d':
         list = list.filter(
-          (o) => o.status === 'delivered' && now - parseTimestamp(o.created_at) < 7 * DAY,
+          (o) => o.status === 'delivered' && now - parseTimestamp(o.created_at) < 7 * day,
         );
         break;
       case 'refunded':
@@ -53,6 +50,12 @@ export default function OrdersPage() {
         return (
           o.id.toLowerCase().includes(q) ||
           (o.api_key_label || '').toLowerCase().includes(q) ||
+          (o.casper_deploy_hash || '').toLowerCase().includes(q) ||
+          (o.casper_sender_public_key || '').toLowerCase().includes(q) ||
+          (o.casper_expected_sender_public_key || '').toLowerCase().includes(q) ||
+          (o.receipt?.type || '').toLowerCase().includes(q) ||
+          (o.receipt?.deploy_hash || '').toLowerCase().includes(q) ||
+          String(o.casper_transfer_id || '').includes(q) ||
           (o.stellar_txid || '').toLowerCase().includes(q)
         );
       });
@@ -62,15 +65,15 @@ export default function OrdersPage() {
 
   const counts = useMemo(() => {
     const now = Date.now();
-    const DAY = 86_400_000;
+    const day = 86_400_000;
     return {
       all: orders.length,
       failed_today: orders.filter(
-        (o) => o.status === 'failed' && now - parseTimestamp(o.created_at) < DAY,
+        (o) => o.status === 'failed' && now - parseTimestamp(o.created_at) < day,
       ).length,
       in_flight: orders.filter((o) => IN_FLIGHT_ORDER_STATUSES.has(o.status)).length,
       delivered_7d: orders.filter(
-        (o) => o.status === 'delivered' && now - parseTimestamp(o.created_at) < 7 * DAY,
+        (o) => o.status === 'delivered' && now - parseTimestamp(o.created_at) < 7 * day,
       ).length,
       refunded: orders.filter((o) => o.status === 'refunded' || o.status === 'refund_pending')
         .length,
@@ -81,13 +84,13 @@ export default function OrdersPage() {
     <PageContainer>
       <PageHeader
         title="Orders"
-        subtitle={`${orders.length} total — ${counts.in_flight} in flight, ${counts.failed_today} failed today`}
+        subtitle={`${orders.length} total - ${counts.in_flight} in flight, ${counts.failed_today} failed today`}
       />
 
       <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, maxWidth: 340 }}>
+        <div style={{ flex: 1, maxWidth: 380 }}>
           <Input
-            placeholder="Search by order id, agent, txid…"
+            placeholder="Search by order id, deploy hash, transfer id, or agent..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -133,7 +136,7 @@ export default function OrdersPage() {
         {filtered.length === 0 ? (
           <EmptyState
             title={orders.length === 0 ? 'No orders yet' : 'No orders match your filters'}
-            description="Orders appear here the moment an agent creates one — live over SSE."
+            description="Orders appear here as soon as an agent creates one."
           />
         ) : (
           <table>
@@ -178,7 +181,7 @@ export default function OrdersPage() {
                       color: 'var(--fg-dim)',
                     }}
                   >
-                    {o.payment_asset}
+                    {paymentLabel(o.payment_asset)}
                   </td>
                   <td>
                     <OrderStatusPill status={o.status} />
@@ -232,11 +235,61 @@ function OrderDrawer({
         </Row>
         <Row label="Payment asset">
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.74rem' }}>
-            {order.payment_asset}
+            {paymentLabel(order.payment_asset)}
           </span>
         </Row>
+        {order.casper_transfer_id !== null && (
+          <Row label="Casper transfer id">
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>
+              {order.casper_transfer_id}
+            </span>
+          </Row>
+        )}
+        {order.casper_deploy_hash && (
+          <Row label="Casper deploy hash">
+            <span
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.72rem',
+                color: 'var(--green)',
+                wordBreak: 'break-all',
+              }}
+            >
+              {order.casper_deploy_hash}
+            </span>
+          </Row>
+        )}
+        {order.casper_sender_public_key && (
+          <Row label="Sender public key">
+            <span
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.72rem',
+                color: 'var(--fg-muted)',
+                wordBreak: 'break-all',
+              }}
+            >
+              {order.casper_sender_public_key}
+            </span>
+          </Row>
+        )}
+        {order.casper_expected_sender_public_key && (
+          <Row label="Expected payer">
+            <span
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.72rem',
+                color: 'var(--fg-muted)',
+                wordBreak: 'break-all',
+              }}
+            >
+              {order.casper_expected_sender_public_key}
+            </span>
+          </Row>
+        )}
+        {order.receipt && <ReceiptDetails receipt={order.receipt} />}
         {order.stellar_txid && (
-          <Row label="Stellar txid">
+          <Row label="Legacy Stellar txid">
             <a
               href={`https://stellar.expert/explorer/public/tx/${order.stellar_txid}`}
               target="_blank"
@@ -249,7 +302,7 @@ function OrderDrawer({
                 wordBreak: 'break-all',
               }}
             >
-              {order.stellar_txid.slice(0, 10)}…{order.stellar_txid.slice(-8)} ↗
+              {order.stellar_txid.slice(0, 10)}...{order.stellar_txid.slice(-8)} ↗
             </a>
           </Row>
         )}
@@ -285,7 +338,80 @@ function OrderDrawer({
   );
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function paymentLabel(asset: string) {
+  if (asset === 'cspr_casper') return 'CSPR';
+  if (asset === 'mock_usdc_cep18') return 'mockUSDC';
+  if (asset === 'usdc') return 'Legacy USDC';
+  return asset;
+}
+
+function ReceiptDetails({ receipt }: { receipt: NonNullable<Order['receipt']> }) {
+  return (
+    <div
+      style={{
+        borderTop: '1px solid var(--border)',
+        paddingTop: '0.85rem',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.7rem',
+      }}
+    >
+      <Row label="Receipt">
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.74rem' }}>{receipt.type}</span>
+      </Row>
+      {receipt.verified_at && (
+        <Row label="Verified">{new Date(parseTimestamp(receipt.verified_at)).toLocaleString()}</Row>
+      )}
+      {receipt.type === 'casper_mock_usdc_receipt' ? (
+        <>
+          <Row label="CEP-18 package hash">
+            <MonoWrap>{receipt.contract_package_hash || 'not recorded'}</MonoWrap>
+          </Row>
+          <Row label="mockUSDC amount">
+            <span style={{ fontFamily: 'var(--font-mono)' }}>
+              {receipt.amount_base_units || 'unknown'} base units
+            </span>
+          </Row>
+          {receipt.recipient_account_hash && (
+            <Row label="Recipient account hash">
+              <MonoWrap>{receipt.recipient_account_hash}</MonoWrap>
+            </Row>
+          )}
+        </>
+      ) : (
+        <>
+          <Row label="CSPR amount">
+            <span style={{ fontFamily: 'var(--font-mono)' }}>
+              {receipt.amount_motes || 'unknown'} motes
+            </span>
+          </Row>
+          <Row label="Transfer id">
+            <span style={{ fontFamily: 'var(--font-mono)' }}>
+              {receipt.transfer_id ?? 'not recorded'}
+            </span>
+          </Row>
+        </>
+      )}
+    </div>
+  );
+}
+
+function MonoWrap({ children }: { children: ReactNode }) {
+  return (
+    <span
+      style={{
+        fontFamily: 'var(--font-mono)',
+        fontSize: '0.72rem',
+        color: 'var(--fg-muted)',
+        wordBreak: 'break-all',
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <div

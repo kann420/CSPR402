@@ -102,8 +102,8 @@ export function CreateAgentDrawer({ open, onClose }: Props) {
   // without knowing why.
   const snippet = created?.claim
     ? [
-        'Read https://cards402.com/skill.md and set up this agent by running:',
-        `npx -y cards402@latest onboard --claim ${created.claim.code}`,
+        'Read https://cspr402.xyz/skill.md and set up this by running:',
+        `npx -y cspr402@latest onboard --claim ${created.claim.code} --casper-public-key <hex>`,
       ].join('\n')
     : '';
 
@@ -267,20 +267,16 @@ export function CreateAgentDrawer({ open, onClose }: Props) {
               title="Claim redeemed"
               detail="Agent traded the claim for an api key."
             />
-            <StepRow state={stepState(step, 'wallet')} title="OWS wallet created" />
+            <StepRow state={stepState(step, 'wallet')} title="Casper wallet configured" />
             <StepRow
               state={stepState(step, 'awaiting_deposit')}
               title="Awaiting deposit"
-              detail="Send at least 2 XLM to activate the wallet and cover reserves. To receive USDC, the agent must first open a trustline (run `cards402 wallet trustline` after funding with XLM)."
+              detail="Fund the Casper testnet public key with enough CSPR for native transfers and gas."
             />
             <StepRow
               state={stepState(step, 'funded')}
               title="Funded"
-              detail={
-                balance
-                  ? `${parseFloat(balance.xlm).toFixed(2)} XLM · ${parseFloat(balance.usdc).toFixed(2)} USDC`
-                  : undefined
-              }
+              detail={balance ? `${parseFloat(balance.xlm).toFixed(2)} CSPR testnet` : undefined}
             />
             <StepRow state={stepState(step, 'active')} title="Active" />
           </div>
@@ -303,7 +299,7 @@ export function CreateAgentDrawer({ open, onClose }: Props) {
                   marginBottom: '0.5rem',
                 }}
               >
-                Wallet address
+                Casper public key
               </div>
               <div
                 style={{
@@ -355,10 +351,8 @@ export function CreateAgentDrawer({ open, onClose }: Props) {
                   lineHeight: 1.45,
                 }}
               >
-                Send at least 2 XLM (1 XLM account minimum + 0.5 XLM trustline + 0.5 headroom). To
-                receive USDC, the agent must first open a USDC trustline by running{' '}
-                <code>cards402 wallet trustline</code>. The stepper will flip to{' '}
-                <strong>Funded</strong> automatically once Horizon sees the deposit.
+                Fund this public key with Casper testnet CSPR. The stepper will flip to{' '}
+                <strong>Funded</strong> once the agent reports a usable balance.
               </div>
             </div>
           )}

@@ -1,16 +1,3 @@
-// Dashboard-wide data store + SSE subscription. Replaces the old
-// 2.6k-line page.tsx that held everything as local useState. Each
-// page component consumes the pieces it needs via useDashboard().
-//
-// Data flow:
-//   1. Initial fetchAll() on mount after auth
-//   2. SSE /dashboard/stream → triggers fetchAll() on every event
-//   3. Horizon balances polled on a 30s interval for funded wallets
-//   4. Optimistic local updates (e.g. after createAgent) also refetch
-//
-// Full refetch on every event is simple and resilient; per-event
-// patching is a future optimisation if the agent list gets large.
-
 'use client';
 
 import {
@@ -24,8 +11,6 @@ import {
   type ReactNode,
 } from 'react';
 import {
-  API_BASE,
-  USDC_ISSUER,
   type ApiKey,
   type ApprovalRequest,
   type DashboardInfo,
@@ -33,6 +18,7 @@ import {
   type User,
   type WalletBalance,
 } from './types';
+import { API_BASE } from './types';
 import { fetchAgents, fetchApprovals, fetchDashboard, fetchMe, fetchOrders } from './api';
 
 interface DashboardState {
@@ -55,44 +41,6 @@ export function useDashboard(): DashboardState {
   return ctx;
 }
 
-interface HorizonBalanceResponse {
-  balances: Array<{
-    asset_type: string;
-    asset_code?: string;
-    asset_issuer?: string;
-    balance: string;
-  }>;
-}
-
-async function fetchHorizonBalance(publicKey: string, network?: string): Promise<WalletBalance> {
-  try {
-    const horizonUrl =
-      network === 'testnet' ? 'https://horizon-testnet.stellar.org' : 'https://horizon.stellar.org';
-    // 5s timeout so a hung Horizon lookup doesn't stall the entire
-    // wallet-polling cycle (Promise.all across all agents).
-    const res = await fetch(`${horizonUrl}/accounts/${publicKey}`, {
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!res.ok) return { xlm: '0', usdc: '0' };
-    const data: HorizonBalanceResponse = await res.json();
-    let xlm = '0';
-    let usdc = '0';
-    for (const b of data.balances || []) {
-      if (b.asset_type === 'native') xlm = b.balance;
-      if (
-        b.asset_type === 'credit_alphanum4' &&
-        b.asset_code === 'USDC' &&
-        b.asset_issuer === USDC_ISSUER
-      ) {
-        usdc = b.balance;
-      }
-    }
-    return { xlm, usdc };
-  } catch {
-    return { xlm: '0', usdc: '0' };
-  }
-}
-
 export function DashboardProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -102,39 +50,50 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
   const [walletBalances, setWalletBalances] = useState<Record<string, WalletBalance>>({});
+  const refreshInFlight = useRef<Promise<void> | null>(null);
+  const refreshQueued = useRef(false);
 
-  // fetchAll grabs everything in parallel. Individual failures are kept
-  // isolated — a broken /approval-requests endpoint shouldn't hide
-  // agents or orders. Every state setter is defensive against the
-  // backend returning an unexpected shape: if the array key is missing
-  // we fall back to an empty array so downstream `.filter()` / `.map()`
-  // calls can't crash the whole dashboard.
   const refresh = useCallback(async () => {
-    const [infoRes, agentsRes, ordersRes, approvalsRes] = await Promise.allSettled([
-      fetchDashboard(),
-      fetchAgents(),
-      fetchOrders(200),
-      fetchApprovals(),
-    ]);
-    if (infoRes.status === 'fulfilled') setInfo(infoRes.value ?? null);
-    if (agentsRes.status === 'fulfilled') {
-      setAgents(Array.isArray(agentsRes.value?.api_keys) ? agentsRes.value.api_keys : []);
+    if (refreshInFlight.current) {
+      refreshQueued.current = true;
+      return refreshInFlight.current;
     }
-    if (ordersRes.status === 'fulfilled') {
-      setOrders(Array.isArray(ordersRes.value?.orders) ? ordersRes.value.orders : []);
+    async function runOnce() {
+      const [infoRes, agentsRes, ordersRes, approvalsRes] = await Promise.allSettled([
+        fetchDashboard(),
+        fetchAgents(),
+        fetchOrders(200),
+        fetchApprovals(),
+      ]);
+      if (infoRes.status === 'fulfilled') setInfo(infoRes.value ?? null);
+      if (agentsRes.status === 'fulfilled') {
+        setAgents(Array.isArray(agentsRes.value?.api_keys) ? agentsRes.value.api_keys : []);
+      }
+      if (ordersRes.status === 'fulfilled') {
+        setOrders(Array.isArray(ordersRes.value?.orders) ? ordersRes.value.orders : []);
+      }
+      if (approvalsRes.status === 'fulfilled') {
+        setApprovals(
+          Array.isArray(approvalsRes.value?.approval_requests)
+            ? approvalsRes.value.approval_requests
+            : [],
+        );
+      }
     }
-    if (approvalsRes.status === 'fulfilled') {
-      setApprovals(
-        Array.isArray(approvalsRes.value?.approval_requests)
-          ? approvalsRes.value.approval_requests
-          : [],
-      );
+    const run = (async () => {
+      do {
+        refreshQueued.current = false;
+        await runOnce();
+      } while (refreshQueued.current);
+    })();
+    refreshInFlight.current = run;
+    try {
+      await run;
+    } finally {
+      refreshInFlight.current = null;
     }
   }, []);
 
-  // Auth check on mount. The /api/auth/me proxy returns 401 if the
-  // HMAC cookie is missing or tampered, and the page-level AuthGate
-  // redirects to the login screen when authError is set.
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -154,18 +113,23 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     };
   }, [refresh]);
 
-  // SSE: the backend emits a single event per state change. We don't
-  // care about the event body — we just full-refetch. Auto-reconnect
-  // with 2s backoff, plus a 60s safety net in case the stream silently
-  // wedges behind a proxy that can't do text/event-stream.
   useEffect(() => {
     if (!user) return;
     let closed = false;
     let abort: AbortController | null = null;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
     const safety = setInterval(() => {
       void refresh();
     }, 60_000);
+
+    function scheduleRefresh() {
+      if (refreshTimer) return;
+      refreshTimer = setTimeout(() => {
+        refreshTimer = null;
+        void refresh();
+      }, 250);
+    }
 
     async function openStream() {
       if (closed) return;
@@ -182,10 +146,6 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         while (!closed) {
           const { value, done } = await reader.read();
           if (done) break;
-          // Normalize CRLF and bare CR to LF before accumulating —
-          // same fix as sdk/src/client.ts SSE parser. A proxy that
-          // rewrites line endings to \r\n would otherwise prevent
-          // '\n\n' from ever matching.
           buf += decoder
             .decode(value, { stream: true })
             .replace(/\r\n/g, '\n')
@@ -194,9 +154,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
           while ((idx = buf.indexOf('\n\n')) !== -1) {
             const event = buf.slice(0, idx);
             buf = buf.slice(idx + 2);
-            if (event.includes('data:')) void refresh();
+            if (event.includes('data:')) scheduleRefresh();
           }
-          // Cap the buffer to prevent unbounded growth on malformed streams.
           if (buf.length > 1024 * 1024) buf = '';
         }
       } catch {
@@ -205,56 +164,26 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         if (!closed) timer = setTimeout(openStream, 2000);
       }
     }
+
     void openStream();
     return () => {
       closed = true;
       abort?.abort();
       if (timer) clearTimeout(timer);
+      if (refreshTimer) clearTimeout(refreshTimer);
       clearInterval(safety);
     };
   }, [user, refresh]);
 
-  // Horizon balances for every agent that has a wallet address. Polls
-  // every 30s. Individual account 404s (un-activated wallets) return
-  // {0, 0} so the UI always has a value to render.
-  const agentsWithWallets = useMemo(() => agents.filter((a) => !!a.wallet_public_key), [agents]);
-  const walletKeyList = useMemo(
-    () =>
-      agentsWithWallets
-        .map((a) => `${a.id}:${a.wallet_public_key}`)
-        .sort()
-        .join(','),
-    [agentsWithWallets],
-  );
-  const walletKeyListRef = useRef(walletKeyList);
-  walletKeyListRef.current = walletKeyList;
-
   useEffect(() => {
-    if (!user || agentsWithWallets.length === 0) return;
-    let cancelled = false;
-
-    async function pollAll() {
-      const entries = await Promise.all(
-        agentsWithWallets.map(async (a) => {
-          const bal = await fetchHorizonBalance(a.wallet_public_key!, info?.network);
-          return [a.id, bal] as const;
-        }),
-      );
-      if (cancelled) return;
-      setWalletBalances((prev) => {
-        const next = { ...prev };
-        for (const [id, bal] of entries) next[id] = bal;
-        return next;
-      });
-    }
-
-    void pollAll();
-    const interval = setInterval(pollAll, 30_000);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [user, agentsWithWallets, info?.network]);
+    setWalletBalances((prev) => {
+      const next: Record<string, WalletBalance> = {};
+      for (const agent of agents) {
+        next[agent.id] = prev[agent.id] || { xlm: '0', usdc: '0' };
+      }
+      return next;
+    });
+  }, [agents]);
 
   const value = useMemo<DashboardState>(
     () => ({

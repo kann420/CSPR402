@@ -3,6 +3,10 @@
 .env
 .env.local
 **/.env
+keys/
+**/keys/
+*.pem
+public_key_hex
 
 # Dependencies
 node_modules/
@@ -20,6 +24,8 @@ build/
 
 # Debug artifacts
 /tmp/stage2-debug-*.png
+output/
+/public/
 *.png
 # ...but keep web app icons (Next.js file conventions)
 !web/app/icon.png

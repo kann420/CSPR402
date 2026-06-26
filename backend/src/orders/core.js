@@ -23,6 +23,9 @@ const db = require('../db');
  * @property {string|null} metadata - Pre-serialised JSON string.
  * @property {string} vcc_payment_json - Pre-serialised contract payment instructions.
  * @property {string|null} request_id - Express request id for tracing.
+ * @property {string} [payment_asset] - Payment asset marker stored on orders.
+ * @property {number|null} [casper_transfer_id] - Casper native transfer id.
+ * @property {string|null} [casper_expected_sender_public_key] - Expected Casper payer public key.
  * @property {'v1_orders'|'mpp'} [source] - Defaults to 'v1_orders'.
  */
 
@@ -36,11 +39,14 @@ const db = require('../db');
  */
 function insertPendingPaymentOrder(opts) {
   const source = opts.source ?? 'v1_orders';
+  const paymentAsset = opts.payment_asset ?? 'usdc';
   db.prepare(
     `INSERT INTO orders (id, status, amount_usdc, expected_xlm_amount, api_key_id,
-                         webhook_url, metadata, vcc_payment_json, request_id, source)
+                         webhook_url, metadata, vcc_payment_json, request_id, source,
+                         payment_asset, casper_transfer_id, casper_expected_sender_public_key)
      VALUES (@id, 'pending_payment', @amount_usdc, @expected_xlm_amount, @api_key_id,
-             @webhook_url, @metadata, @vcc_payment_json, @request_id, @source)`,
+             @webhook_url, @metadata, @vcc_payment_json, @request_id, @source,
+             @payment_asset, @casper_transfer_id, @casper_expected_sender_public_key)`,
   ).run({
     id: opts.id,
     amount_usdc: opts.amount_usdc,
@@ -51,6 +57,9 @@ function insertPendingPaymentOrder(opts) {
     vcc_payment_json: opts.vcc_payment_json,
     request_id: opts.request_id,
     source,
+    payment_asset: paymentAsset,
+    casper_transfer_id: opts.casper_transfer_id ?? null,
+    casper_expected_sender_public_key: opts.casper_expected_sender_public_key ?? null,
   });
 }
 

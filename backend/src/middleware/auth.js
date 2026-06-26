@@ -1,7 +1,7 @@
 // @ts-check
 // Shared API key authentication middleware for /v1 routes.
 // Uses key_prefix for O(1) candidate lookup, then bcrypt for verification.
-// Key format: cards402_<48 random hex chars>; key_prefix = chars 9-21 of the key.
+// Key format: cspr402_<48 random hex chars>; legacy cards402_ keys remain accepted.
 
 const bcrypt = require('bcryptjs');
 const db = require('../db');
@@ -10,7 +10,8 @@ const db = require('../db');
 // to be slightly shorter (down to 21 chars = prefix region) so
 // obviously-truncated keys still route through the prefix index rather
 // than falling back to a full-table bcrypt scan (a DoS amplifier pre-F).
-const KEY_MIN_LENGTH = 21; // cards402_ (9) + 12-char prefix
+const KEY_PREFIXES = ['cspr402_', 'cards402_'];
+const KEY_MIN_LENGTH = 20; // cspr402_ (8) + 12-char prefix
 const KEY_MAX_LENGTH = 128; // anything longer is either wrong or hostile
 
 // Cap on candidate rows per auth attempt. The prefix is 12 hex chars =
@@ -59,10 +60,11 @@ module.exports = async function auth(req, res, next) {
   // to trigger a full-table scan with a bcrypt compare against every row,
   // which let an attacker turn one HTTP request into O(n) bcrypt work on
   // our box. Now we bail before touching the DB.
-  if (!key.startsWith('cards402_') || key.length < KEY_MIN_LENGTH || key.length > KEY_MAX_LENGTH) {
+  const keyBrandPrefix = KEY_PREFIXES.find((prefix) => key.startsWith(prefix));
+  if (!keyBrandPrefix || key.length < KEY_MIN_LENGTH || key.length > KEY_MAX_LENGTH) {
     return res.status(401).json({ error: 'invalid_api_key' });
   }
-  const keyPrefix = key.slice(9, 21);
+  const keyPrefix = key.slice(keyBrandPrefix.length, keyBrandPrefix.length + 12);
 
   // Use the prefix index to narrow candidates. The `key_prefix IS NULL`
   // fallback catches any legacy rows created before the column existed

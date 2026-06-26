@@ -110,7 +110,7 @@ export default function SettingsPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `cards402-settings-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `cspr402-settings-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
     toast.push('Settings exported', 'success');
@@ -241,22 +241,20 @@ export default function SettingsPage() {
             }}
           >
             <span>
-              Browser notifications need permission first. For email / webhook delivery on the same
-              events, see <span style={{ color: 'var(--fg)', fontWeight: 500 }}>Alerts</span>.
+              Browser notifications need permission first. Email and webhook delivery are staged for
+              the next demo pass.
             </span>
             <Button size="sm" onClick={requestBrowserPermission}>
               Enable
             </Button>
           </div>
-          {/* CTX auth is a platform-operator concern, not a user one —
-              only surface the toggle to the platform owner so the
-              implementation-detail label doesn't leak to regular users. */}
+          {/* Mock issuer health is a platform-operator concern, not a user one. */}
           {isPlatformOwner && (
             <Toggle
               checked={notifs.browserOnAuthDead}
               onChange={(v) => updateNotif('browserOnAuthDead', v)}
-              label="CTX auth dead"
-              description="Fires a browser notification the moment CTX tokens are invalidated."
+              label="Mock issuer issue"
+              description="Fires a browser notification when the mock fulfillment circuit needs attention."
             />
           )}
           <Toggle
@@ -297,45 +295,26 @@ export default function SettingsPage() {
   );
 }
 
-// Platform-owner-only treasury card. Renders the cards402 Stellar treasury
-// public key + live Horizon balance + a copy button + a stellar.expert link.
-// Replaces the legacy /admin treasury panel that was deleted with the
-// admin client retirement.
+// Platform-owner-only treasury card. CSPR402 Day 2 only needs to
+// surface the configured treasury identity. We deliberately avoid stale
+// Stellar/Horizon balance widgets here because this fork now verifies
+// Casper testnet transfers instead.
 function PlatformTreasuryCard() {
   const toast = useToast();
-  const [wallet, setWallet] = useState<{ public_key: string; network: string } | null>(null);
-  const [balance, setBalance] = useState<{ xlm: string; usdc: string } | null>(null);
+  const [wallet, setWallet] = useState<{
+    public_key: string;
+    network: string;
+    chain_name?: string;
+    payment_provider?: string;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     fetchPlatformWallet()
-      .then(async (w) => {
+      .then((w) => {
         if (cancelled) return;
         setWallet(w);
-        try {
-          const horizonUrl =
-            w.network === 'testnet'
-              ? 'https://horizon-testnet.stellar.org'
-              : 'https://horizon.stellar.org';
-          const res = await fetch(`${horizonUrl}/accounts/${w.public_key}`);
-          if (!res.ok) {
-            // 404 = unactivated. Show zeros instead of an error.
-            if (!cancelled) setBalance({ xlm: '0', usdc: '0' });
-            return;
-          }
-          const data = (await res.json()) as {
-            balances: { asset_type: string; asset_code?: string; balance: string }[];
-          };
-          const xlm = data.balances.find((b) => b.asset_type === 'native')?.balance ?? '0';
-          const usdc =
-            data.balances.find(
-              (b) => b.asset_type === 'credit_alphanum4' && b.asset_code === 'USDC',
-            )?.balance ?? '0';
-          if (!cancelled) setBalance({ xlm, usdc });
-        } catch (err) {
-          if (!cancelled) setError(err instanceof Error ? err.message : String(err));
-        }
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : String(err));
@@ -352,7 +331,7 @@ function PlatformTreasuryCard() {
   }
 
   return (
-    <Card title="Platform treasury" padding="1.25rem 1.5rem">
+    <Card title="Casper treasury" padding="1.25rem 1.5rem">
       <div
         style={{
           fontSize: '0.74rem',
@@ -361,8 +340,9 @@ function PlatformTreasuryCard() {
           lineHeight: 1.5,
         }}
       >
-        The Cards402 treasury wallet on Stellar. Top this up with XLM or USDC when fulfillment runs
-        low — it's what funds CTX payments and refunds. Only visible to the platform owner.
+        CSPR402 verifies Casper testnet transfers against one configured treasury public key. This
+        panel shows that local configuration. Live treasury balances are not wired into the
+        dashboard yet.
       </div>
       {error && (
         <div
@@ -395,33 +375,21 @@ function PlatformTreasuryCard() {
           <Row label="Network">
             <Pill tone="neutral">{wallet.network}</Pill>
           </Row>
-          {balance && (
-            <>
-              <Row label="XLM balance">
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem' }}>
-                  {parseFloat(balance.xlm).toFixed(2)}
-                </span>
-              </Row>
-              <Row label="USDC balance">
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem' }}>
-                  {parseFloat(balance.usdc).toFixed(2)}
-                </span>
-              </Row>
-            </>
+          {wallet.chain_name && (
+            <Row label="Chain">
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem' }}>
+                {wallet.chain_name}
+              </span>
+            </Row>
           )}
+          <Row label="Provider">
+            <Pill tone="green">{wallet.payment_provider || 'casper'}</Pill>
+          </Row>
+          <Row label="Balance telemetry">
+            <span style={{ fontSize: '0.75rem', color: 'var(--fg-dim)' }}>Not wired yet</span>
+          </Row>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <Button onClick={copyAddress}>Copy address</Button>
-            <Button
-              onClick={() => {
-                const explorer =
-                  wallet.network === 'testnet'
-                    ? `https://stellar.expert/explorer/testnet/account/${wallet.public_key}`
-                    : `https://stellar.expert/explorer/public/account/${wallet.public_key}`;
-                window.open(explorer, '_blank');
-              }}
-            >
-              View on stellar.expert ↗
-            </Button>
           </div>
         </div>
       )}

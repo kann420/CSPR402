@@ -13,6 +13,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "casper-js-sdk": "^5.0.12",
     "geist": "^1.7.0",
     "next": "^16.2.6",
     "react": "19.2.5",

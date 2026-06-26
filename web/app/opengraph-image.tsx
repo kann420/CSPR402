@@ -1,17 +1,7 @@
-// Dynamic Open Graph image for every Cards402 route. Placed at the
-// app-root segment so Next.js inherits it down to every page unless a
-// child segment provides its own opengraph-image.
-//
-// Deliberately low-dependency: ImageResponse can't render external
-// fonts without us shipping the font binary, so we lean on a
-// carefully-weighted system serif stack that matches Fraunces's
-// editorial tone closely enough for a 1200x630 social card. No JSX
-// children come from data — the card is fixed marketing copy.
-
 import { ImageResponse } from 'next/og';
 
 export const runtime = 'edge';
-export const alt = 'Cards402 — Virtual Visa cards for AI agents';
+export const alt = 'CSPR402 - Casper testnet payments for AI agents';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -31,7 +21,6 @@ export default async function OGImage() {
         fontFamily: '"Georgia", serif',
       }}
     >
-      {/* Top row: eyebrow + live pill */}
       <div
         style={{
           display: 'flex',
@@ -50,7 +39,7 @@ export default async function OGImage() {
             display: 'flex',
           }}
         >
-          CARDS402
+          CSPR402
         </div>
         <div
           style={{
@@ -75,11 +64,10 @@ export default async function OGImage() {
               display: 'flex',
             }}
           />
-          Live on Stellar mainnet
+          Casper testnet MVP
         </div>
       </div>
 
-      {/* Display line */}
       <div
         style={{
           display: 'flex',
@@ -99,7 +87,7 @@ export default async function OGImage() {
             flexWrap: 'wrap',
           }}
         >
-          Virtual Visa cards,
+          Casper payments,
         </div>
         <div
           style={{
@@ -113,7 +101,7 @@ export default async function OGImage() {
             gap: 24,
           }}
         >
-          issued to
+          verified for
           <span
             style={{
               fontStyle: 'italic',
@@ -126,7 +114,6 @@ export default async function OGImage() {
         </div>
       </div>
 
-      {/* Bottom row: metrics */}
       <div
         style={{
           display: 'flex',
@@ -137,10 +124,10 @@ export default async function OGImage() {
         }}
       >
         {[
-          { label: 'TIME TO CARD', value: '≈60s' },
-          { label: 'NETWORK', value: 'Stellar' },
+          { label: 'VERIFY MODE', value: 'Deploy hash' },
+          { label: 'NETWORK', value: 'Casper' },
           { label: 'CUSTODY', value: 'None' },
-          { label: 'PRICING', value: 'Face value' },
+          { label: 'FULFILMENT', value: 'Mock only' },
         ].map((m) => (
           <div
             key={m.label}

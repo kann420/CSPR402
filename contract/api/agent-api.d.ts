@@ -16,9 +16,9 @@ export interface paths {
         put?: never;
         /**
          * Create a new card order
-         * @description Creates a pending order and returns Soroban contract payment
-         *     instructions. The agent pays the contract on Stellar, the watcher
-         *     detects the event, and fulfillment begins automatically.
+         * @description Creates a pending order and returns Casper testnet native CSPR
+         *     payment instructions by default. Set `payment_asset: mock_usdc_cep18`
+         *     with `payer_public_key` to use the mockUSDC CEP-18 test-token rail.
          *
          *     For amounts above the policy approval threshold, returns 202 with
          *     `phase: awaiting_approval` instead of payment instructions.
@@ -38,14 +38,9 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get order details (poll fallback)
+         * Get order details
          * @description Returns the current state of an order. When `phase` is `ready`,
-         *     the `card` object contains the virtual card details.
-         *
-         *     Prefer `/orders/{orderId}/stream` (Server-Sent Events) for live
-         *     updates — one open connection gets pushed to on every phase
-         *     transition until terminal. Use this poll endpoint only as a
-         *     fallback for clients that can't consume `text/event-stream`.
+         *     the `card` object contains the simulated virtual card details.
          */
         get: operations["getOrder"];
         put?: never;
@@ -64,24 +59,40 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Subscribe to live order phase updates (SSE)
+         * Subscribe to live order phase updates
          * @description Server-Sent Events stream of phase transitions for a single order.
-         *     The server sends an immediate event with the current phase on
-         *     connection, then emits a new event every time the order's
-         *     `updated_at` changes, and closes the stream cleanly when the
-         *     order reaches a terminal phase (`ready`, `failed`, `refunded`,
-         *     `expired`, `rejected`).
-         *
-         *     Each event carries the full `OrderStatus` shape as its `data:`
-         *     payload, so a client that reconnects always sees the latest
-         *     state on the first message — no `Last-Event-ID` replay required.
-         *
-         *     Keep-alive: the server emits an SSE comment line every 15s so
-         *     intermediate proxies don't idle-kill the connection.
+         *     The server sends an immediate event with the current phase, emits a
+         *     new event every time the order changes, and closes the stream when
+         *     the order reaches a terminal phase.
          */
         get: operations["streamOrder"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{orderId}/verify-payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify a Casper testnet payment
+         * @description Verifies the submitted deploy hash against the order's quoted
+         *     recipient, amount, chain, and correlation data. CSPR orders verify
+         *     native transfer ID; mockUSDC CEP-18 orders verify sender, package hash,
+         *     entry point, recipient, and amount. On success, the backend fulfills
+         *     exactly one simulated virtual card and returns the receipt plus the
+         *     updated order.
+         */
+        post: operations["verifyCasperPayment"];
         delete?: never;
         options?: never;
         head?: never;
@@ -112,12 +123,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Dry-run policy check without creating an order
-         * @description Returns what would happen if the agent tried to create an order
-         *     for the given amount. Useful for pre-flight checks before
-         *     committing to a Stellar transaction.
-         */
+        /** Dry-run policy check without creating an order */
         get: operations["checkPolicy"];
         put?: never;
         post?: never;
@@ -132,81 +138,80 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         CreateOrderRequest: {
-            /**
-             * @description Card value in USD as a positive decimal string, e.g. "10.00".
-             *     Minimum "0.01" and maximum "10000.00" per order — orders
-             *     outside this range are rejected with `invalid_amount`.
-             *     The maximum matches Pathward's per-card balance ceiling.
-             * @example 0.01
-             * @example 10.00
-             * @example 25.50
-             * @example 100.00
-             * @example 10000.00
-             */
+            /** @description Positive USD amount string from 0.01 to 10000.00 */
             amount_usdc: string;
             /**
-             * Format: uri
-             * @description HTTPS URL to receive delivery/failure webhooks
+             * @description Defaults to cspr_casper. mock_usdc_cep18 requires payer_public_key.
+             * @enum {string}
              */
+            payment_asset?: "cspr_casper" | "mock_usdc_cep18";
+            /** @description Casper payer public key required for mock_usdc_cep18 orders. */
+            payer_public_key?: string;
+            /** Format: uri */
             webhook_url?: string;
-            /** @description Arbitrary JSON metadata stored with the order */
             metadata?: {
                 [key: string]: unknown;
             };
         };
-        PaymentInstructions: {
+        PaymentInstructions: components["schemas"]["CasperCSPRPaymentInstructions"] | components["schemas"]["MockUsdcCep18PaymentInstructions"];
+        CasperCSPRPaymentInstructions: {
             /** @enum {string} */
-            type: "soroban_contract";
-            /** @description Soroban contract address (C...) */
-            contract_id: string;
-            /**
-             * Format: uuid
-             * @description Pass this as the order_id arg to pay_usdc/pay_xlm
-             */
+            type: "casper_cspr_transfer";
+            /** @enum {string} */
+            network: "testnet";
+            /** @enum {string} */
+            chain_name: "casper-test";
+            /** @description Casper treasury public key hex */
+            recipient: string;
+            /** Format: uuid */
             order_id: string;
-            usdc: {
-                /** @description USDC amount as 7-decimal string */
-                amount: string;
-                /** @description CODE:ISSUER format, e.g. USDC:GA5Z... */
-                asset: string;
-            };
-            xlm?: {
-                /** @description Equivalent XLM amount (spot conversion) */
-                amount?: string;
-            };
+            amount_usdc: string;
+            amount_cspr: string;
+            amount_motes: string;
+            transfer_id: number;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        MockUsdcCep18PaymentInstructions: {
+            /** @enum {string} */
+            type: "casper_cep18_transfer";
+            /** @enum {string} */
+            asset: "mockUSDC";
+            /** @enum {integer} */
+            decimals: 6;
+            /** @enum {string} */
+            network: "testnet";
+            /** @enum {string} */
+            chain_name: "casper-test";
+            /** @description CEP-18 package hash verified by the backend */
+            contract_package_hash: string;
+            contract_hash?: string | null;
+            sender_public_key: string;
+            recipient_public_key: string;
+            /** Format: uuid */
+            order_id: string;
+            amount: string;
+            amount_base_units: string;
+            /** Format: date-time */
+            expires_at: string;
+            verify_url?: string | null;
+        };
+        VerifyCasperPaymentRequest: {
+            deploy_hash: string;
+            /** @description Required for mock_usdc_cep18; optional stricter verification for CSPR. */
+            sender_public_key?: string;
         };
         Budget: {
-            /** @description Total settled spend by this API key */
             spent_usdc: string;
-            /** @description Sum of pending/ordering orders not yet settled */
             in_flight_usdc: string;
-            /** @description spent_usdc + in_flight_usdc */
             committed_usdc: string;
-            /** @description Spend limit (null = unlimited) */
             limit_usdc?: string | null;
-            /** @description Remaining budget against committed (null = unlimited) */
             remaining_usdc?: string | null;
         };
         CardDetails: {
-            /**
-             * @description Full 16-digit card number
-             * @example 4111111111111111
-             */
             number: string;
-            /**
-             * @description 3-digit CVV
-             * @example 123
-             */
             cvv: string;
-            /**
-             * @description MM/YY format
-             * @example 12/27
-             */
             expiry: string;
-            /**
-             * @description Card brand (usually "Visa")
-             * @example Visa
-             */
             brand?: string | null;
         };
         OrderCreatedResponse: {
@@ -215,16 +220,11 @@ export interface components {
             /** @enum {string} */
             status: "pending_payment";
             /** @enum {string} */
-            phase?: "awaiting_payment";
-            amount_usdc?: string;
+            phase: "awaiting_payment";
+            amount_usdc: string;
             payment: components["schemas"]["PaymentInstructions"];
-            /** @description Relative URL to poll for status */
             poll_url: string;
             budget: components["schemas"]["Budget"];
-            /**
-             * @description Present and `true` when the order was created by an API key
-             *     in sandbox mode. Omitted for live orders.
-             */
             sandbox?: boolean;
         };
         OrderAwaitingApprovalResponse: {
@@ -235,9 +235,7 @@ export interface components {
             /** Format: uuid */
             approval_request_id: string;
             amount_usdc: string;
-            /** @description Human-readable reason the order requires approval */
             message?: string;
-            /** @description Instruction for the agent */
             note?: string;
             /** Format: date-time */
             expires_at?: string;
@@ -250,7 +248,7 @@ export interface components {
             status: string;
             amount_usdc: string;
             /** @enum {string} */
-            payment_asset: "usdc" | "usdc_soroban" | "xlm" | "xlm_soroban";
+            payment_asset: "cspr_casper" | "mock_usdc_cep18";
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -263,14 +261,12 @@ export interface components {
             phase: components["schemas"]["OrderPhase"];
             amount_usdc: string;
             /** @enum {string} */
-            payment_asset?: "usdc" | "usdc_soroban" | "xlm" | "xlm_soroban";
+            payment_asset?: "cspr_casper" | "mock_usdc_cep18";
             payment?: components["schemas"]["PaymentInstructions"];
+            receipt?: components["schemas"]["CasperPaymentReceipt"];
             card?: components["schemas"]["CardDetails"];
             error?: string | null;
             note?: string | null;
-            refund?: {
-                stellar_txid?: string;
-            };
             metadata?: {
                 [key: string]: unknown;
             };
@@ -282,6 +278,57 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+        };
+        CasperPaymentReceipt: components["schemas"]["CasperCSPRPaymentReceipt"] | components["schemas"]["MockUsdcReceipt"];
+        CasperCSPRPaymentReceipt: {
+            /** @enum {string} */
+            type: "casper_cspr_receipt";
+            /** Format: uuid */
+            order_id: string;
+            /** @enum {string} */
+            payment_asset: "cspr_casper";
+            network: string;
+            chain_name: string;
+            deploy_hash: string;
+            sender_public_key?: string | null;
+            recipient?: string | null;
+            transfer_id: number;
+            amount_motes?: string | null;
+            /** Format: date-time */
+            verified_at?: string | null;
+            /** @enum {string} */
+            card_mode: "mock";
+        };
+        MockUsdcReceipt: {
+            /** @enum {string} */
+            type: "casper_mock_usdc_receipt";
+            /** Format: uuid */
+            order_id: string;
+            /** @enum {string} */
+            payment_asset: "mock_usdc_cep18";
+            network: string;
+            chain_name: string;
+            deploy_hash: string;
+            sender_public_key?: string | null;
+            /** @enum {string} */
+            asset: "mockUSDC";
+            decimals: number;
+            contract_package_hash?: string | null;
+            contract_hash?: string | null;
+            recipient_public_key?: string | null;
+            recipient_account_hash?: string | null;
+            amount_base_units?: string | null;
+            /** Format: date-time */
+            verified_at?: string | null;
+            /** @enum {string} */
+            card_mode: "mock";
+        };
+        VerifyCasperPaymentResponse: {
+            /** @enum {boolean} */
+            ok: true;
+            note?: string;
+            receipt: components["schemas"]["CasperPaymentReceipt"];
+            order: components["schemas"]["OrderStatus"];
         };
         UsageSummary: {
             api_key_id: string;
@@ -298,75 +345,15 @@ export interface components {
         PolicyCheckResult: {
             /** @enum {string} */
             decision: "approved" | "blocked" | "pending_approval";
-            /** @description Which policy rule matched */
             rule?: string | null;
-            /** @description Human-readable explanation */
             reason?: string | null;
         };
         ErrorResponse: {
-            /**
-             * @description Machine-readable error code
-             * @example invalid_amount
-             * @example rate_limit_exceeded
-             * @example service_temporarily_unavailable
-             */
             error: string;
-            /** @description Human-readable explanation */
             message?: string;
-        };
-        /**
-         * @description Delivered to `webhook_url` on every meaningful order-state
-         *     transition. Signed with HMAC-SHA256 if a `webhook_secret` was
-         *     issued with the API key. Headers:
-         *     `X-Cards402-Signature: sha256=<hex>`,
-         *     `X-Cards402-Timestamp: <epoch_ms>`.
-         *
-         *     Every payload carries `order_id` and `status`. The rest of the
-         *     shape varies by event — `delivered` carries `card` + pricing,
-         *     `failed` carries `error` + pricing, `expired` / `pending_payment`
-         *     (approved) / `rejected` carry a `note` or `error` but no card
-         *     or pricing. Consumers should branch on `status`.
-         */
-        WebhookPayload: {
-            /** Format: uuid */
-            order_id: string;
-            /**
-             * @description The terminal state of the order. `delivered` and `failed`
-             *     are the primary happy / sad paths; `expired` fires when an
-             *     order hits its 2-hour payment window; `pending_payment` is
-             *     emitted when an approval-gated order is approved and is
-             *     now payable; `rejected` fires when an approval is denied.
-             * @enum {string}
-             */
-            status: "delivered" | "failed" | "expired" | "pending_payment" | "rejected" | "refunded" | "refund_pending";
-            /**
-             * @description The public phase corresponding to `status`. Present on
-             *     every non-delivered/non-failed event (expired, approved,
-             *     rejected) so consumers can match phase-based logic.
-             */
-            phase?: components["schemas"]["OrderPhase"];
-            /**
-             * @description Present on `delivered` and `failed` events. Omitted on
-             *     `expired`, `pending_payment`, and `rejected`.
-             */
-            amount_usdc?: string;
-            /**
-             * @description Present on `delivered` and `failed` events. One of
-             *     `usdc_soroban` or `xlm_soroban`.
-             */
-            payment_asset?: string;
-            /** @description Only present when `status == delivered`. */
-            card?: components["schemas"]["CardDetails"];
-            /**
-             * @description Present on `failed` and `rejected` events. Sanitised to
-             *     avoid leaking fulfilment-pipeline internals.
-             */
-            error?: string;
-            /**
-             * @description Present on `expired` and `pending_payment` (approved)
-             *     events. Human-readable explanation of the transition.
-             */
-            note?: string;
+            details?: {
+                [key: string]: unknown;
+            };
         };
     };
     responses: {
@@ -417,12 +404,10 @@ export interface operations {
     listOrders: {
         parameters: {
             query?: {
-                status?: "pending_payment" | "payment_confirmed" | "claim_received" | "stage1_done" | "ordering" | "awaiting_approval" | "delivered" | "failed" | "refunded" | "refund_pending" | "expired" | "rejected";
+                status?: "pending_payment" | "ordering" | "awaiting_approval" | "delivered" | "failed" | "refunded" | "refund_pending" | "expired" | "rejected";
                 limit?: number;
                 offset?: number;
-                /** @description Only orders created at or after this timestamp. */
                 since_created_at?: string;
-                /** @description Only orders updated at or after this timestamp. */
                 since_updated_at?: string;
             };
             header?: never;
@@ -446,7 +431,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description Deduplication key — same key + same body = cached response for 24h. */
+                /** @description Same key plus same body returns the cached order response for 24 hours. */
                 "Idempotency-Key"?: string;
             };
             path?: never;
@@ -458,7 +443,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Order created, payment pending */
+            /** @description Order created, waiting for Casper payment */
             201: {
                 headers: {
                     [name: string]: unknown;
@@ -478,7 +463,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            /** @description Idempotency-Key reused with different body */
+            /** @description Idempotency-Key reused with a different body */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -488,7 +473,7 @@ export interface operations {
                 };
             };
             429: components["responses"]["RateLimited"];
-            /** @description Fulfillment system temporarily unavailable (frozen) */
+            /** @description Fulfillment system temporarily unavailable */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -544,6 +529,71 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    verifyCasperPayment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyCasperPaymentRequest"];
+            };
+        };
+        responses: {
+            /** @description Casper payment verified and order fulfilled */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerifyCasperPaymentResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description Order or deploy hash cannot be claimed in the current state */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Order payment window expired */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Deploy found but failed validation */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Deploy not found yet or not executed yet */
+            425: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     getUsage: {

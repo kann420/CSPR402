@@ -58,12 +58,8 @@ export function CommandPalette() {
               a: '/dashboard/agents',
               r: '/dashboard/orders',
               p: '/dashboard/approvals',
-              n: '/dashboard/analytics',
-              m: '/dashboard/merchants',
               s: '/dashboard/settings',
               d: '/dashboard/developer',
-              l: '/dashboard/alerts',
-              u: '/dashboard/audit',
             };
             const path = map[evt.key.toLowerCase()];
             if (path) router.push(path);
@@ -111,30 +107,6 @@ export function CommandPalette() {
         permission: 'approval:read',
       },
       {
-        id: 'nav-analytics',
-        title: 'Go to Analytics',
-        hint: 'g n',
-        section: 'Go to',
-        run: () => router.push('/dashboard/analytics'),
-        permission: 'dashboard:read',
-      },
-      {
-        id: 'nav-alerts',
-        title: 'Go to Alerts',
-        hint: 'g l',
-        section: 'Go to',
-        run: () => router.push('/dashboard/alerts'),
-        permission: 'alert:read',
-      },
-      {
-        id: 'nav-audit',
-        title: 'Go to Audit log',
-        hint: 'g u',
-        section: 'Go to',
-        run: () => router.push('/dashboard/audit'),
-        permission: 'audit:read',
-      },
-      {
         id: 'nav-developer',
         title: 'Go to Developer',
         hint: 'g d',
@@ -158,7 +130,7 @@ export function CommandPalette() {
       },
       {
         id: 'action-toggle-theme',
-        title: 'Cycle theme (dark → light → system)',
+        title: 'Cycle theme (dark -> light -> system)',
         section: 'Actions',
         run: () => {
           const current = loadTheme();
@@ -167,12 +139,6 @@ export function CommandPalette() {
           saveTheme(next);
           applyTheme(next);
         },
-      },
-      {
-        id: 'action-feedback',
-        title: 'Send feedback',
-        section: 'Actions',
-        run: () => router.push('/dashboard/feedback'),
       },
       {
         id: 'action-logout',

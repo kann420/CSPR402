@@ -63,8 +63,8 @@ export function Header() {
 
   const pendingApprovals = approvals.length;
   const isPlatformOwner = !!user?.is_platform_owner;
-  // Regular users should never see the platform-level "frozen" state —
-  // that's a cards402 operator concern (the tenant circuit breaker).
+  // Regular users should never see the platform-level "frozen" state.
+  // That's an operator concern for the local mock fulfillment circuit.
   // Non-owners always see "Live" as long as they can load the page;
   // if the API is really down, the dashboard wouldn't render at all.
   const systemHealthy = isPlatformOwner ? (info ? !info.frozen : true) : true;
@@ -95,7 +95,13 @@ export function Header() {
           see "Frozen" when the fulfillment circuit breaker trips. */}
       <div
         className="dashboard-header-live"
-        title={systemHealthy ? (isPlatformOwner ? 'Live — mainnet' : 'Live') : 'Fulfillment frozen'}
+        title={
+          systemHealthy
+            ? isPlatformOwner
+              ? 'Live - Casper testnet'
+              : 'Live'
+            : 'Mock fulfillment frozen'
+        }
         style={{
           display: 'flex',
           alignItems: 'center',

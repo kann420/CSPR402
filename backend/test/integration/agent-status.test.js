@@ -10,7 +10,6 @@ require('../helpers/env');
 
 const { describe, it, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
-const { Keypair } = require('@stellar/stellar-sdk');
 const { request, db, createTestKey, resetDb } = require('../helpers/app');
 
 describe('POST /v1/agent/status', () => {
@@ -69,8 +68,8 @@ describe('POST /v1/agent/status', () => {
   // string, including ones with a wrong Ed25519 checksum. Now we use
   // StrKey.isValidEd25519PublicKey which enforces the checksum.
 
-  it('accepts a valid Stellar G-address for wallet_public_key', async () => {
-    const realKey = Keypair.random().publicKey();
+  it('accepts a valid Casper public key for wallet_public_key', async () => {
+    const realKey = '01' + 'b'.repeat(64);
     const res = await request
       .post('/v1/agent/status')
       .set('X-Api-Key', testKey.key)
@@ -82,7 +81,7 @@ describe('POST /v1/agent/status', () => {
     assert.equal(row.wallet_public_key, realKey);
   });
 
-  it('rejects a G-address with the right shape but wrong checksum (F2)', async () => {
+  it('rejects a legacy Stellar G-address for wallet_public_key', async () => {
     // 56-char base32 string starting with G — passes the old regex
     // but has a garbage checksum. StrKey.isValidEd25519PublicKey
     // catches this.

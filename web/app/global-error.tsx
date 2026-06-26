@@ -1,22 +1,5 @@
 'use client';
 
-// Fallback for errors that happen inside the root layout itself.
-// When the regular app/error.tsx boundary can't render — typically
-// because RootLayout threw or a provider at the top failed — Next.js
-// mounts this component instead. It is NOT wrapped in the root
-// layout, so it has to ship its own <html> and <body> tags and
-// whatever bare-minimum styling we need to stay on-brand.
-//
-// Rules for this file:
-// - Client Component (error boundaries cannot be server components)
-// - No metadata/generateMetadata exports (Next.js ignores them here)
-// - No imports that could themselves throw during layout failure —
-//   stay off the design system, off next/font, off anything that
-//   touches context providers. Inline styles only.
-// - Inline fonts: system stack so we never depend on next/font
-//   succeeding. The page still renders if every font in the list
-//   404s.
-
 export default function GlobalError({ error }: { error: Error & { digest?: string } }) {
   return (
     <html lang="en">
@@ -48,7 +31,7 @@ export default function GlobalError({ error }: { error: Error & { digest?: strin
               marginBottom: 20,
             }}
           >
-            Cards402 · HTTP 500 · Fatal
+            CSPR402 · HTTP 500 · Fatal
           </div>
           <h1
             style={{
@@ -98,7 +81,6 @@ export default function GlobalError({ error }: { error: Error & { digest?: strin
                     border: '1px solid rgba(255,255,255,0.12)',
                     borderRadius: 4,
                     padding: '0.1em 0.4em',
-                    color: '#f4f4f4',
                   }}
                 >
                   {error.digest}
@@ -107,24 +89,6 @@ export default function GlobalError({ error }: { error: Error & { digest?: strin
             ) : null}
             .
           </p>
-          <a
-            href="/"
-            style={{
-              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '12px 20px',
-              borderRadius: 999,
-              background: '#f4f4f4',
-              color: '#050505',
-              textDecoration: 'none',
-              fontSize: 14,
-              fontWeight: 600,
-            }}
-          >
-            Back to cards402.com
-          </a>
         </div>
       </body>
     </html>

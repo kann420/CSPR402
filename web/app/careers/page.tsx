@@ -5,79 +5,81 @@ import { ogForPage, twitterForPage } from '@/app/lib/seo';
 export const metadata: Metadata = {
   title: 'Careers',
   description:
-    'Join Cards402. Remote-first, flexible hours, published salaries. Building payment infrastructure for the autonomous agent economy.',
+    'Join CSPR402. Remote-first, flexible hours, published salaries. Building Casper-first payment infrastructure for the autonomous agent economy.',
   alternates: { canonical: 'https://cards402.com/careers' },
   openGraph: ogForPage({
-    title: 'Careers — Cards402',
-    description: 'Remote-first. Published salaries. Building payment rails for AI agents.',
+    title: 'Careers - CSPR402',
+    description:
+      'Remote-first. Published salaries. Building Casper-first payment rails for AI agents.',
     path: '/careers',
   }),
   twitter: twitterForPage({
-    title: 'Careers — Cards402',
-    description: 'Remote-first. Published salaries. Building payment rails for AI agents.',
+    title: 'Careers - CSPR402',
+    description:
+      'Remote-first. Published salaries. Building Casper-first payment rails for AI agents.',
   }),
 };
 
 const BENEFITS = [
   {
-    icon: '◉',
+    icon: 'O',
     title: 'Remote-first',
     body: 'Work 100% remotely from any country we can legally employ in. A quiet office in London is available if you want one.',
   },
   {
-    icon: '◴',
+    icon: '>',
     title: 'Flexible hours',
-    body: "Night owl or early bird — we care about output. Four-hour overlap window in UTC for syncs, otherwise it's up to you.",
+    body: "Night owl or early bird - we care about output. Four-hour overlap window in UTC for syncs, otherwise it's up to you.",
   },
   {
-    icon: '◐',
+    icon: 'D',
     title: '28 days paid leave',
     body: 'Plus local public holidays. Plus a mandatory week off between Christmas and New Year.',
   },
   {
-    icon: '⌘',
+    icon: '*',
     title: 'Equipment allowance',
-    body: '£3,000 to kit out your workstation on day one, refreshed every 3 years.',
+    body: 'GBP 3,000 to kit out your workstation on day one, refreshed every 3 years.',
   },
   {
-    icon: '☾',
+    icon: '+',
     title: 'Learning budget',
-    body: '£2,500/year for books, courses, conferences. Plus one paid week a year to go deep on something you chose.',
+    body: 'GBP 2,500/year for books, courses, conferences. Plus one paid week a year to go deep on something you chose.',
   },
   {
-    icon: '✈',
+    icon: '^',
     title: 'Team travel covered',
     body: 'Quarterly team offsites in good cities. Travel, hotel, meals covered.',
   },
   {
-    icon: '♡',
+    icon: '<3',
     title: 'Health insurance',
     body: 'Private health + dental + mental health coverage in the US, UK, Canada, and the EU. Global coverage via a health spending account elsewhere.',
   },
   {
-    icon: '⚕',
+    icon: 'Rx',
     title: 'Paid sick / family leave',
     body: '30 days fully-paid sick leave. 20 weeks fully-paid parental leave for every parent, regardless of role.',
   },
   {
-    icon: '◎',
+    icon: '[]',
     title: 'Published salaries',
-    body: 'Every job post lists the band up front. No negotiation theatre, no gender gap, no "we\'ll see where we land". The number on the ad is the number.',
+    body: "Every job post lists the band up front. No negotiation theatre, no gender gap, no 'we'll see where we land'. The number on the ad is the number.",
   },
   {
-    icon: '❖',
+    icon: '!',
     title: 'Equity',
     body: 'Every full-time hire gets a meaningful slice. Vesting over four years with a one-year cliff. Standard ISO tax treatment where available.',
   },
   {
-    icon: '✷',
+    icon: '#',
     title: 'Performance bonuses',
     body: 'Annual company-wide bonus tied to revenue, plus discretionary shout-outs for exceptional work.',
   },
   {
-    icon: '★',
+    icon: '@',
     title: 'Relocation support',
-    body: "If you want to move country for personal reasons, we'll help with visa sponsorship and up to £8,000 in relocation costs.",
+    body: "If you want to move country for personal reasons, we'll help with visa sponsorship and up to GBP 8,000 in relocation costs.",
   },
 ];
 
@@ -86,40 +88,40 @@ const JOBS = [
     team: 'Engineering',
     title: 'Senior backend engineer',
     location: 'Remote · UTC ± 4',
-    band: '£90,000 – £120,000 + equity',
-    body: 'Own the fulfilment pipeline: Stellar watcher, order state machine, upstream card issuance, the SSE stream. Deep Node.js + SQLite experience, comfortable with payments correctness and long-lived async jobs.',
+    band: 'GBP 90,000 - GBP 120,000 + equity',
+    body: 'Own the verification pipeline: Casper payment instructions, deploy verification, order state machine, and mock fulfilment. Deep Node.js + SQLite experience, comfortable with payments correctness and long-lived async jobs.',
   },
   {
     team: 'Engineering',
     title: 'Frontend engineer · design-led',
     location: 'Remote · UTC ± 4',
-    band: '£60,000 – £80,000 + equity',
+    band: 'GBP 60,000 - GBP 80,000 + equity',
     body: "Own the marketing site, the operator dashboard, and the design system behind both. Next.js 16, React 19, opinionated about type, comfortable writing motion and micro-interactions that aren't cheesy.",
   },
   {
     team: 'DevRel',
     title: 'Integration engineer · agents',
     location: 'Remote · Americas or Europe',
-    band: '£70,000 – £100,000 + equity',
-    body: "Build reference agents on top of Cards402. Ship example MCPs. Run office hours. Write the docs we haven't written yet. You are our feedback loop with the autonomous agent ecosystem.",
+    band: 'GBP 70,000 - GBP 100,000 + equity',
+    body: "Build reference agents on top of CSPR402. Ship example MCPs, harden the quickstart, and write the docs we haven't written yet. You are our feedback loop with the autonomous agent ecosystem.",
   },
   {
     team: 'Security',
     title: 'Platform security engineer',
     location: 'Remote · UTC ± 4',
-    band: '£110,000 – £140,000 + equity',
-    body: 'Own the security posture end-to-end. Key lifecycle, webhook signatures, secrets management, incident response. Comfortable with the Stellar smart contract layer and the Node.js runtime.',
+    band: 'GBP 110,000 - GBP 140,000 + equity',
+    body: 'Own the security posture end-to-end. Key lifecycle, webhook signatures, secrets management, incident response. Comfortable with Casper verification flows and the Node.js runtime.',
   },
 ];
 
 const REASONS = [
   {
     title: 'Get in at the ground level.',
-    body: 'Cards402 is small, fast, and agile. You will directly impact the direction of the product and grow with the company from day one.',
+    body: 'CSPR402 is small, fast, and agile. You will directly impact the direction of the product and grow with the company from day one.',
   },
   {
     title: 'Make something real.',
-    body: 'Not another analytics dashboard. A real payment rail that real autonomous agents use to buy real things on the real open internet. Measurable, on-chain impact.',
+    body: 'Not another analytics dashboard. A real Casper verification flow for autonomous agents, with measurable on-chain behavior and no fake production story.',
   },
   {
     title: 'Do your best work.',
@@ -127,7 +129,7 @@ const REASONS = [
   },
   {
     title: 'Opinions welcome.',
-    body: "If you have a better way, we want to hear it. The loudest voice doesn't win — the best-argued one does. Entrepreneurs, rainmakers, and people who write design docs for fun all fit.",
+    body: "If you have a better way, we want to hear it. The loudest voice doesn't win - the best-argued one does. Entrepreneurs, rainmakers, and people who write design docs for fun all fit.",
   },
   {
     title: 'No theatre.',
@@ -135,15 +137,10 @@ const REASONS = [
   },
   {
     title: 'We put you first.',
-    body: "Our team is our lifeblood. The published salaries, the leave, the equity — none of that is marketing copy. It's how we protect the people we hire.",
+    body: "Our team is our lifeblood. The published salaries, the leave, the equity - none of that is marketing copy. It's how we protect the people we hire.",
   },
 ];
 
-// JobPosting structured data — one entry per open role. Google uses
-// this to index the listings into its Jobs surface. Dates default to
-// "today" so the listings stay fresh as long as they remain on the
-// page; we'll wire real datePosted fields when the roles become
-// concrete.
 function buildJobJsonLd(job: (typeof JOBS)[number]) {
   return {
     '@context': 'https://schema.org',
@@ -154,7 +151,7 @@ function buildJobJsonLd(job: (typeof JOBS)[number]) {
     employmentType: 'FULL_TIME',
     hiringOrganization: {
       '@type': 'Organization',
-      name: 'Cards402',
+      name: 'CSPR402',
       sameAs: 'https://cards402.com',
       logo: 'https://cards402.com/icon.png',
     },
@@ -184,10 +181,9 @@ export default function CareersPage() {
         eyebrow="Careers"
         title="Come build payment rails for AI"
         accent="agents"
-        intro="Cards402 is small, remote-first, and focused. We publish every salary, we hire from everywhere, and we don’t believe anyone should choose between doing great work and taking care of themselves. Below is what we offer and what we’re currently hiring for."
+        intro="CSPR402 is small, remote-first, and focused. We publish every salary, we hire from everywhere, and we don't believe anyone should choose between doing great work and taking care of themselves. Below is what we offer and what we're currently hiring for."
       />
 
-      {/* Benefits grid */}
       <PageSection eyebrow="Benefits" title="What you get.">
         <div
           style={{
@@ -248,12 +244,7 @@ export default function CareersPage() {
         </div>
       </PageSection>
 
-      {/* Why */}
-      <PageSection
-        background="surface"
-        eyebrow="Why Cards402"
-        title="Six reasons to take the call."
-      >
+      <PageSection background="surface" eyebrow="Why CSPR402" title="Six reasons to take the call.">
         <div
           style={{
             display: 'grid',
@@ -299,7 +290,6 @@ export default function CareersPage() {
         </div>
       </PageSection>
 
-      {/* Open roles */}
       <PageSection eyebrow="Open roles" title="What we're hiring for.">
         <div
           style={{
@@ -379,24 +369,22 @@ export default function CareersPage() {
                 }}
               >
                 <a
-                  href={`mailto:careers@cards402.com?subject=Application: ${encodeURIComponent(j.title)}`}
+                  href="mailto:careers@cards402.com"
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '0.5rem',
-                    padding: '0.7rem 1.15rem',
+                    gap: '0.55rem',
+                    padding: '0.8rem 1.15rem',
                     borderRadius: 999,
-                    background: 'transparent',
+                    background: 'var(--surface)',
                     border: '1px solid var(--border-strong)',
                     color: 'var(--fg)',
                     textDecoration: 'none',
-                    fontSize: '0.78rem',
-                    fontFamily: 'var(--font-body)',
-                    fontWeight: 500,
-                    whiteSpace: 'nowrap',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
                   }}
                 >
-                  Apply →
+                  Apply
                 </a>
               </div>
             </article>
@@ -404,67 +392,9 @@ export default function CareersPage() {
         </div>
       </PageSection>
 
-      {/* Don't see yourself */}
-      <section style={{ padding: '3rem 1.35rem 6rem' }}>
-        <div
-          style={{
-            maxWidth: 760,
-            margin: '0 auto',
-            padding: '3rem 2.5rem',
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 16,
-            textAlign: 'center',
-          }}
-        >
-          <div className="type-eyebrow" style={{ color: 'var(--green)', marginBottom: '0.9rem' }}>
-            Don&apos;t see your role?
-          </div>
-          <h2
-            className="type-display-tight"
-            style={{
-              fontSize: 'clamp(1.5rem, 2.8vw + 0.5rem, 2.1rem)',
-              color: 'var(--fg)',
-              margin: '0 auto 1.25rem',
-              maxWidth: 560,
-            }}
-          >
-            Tell us what you&apos;d build here anyway.
-          </h2>
-          <p
-            className="type-body"
-            style={{ fontSize: '0.92rem', maxWidth: 520, margin: '0 auto 1.85rem' }}
-          >
-            We read every email. If there&apos;s a role we should be hiring for and we&apos;re not,
-            we want to know. Send your CV, a note on what you&apos;d own, and anything you&apos;ve
-            built that we should see.
-          </p>
-          <a
-            href="mailto:careers@cards402.com?subject=Speculative application"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.55rem',
-              padding: '0.85rem 1.35rem',
-              borderRadius: 999,
-              background: 'var(--fg)',
-              color: 'var(--bg)',
-              textDecoration: 'none',
-              fontSize: '0.88rem',
-              fontWeight: 600,
-            }}
-          >
-            careers@cards402.com →
-          </a>
-        </div>
-      </section>
-
       <style>{`
-        @media (max-width: 820px) {
-          .careers-job-row {
-            grid-template-columns: minmax(0, 1fr) !important;
-            gap: 0.75rem !important;
-          }
+        @media (max-width: 900px) {
+          .careers-job-row { grid-template-columns: minmax(0, 1fr) !important; gap: 0.75rem !important; }
         }
       `}</style>
     </>

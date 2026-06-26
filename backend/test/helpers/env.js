@@ -8,6 +8,15 @@ process.env.DB_PATH = `:memory:`;
 process.env.NODE_ENV = 'test';
 process.env.PORT = '0'; // random port
 
+// CardCasper402 default payment provider.
+process.env.PAYMENT_PROVIDER = 'casper';
+process.env.CASPER_NETWORK = 'testnet';
+process.env.CASPER_CHAIN_NAME = 'casper-test';
+process.env.CASPER_NODE_RPC_URL = 'https://node.testnet.casper.network/rpc';
+process.env.CASPER_TREASURY_PUBLIC_KEY = '01' + 'a'.repeat(64);
+process.env.CSPR_USD_RATE = '0.01';
+process.env.CASPER_PAYMENT_TTL_MINUTES = '60';
+
 // Stellar — fake but shape-valid strkeys. Each must be a 56-char
 // base32 strkey starting with the type prefix (G / S / C). The env
 // schema's F1-env hardening (adversarial audit 2026-04-16) enforces

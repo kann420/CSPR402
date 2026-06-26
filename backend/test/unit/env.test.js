@@ -39,6 +39,13 @@ function baseEnv() {
     NODE_ENV: 'test',
     PORT: '4000',
     DB_PATH: ':memory:',
+    PAYMENT_PROVIDER: 'casper',
+    CASPER_NETWORK: 'testnet',
+    CASPER_CHAIN_NAME: 'casper-test',
+    CASPER_NODE_RPC_URL: 'https://node.testnet.casper.network/rpc',
+    CASPER_TREASURY_PUBLIC_KEY: '01' + 'a'.repeat(64),
+    CSPR_USD_RATE: '0.01',
+    CASPER_PAYMENT_TTL_MINUTES: '60',
     STELLAR_NETWORK: 'testnet',
     STELLAR_XLM_SECRET: 'S' + 'A'.repeat(55),
     STELLAR_USDC_ISSUER: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
@@ -53,6 +60,75 @@ function issueFor(result, fieldName) {
   if (result.success) return null;
   return result.error.issues.find((i) => i.path.includes(fieldName));
 }
+
+describe('payment provider env mode', () => {
+  it('accepts Casper mode without Stellar secrets', () => {
+    const e = baseEnv();
+    delete e.STELLAR_XLM_SECRET;
+    delete e.RECEIVER_CONTRACT_ID;
+    const r = _EnvSchema.safeParse(e);
+    assert.equal(r.success, true, JSON.stringify(r.success ? null : r.error.issues));
+  });
+
+  it('rejects Casper mode without a treasury public key', () => {
+    const e = baseEnv();
+    delete e.CASPER_TREASURY_PUBLIC_KEY;
+    const r = _EnvSchema.safeParse(e);
+    assert.equal(r.success, false);
+    assert.ok(issueFor(r, 'CASPER_TREASURY_PUBLIC_KEY'));
+  });
+
+  it('rejects invalid or zero CSPR_USD_RATE', () => {
+    let r = _EnvSchema.safeParse({ ...baseEnv(), CSPR_USD_RATE: '0' });
+    assert.equal(r.success, false);
+    assert.ok(issueFor(r, 'CSPR_USD_RATE'));
+
+    r = _EnvSchema.safeParse({ ...baseEnv(), CSPR_USD_RATE: 'abc' });
+    assert.equal(r.success, false);
+    assert.ok(issueFor(r, 'CSPR_USD_RATE'));
+  });
+
+  it('requires a package hash when mockUSDC is enabled', () => {
+    const r = _EnvSchema.safeParse({
+      ...baseEnv(),
+      MOCK_USDC_ENABLED: 'true',
+    });
+    assert.equal(r.success, false);
+    assert.ok(issueFor(r, 'MOCK_USDC_CONTRACT_PACKAGE_HASH'));
+  });
+
+  it('accepts mockUSDC config with package hash and optional contract hash', () => {
+    const r = _EnvSchema.safeParse({
+      ...baseEnv(),
+      MOCK_USDC_ENABLED: 'true',
+      MOCK_USDC_CONTRACT_PACKAGE_HASH: 'f'.repeat(64),
+      MOCK_USDC_CONTRACT_HASH: 'hash-' + 'e'.repeat(64),
+      MOCK_USDC_DECIMALS: '6',
+    });
+    assert.equal(r.success, true, JSON.stringify(r.success ? null : r.error.issues));
+  });
+
+  it('rejects mockUSDC decimals other than 6', () => {
+    const r = _EnvSchema.safeParse({
+      ...baseEnv(),
+      MOCK_USDC_ENABLED: 'true',
+      MOCK_USDC_CONTRACT_PACKAGE_HASH: 'f'.repeat(64),
+      MOCK_USDC_DECIMALS: '18',
+    });
+    assert.equal(r.success, false);
+    assert.ok(issueFor(r, 'MOCK_USDC_DECIMALS'));
+  });
+
+  it('requires Stellar vars when MPP is enabled', () => {
+    const e = { ...baseEnv(), MPP_ENABLED: 'true' };
+    delete e.STELLAR_XLM_SECRET;
+    delete e.RECEIVER_CONTRACT_ID;
+    const r = _EnvSchema.safeParse(e);
+    assert.equal(r.success, false);
+    assert.ok(issueFor(r, 'STELLAR_XLM_SECRET'));
+    assert.ok(issueFor(r, 'RECEIVER_CONTRACT_ID'));
+  });
+});
 
 // ── F1-env: Stellar strkey shape ────────────────────────────────────────────
 
@@ -392,8 +468,8 @@ describe('env schema — baseline regression guards', () => {
     assert.equal(r.success, false);
   });
 
-  it('rejects missing STELLAR_XLM_SECRET', () => {
-    const e = baseEnv();
+  it('rejects missing STELLAR_XLM_SECRET in Stellar provider mode', () => {
+    const e = { ...baseEnv(), PAYMENT_PROVIDER: 'stellar' };
     delete e.STELLAR_XLM_SECRET;
     const r = _EnvSchema.safeParse(e);
     assert.equal(r.success, false);

@@ -1,16 +1,22 @@
-require('dotenv').config();
-require('./env');
+const { loadRuntimeEnv } = require('./load-env');
+loadRuntimeEnv();
+const { env } = require('./env');
 
 const app = require('./app');
 const { startJobs, stopJobs } = require('./jobs');
-const { startWatcher } = require('./payments/stellar');
 const { handlePayment } = require('./payment-handler');
 const { event: bizEvent } = require('./lib/logger');
 const { formatRejection } = require('./lib/process-handlers');
 
 startJobs();
 
-const stopWatcher = startWatcher(handlePayment);
+let stopWatcher = null;
+if (env.PAYMENT_PROVIDER === 'stellar') {
+  const { startWatcher } = require('./payments/stellar');
+  stopWatcher = startWatcher(handlePayment);
+} else {
+  console.log('[cards402] PAYMENT_PROVIDER=casper — Stellar watcher disabled');
+}
 
 const PORT = process.env.PORT || 4000;
 const server = app.listen(PORT, () => {

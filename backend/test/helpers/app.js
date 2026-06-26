@@ -123,6 +123,7 @@ function resetDb() {
     'policy_decisions',
     'approval_requests',
     'agent_claims',
+    'wallet_auth_challenges',
     'stellar_dead_letter',
     'unmatched_payments',
   ]) {
@@ -137,6 +138,7 @@ function resetDb() {
   db.prepare(`DELETE FROM system_state WHERE key = 'vcc_token'`).run();
   db.prepare(`DELETE FROM system_state WHERE key = 'ctx_refresh_token'`).run();
   db.prepare(`DELETE FROM system_state WHERE key = 'ctx_access_token'`).run();
+  db.prepare(`DELETE FROM system_state WHERE key = 'casper_next_transfer_id'`).run();
 }
 
 module.exports = { request, db, createTestKey, createTestSession, seedOrder, resetDb };

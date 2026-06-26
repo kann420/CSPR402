@@ -1,5 +1,5 @@
 {
-  "name": "cards402-monorepo",
+  "name": "cspr402-monorepo",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -16,7 +16,7 @@
     "test": "npm run test --workspaces --if-present",
     "build": "npm run build -w sdk && npm run build -w web",
     "api:generate": "openapi-typescript contract/api/agent-api.openapi.yaml -o contract/api/agent-api.d.ts && openapi-typescript contract/api/vcc-internal.openapi.yaml -o contract/api/vcc-internal.d.ts",
-    "api:validate": "openapi-typescript contract/api/agent-api.openapi.yaml -o /dev/null && openapi-typescript contract/api/vcc-internal.openapi.yaml -o /dev/null",
+    "api:validate": "node ./scripts/api-validate.mjs",
     "verify": "./scripts/verify.sh",
     "prepare": "husky"
   },
@@ -43,7 +43,7 @@
   },
   "lint-staged": {
     "*.{js,ts,tsx,mjs}": [
-      "eslint --fix",
+      "eslint --fix --no-warn-ignored",
       "prettier --write"
     ],
     "*.{json,md,css}": [

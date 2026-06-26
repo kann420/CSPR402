@@ -81,7 +81,7 @@ describe('email — happy-path send for each variant', () => {
     assert.equal(fake.sendMailCalls.length, 1);
     const call = fake.sendMailCalls[0];
     assert.equal(call.to, 'user@example.com');
-    assert.equal(call.subject, 'Your Cards402 login code');
+    assert.equal(call.subject, 'Your CSPR402 login code');
     assert.match(call.text, /123456/);
     assert.match(call.html, /123456/);
   });
@@ -210,11 +210,11 @@ describe('email — F1 sanitizeHeader strips CRLF from subject', () => {
     });
     const { subject } = fake.sendMailCalls[0];
     // keyLabel is sliced to 200 before interpolation — the full
-    // subject is "Cards402 — <keyLabel> at 80% of daily limit"
+    // subject is "CSPR402 - <keyLabel> at 80% of daily limit"
     // which adds ~30 chars of chrome, so overall ≤ ~230.
     assert.ok(subject.length <= 250, `subject length ${subject.length} too long`);
     // And the label itself is no more than 200.
-    const labelPortion = subject.match(/Cards402 — (.*) at 80/)?.[1] || '';
+    const labelPortion = subject.match(/CSPR402 - (.*) at 80/)?.[1] || '';
     assert.ok(labelPortion.length <= 200);
   });
 

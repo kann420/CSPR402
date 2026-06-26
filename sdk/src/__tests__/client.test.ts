@@ -45,6 +45,48 @@ const ORDER_RESPONSE = {
   budget: { spent_usdc: '0.00', limit_usdc: null, remaining_usdc: null },
 };
 
+const CASPER_ORDER_RESPONSE = {
+  order_id: 'ord_casper',
+  status: 'pending_payment',
+  payment: {
+    type: 'casper_cspr_transfer' as const,
+    network: 'testnet' as const,
+    chain_name: 'casper-test' as const,
+    recipient: '01' + 'a'.repeat(64),
+    order_id: 'ord_casper',
+    amount_usdc: '10.00',
+    amount_cspr: '1000.000000000',
+    amount_motes: '1000000000000',
+    transfer_id: 100000,
+    expires_at: '2026-01-01T00:00:00.000Z',
+  },
+  poll_url: '/v1/orders/ord_casper',
+  budget: { spent_usdc: '0.00', limit_usdc: null, remaining_usdc: null },
+};
+
+const MOCK_USDC_ORDER_RESPONSE = {
+  order_id: 'ord_mock_usdc',
+  status: 'pending_payment',
+  payment: {
+    type: 'casper_cep18_transfer' as const,
+    asset: 'mockUSDC' as const,
+    decimals: 6 as const,
+    network: 'testnet' as const,
+    chain_name: 'casper-test' as const,
+    contract_package_hash: 'f'.repeat(64),
+    contract_hash: 'e'.repeat(64),
+    sender_public_key: '01' + 'b'.repeat(64),
+    recipient_public_key: '01' + 'a'.repeat(64),
+    order_id: 'ord_mock_usdc',
+    amount: '10.00',
+    amount_base_units: '10000000',
+    expires_at: '2026-01-01T00:00:00.000Z',
+    verify_url: 'https://api.cards402.test/v1/orders/ord_mock_usdc/verify-payment',
+  },
+  poll_url: '/v1/orders/ord_mock_usdc',
+  budget: { spent_usdc: '0.00', limit_usdc: null, remaining_usdc: null },
+};
+
 const ORDER_STATUS_PENDING = {
   order_id: 'ord_abc',
   status: 'pending_payment',
@@ -74,11 +116,22 @@ describe('Cards402Client.createOrder', () => {
     const res = await client().createOrder({ amount_usdc: '10.00' });
     expect(res.order_id).toBe('ord_abc');
     expect(res.payment.type).toBe('soroban_contract');
+    if (res.payment.type !== 'soroban_contract') throw new Error('expected soroban payment');
     expect(res.payment.contract_id).toBe(
       'CARDS402CONTRACTIDXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
     );
     expect(res.payment.order_id).toBe('ord_abc');
     expect(res.budget.spent_usdc).toBe('0.00');
+  });
+
+  it('creates a Casper CSPR order and preserves transfer instructions', async () => {
+    mockFetch(201, CASPER_ORDER_RESPONSE);
+    const res = await client().createOrder({ amount_usdc: '10.00' });
+    expect(res.payment.type).toBe('casper_cspr_transfer');
+    if (res.payment.type !== 'casper_cspr_transfer') throw new Error('expected Casper payment');
+    expect(res.payment.chain_name).toBe('casper-test');
+    expect(res.payment.amount_motes).toBe('1000000000000');
+    expect(res.payment.transfer_id).toBe(100000);
   });
 
   it('sends correct headers and body', async () => {
@@ -96,6 +149,30 @@ describe('Cards402Client.createOrder', () => {
     expect((opts.headers as Record<string, string>)['Content-Type']).toBe('application/json');
     const parsed = JSON.parse(opts.body as string);
     expect(parsed.amount_usdc).toBe('10.00');
+  });
+
+  it('creates a mockUSDC order and sends the payer public key', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, status: 201, json: async () => MOCK_USDC_ORDER_RESPONSE });
+    global.fetch = fetchMock;
+
+    const payer = '01' + 'b'.repeat(64);
+    const res = await client().createOrder({
+      amount_usdc: '10.00',
+      payment_asset: 'mock_usdc_cep18',
+      payer_public_key: payer,
+    });
+
+    expect(res.payment.type).toBe('casper_cep18_transfer');
+    if (res.payment.type !== 'casper_cep18_transfer') throw new Error('expected CEP-18 payment');
+    expect(res.payment.amount_base_units).toBe('10000000');
+    expect(res.payment.contract_package_hash).toBe('f'.repeat(64));
+
+    const [, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const parsed = JSON.parse(opts.body as string);
+    expect(parsed.payment_asset).toBe('mock_usdc_cep18');
+    expect(parsed.payer_public_key).toBe(payer);
   });
 
   it('throws AuthError on 401', async () => {
@@ -170,6 +247,101 @@ describe('Cards402Client.getOrder', () => {
 });
 
 // ── waitForCard ───────────────────────────────────────────────────────────────
+
+describe('Cards402Client.verifyCasperPayment', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts deploy_hash to the Casper verify endpoint', async () => {
+    const deployHash = 'a'.repeat(64);
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ok: true,
+        receipt: {
+          type: 'casper_cspr_receipt',
+          order_id: 'ord_casper',
+          payment_asset: 'cspr_casper',
+          network: 'testnet',
+          chain_name: 'casper-test',
+          deploy_hash: deployHash,
+          sender_public_key: '01' + 'b'.repeat(64),
+          recipient: '01' + 'a'.repeat(64),
+          transfer_id: 100000,
+          amount_motes: '1000000000000',
+          verified_at: '2026-01-01T00:00:00.000Z',
+          card_mode: 'mock',
+        },
+        order: ORDER_STATUS_READY,
+      }),
+    });
+    global.fetch = fetchMock;
+
+    const res = await client().verifyCasperPayment('ord_casper', deployHash);
+
+    expect(res.receipt.deploy_hash).toBe(deployHash);
+    expect(res.order.phase).toBe('ready');
+    const [url, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('http://localhost:3000/v1/orders/ord_casper/verify-payment');
+    expect((opts.headers as Record<string, string>)['X-Api-Key']).toBe('cards402_test_key');
+    expect(JSON.parse(opts.body as string)).toEqual({ deploy_hash: deployHash });
+  });
+
+  it('posts sender_public_key and parses mockUSDC receipts', async () => {
+    const deployHash = 'a'.repeat(64);
+    const senderPublicKey = '01' + 'b'.repeat(64);
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ok: true,
+        receipt: {
+          type: 'casper_mock_usdc_receipt',
+          order_id: 'ord_mock_usdc',
+          payment_asset: 'mock_usdc_cep18',
+          network: 'testnet',
+          chain_name: 'casper-test',
+          deploy_hash: deployHash,
+          sender_public_key: senderPublicKey,
+          asset: 'mockUSDC',
+          decimals: 6,
+          contract_package_hash: 'f'.repeat(64),
+          contract_hash: 'e'.repeat(64),
+          recipient_public_key: '01' + 'a'.repeat(64),
+          recipient_account_hash: 'account-hash-' + 'c'.repeat(64),
+          amount_base_units: '10000000',
+          verified_at: '2026-01-01T00:00:00.000Z',
+          card_mode: 'mock',
+        },
+        order: ORDER_STATUS_READY,
+      }),
+    });
+    global.fetch = fetchMock;
+
+    const res = await client().verifyCasperPayment('ord_mock_usdc', deployHash, {
+      senderPublicKey,
+    });
+
+    expect(res.receipt.type).toBe('casper_mock_usdc_receipt');
+    if (res.receipt.type !== 'casper_mock_usdc_receipt') {
+      throw new Error('expected mockUSDC receipt');
+    }
+    expect(res.receipt.amount_base_units).toBe('10000000');
+    const [, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(opts.body as string)).toEqual({
+      deploy_hash: deployHash,
+      sender_public_key: senderPublicKey,
+    });
+  });
+
+  it('validates deploy hash shape client-side', async () => {
+    await expect(client().verifyCasperPayment('ord_casper', 'bad')).rejects.toThrow(
+      /Invalid Casper deploy hash/,
+    );
+  });
+});
 
 describe('Cards402Client.waitForCard', () => {
   beforeEach(() => {

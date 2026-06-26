@@ -1,7 +1,3 @@
-// Platform health — watcher freshness, circuit breaker, dead-letter
-// queue, webhook backlog, unmatched payments. Includes the unfreeze
-// action so the operator can reset the circuit breaker without SSHing.
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -49,8 +45,7 @@ export default function PlatformHealthPage() {
 
   async function handleUnfreeze() {
     const reason = prompt(
-      'Why are you unfreezing the platform? (min 10 characters)\n\n' +
-        'This is captured in the audit trail so the next operator can see why the freeze was lifted.',
+      'Why are you unfreezing the platform? (min 10 characters)\n\nThis reason is stored in the audit trail.',
     );
     if (reason === null) return;
     if (reason.trim().length < 10) {
@@ -71,11 +66,18 @@ export default function PlatformHealthPage() {
 
   if (!user?.is_platform_owner) return null;
 
+  const monitorLabel =
+    data?.watcher.age_seconds === null
+      ? 'Casper mode'
+      : data?.watcher.healthy
+        ? 'Legacy watcher healthy'
+        : 'Legacy watcher degraded';
+
   return (
     <PageContainer>
       <PageHeader
         title="Health"
-        subtitle="Watcher, circuit breaker, dead-letter queue, webhook backlog"
+        subtitle="Payment verification, circuit breaker, dead-letter queue, webhook backlog"
       />
 
       {error && (
@@ -86,12 +88,15 @@ export default function PlatformHealthPage() {
 
       {data && (
         <>
-          {/* Top KPIs */}
           <KpiRow>
             <KpiTile
-              label="Watcher age"
-              value={data.watcher.age_seconds !== null ? `${data.watcher.age_seconds}s` : '—'}
-              hint={data.watcher.last_ledger ? `ledger ${data.watcher.last_ledger}` : undefined}
+              label="Payment monitor"
+              value={monitorLabel}
+              hint={
+                data.watcher.age_seconds === null
+                  ? 'Stellar watcher is unused in Casper mode'
+                  : `${data.watcher.age_seconds}s since cursor advance`
+              }
             />
             <KpiTile
               label="Frozen"
@@ -110,13 +115,12 @@ export default function PlatformHealthPage() {
             />
           </KpiRow>
 
-          {/* Circuit breaker control */}
           <Card
             title="Circuit breaker"
             actions={
               data.circuit_breaker.frozen || data.circuit_breaker.consecutive_failures > 0 ? (
                 <Button variant="primary" onClick={handleUnfreeze} disabled={unfreezing}>
-                  {unfreezing ? 'Unfreezing…' : 'Unfreeze + reset'}
+                  {unfreezing ? 'Unfreezing...' : 'Unfreeze + reset'}
                 </Button>
               ) : undefined
             }
@@ -132,7 +136,7 @@ export default function PlatformHealthPage() {
               <div style={{ color: 'var(--fg-dim)' }}>Frozen</div>
               <div>
                 <Pill tone={data.circuit_breaker.frozen ? 'red' : 'green'}>
-                  {data.circuit_breaker.frozen ? 'YES — orders paused' : 'no'}
+                  {data.circuit_breaker.frozen ? 'YES - orders paused' : 'no'}
                 </Pill>
               </div>
               <div style={{ color: 'var(--fg-dim)' }}>Consecutive failures</div>
@@ -151,8 +155,7 @@ export default function PlatformHealthPage() {
             </div>
           </Card>
 
-          {/* Watcher */}
-          <Card title="Stellar payment watcher">
+          <Card title="Payment monitor detail">
             <div
               style={{
                 display: 'grid',
@@ -163,36 +166,43 @@ export default function PlatformHealthPage() {
             >
               <div style={{ color: 'var(--fg-dim)' }}>Status</div>
               <div>
-                <Pill tone={data.watcher.healthy ? 'green' : 'yellow'}>
-                  {data.watcher.healthy ? 'healthy' : 'degraded or stalled'}
+                <Pill
+                  tone={
+                    data.watcher.age_seconds === null
+                      ? 'blue'
+                      : data.watcher.healthy
+                        ? 'green'
+                        : 'yellow'
+                  }
+                >
+                  {monitorLabel}
                 </Pill>
               </div>
-              <div style={{ color: 'var(--fg-dim)' }}>Last ledger</div>
+              <div style={{ color: 'var(--fg-dim)' }}>Last cursor</div>
               <div style={{ fontFamily: 'var(--font-mono)' }}>
-                {data.watcher.last_ledger ?? '—'}
+                {data.watcher.last_ledger ?? 'n/a'}
               </div>
               <div style={{ color: 'var(--fg-dim)' }}>Last advance</div>
               <div style={{ fontFamily: 'var(--font-mono)' }}>
                 {data.watcher.last_ledger_at
                   ? `${timeAgo(data.watcher.last_ledger_at)} (${data.watcher.age_seconds}s)`
-                  : '—'}
+                  : 'Not applicable in Casper mode'}
               </div>
             </div>
           </Card>
 
-          {/* Dead letter */}
           <Card title={`Dead letter (${data.dead_letter.total} total)`} padding={0}>
             {data.dead_letter.recent.length === 0 ? (
               <EmptyState
                 title="Empty dead letter queue"
-                description="Every on-chain event the watcher has seen has been parsed cleanly."
+                description="Every payment event the backend has seen has been parsed cleanly."
               />
             ) : (
               <table>
                 <thead>
                   <tr>
                     <th>When</th>
-                    <th>Ledger</th>
+                    <th>Cursor</th>
                     <th>Tx</th>
                     <th>Error</th>
                   </tr>
@@ -206,15 +216,8 @@ export default function PlatformHealthPage() {
                       <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem' }}>
                         {r.ledger}
                       </td>
-                      <td>
-                        <a
-                          href={`https://stellar.expert/explorer/public/tx/${r.tx_hash}`}
-                          target="_blank"
-                          rel="noopener"
-                          style={{ fontFamily: 'var(--font-mono)', fontSize: '0.66rem' }}
-                        >
-                          {r.tx_hash.slice(0, 10)}…
-                        </a>
+                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.66rem' }}>
+                        {r.tx_hash.slice(0, 10)}...
                       </td>
                       <td
                         style={{
@@ -236,7 +239,6 @@ export default function PlatformHealthPage() {
             )}
           </Card>
 
-          {/* Webhook backlog */}
           <Card title="Webhook backlog">
             <div
               style={{

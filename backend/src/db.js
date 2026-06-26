@@ -935,9 +935,101 @@ applyMigration(29, () => {
   }
 });
 
+// Migration 30: Casper CSPR transfer correlation.
+// CardCasper402's first MVP path asks agents to perform a native Casper
+// transfer. Casper native transfers carry a numeric transfer id, so store
+// the generated value on the order row and enforce uniqueness for every
+// pending/live order that has one.
+applyMigration(30, () => {
+  try {
+    db.prepare(`ALTER TABLE orders ADD COLUMN casper_transfer_id INTEGER`).run();
+  } catch (err) {
+    if (!/duplicate column name/.test(/** @type {Error} */ (err)?.message || '')) throw err;
+  }
+  db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_casper_transfer_id
+      ON orders(casper_transfer_id)
+      WHERE casper_transfer_id IS NOT NULL;
+  `);
+});
+
+// Migration 31: Casper payment verification receipt fields.
+// Store the finalized deploy hash, sender public key, and verification
+// timestamp separately from the legacy Stellar columns so the Casper MVP
+// can remain explicit and auditable.
+applyMigration(31, () => {
+  for (const sql of [
+    `ALTER TABLE orders ADD COLUMN casper_deploy_hash TEXT`,
+    `ALTER TABLE orders ADD COLUMN casper_sender_public_key TEXT`,
+    `ALTER TABLE orders ADD COLUMN casper_paid_at TEXT`,
+  ]) {
+    try {
+      db.exec(sql);
+    } catch (err) {
+      if (!/duplicate column name/.test(/** @type {Error} */ (err)?.message || '')) throw err;
+    }
+  }
+  db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_casper_deploy_hash
+      ON orders(casper_deploy_hash)
+      WHERE casper_deploy_hash IS NOT NULL;
+  `);
+});
+
+// Migration 32: mockUSDC CEP-18 order binding and persisted receipts.
+// CEP-18 transfers do not carry Casper native transfer_id, so bind the
+// order to the expected payer public key at creation time and store the
+// finalized payment receipt once verification succeeds.
+applyMigration(32, () => {
+  for (const sql of [
+    `ALTER TABLE orders ADD COLUMN casper_expected_sender_public_key TEXT`,
+    `ALTER TABLE orders ADD COLUMN payment_receipt_json TEXT`,
+  ]) {
+    try {
+      db.exec(sql);
+    } catch (err) {
+      if (!/duplicate column name/.test(/** @type {Error} */ (err)?.message || '')) throw err;
+    }
+  }
+});
+
+// Migration 33: Casper wallet login support.
+// CSPR402 authenticates dashboard users by proving control of a Casper
+// public key through a short-lived signed challenge. The existing email
+// column remains for legacy dashboard compatibility; wallet users get a
+// deterministic local placeholder email and the real identity lives in
+// wallet_public_key.
+applyMigration(33, () => {
+  try {
+    db.prepare(`ALTER TABLE users ADD COLUMN wallet_public_key TEXT`).run();
+  } catch (err) {
+    if (!/duplicate column name/.test(/** @type {Error} */ (err)?.message || '')) throw err;
+  }
+  db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_users_wallet_public_key
+      ON users(wallet_public_key)
+      WHERE wallet_public_key IS NOT NULL;
+
+    CREATE TABLE IF NOT EXISTS wallet_auth_challenges (
+      id            TEXT PRIMARY KEY,
+      public_key    TEXT NOT NULL,
+      nonce         TEXT NOT NULL UNIQUE,
+      message       TEXT NOT NULL,
+      domain        TEXT NOT NULL,
+      chain_name    TEXT NOT NULL,
+      issued_at     TEXT NOT NULL,
+      expires_at    TEXT NOT NULL,
+      used_at       TEXT,
+      created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_wallet_auth_challenges_lookup
+      ON wallet_auth_challenges(public_key, nonce, expires_at);
+  `);
+});
+
 // EXPECTED_SCHEMA_VERSION must match the last `applyMigration(N)` call
 // above. Bump it in lock-step with any new migration.
-const EXPECTED_SCHEMA_VERSION = 29;
+const EXPECTED_SCHEMA_VERSION = 33;
 const actualVersion = getSchemaVersion();
 if (actualVersion > EXPECTED_SCHEMA_VERSION) {
   console.error(

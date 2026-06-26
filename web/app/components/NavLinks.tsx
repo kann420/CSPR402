@@ -1,27 +1,21 @@
 'use client';
 
-// Top marketing nav — a single responsive menu that renders as a
-// horizontal bar on desktop (>860px) and collapses to a hamburger
-// with a fullscreen sheet on mobile. Links are rendered once; CSS
-// handles the layout switch.
-
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 const PRIMARY: { href: string; label: string }[] = [
-  { href: '/pricing', label: 'Pricing' },
   { href: '/docs', label: 'Docs' },
-  { href: '/changelog', label: 'Changelog' },
-  { href: '/company', label: 'Company' },
+  { href: '/docs/quickstart', label: 'Quickstart' },
+  { href: '/portal', label: 'Demo' },
+  { href: '/status', label: 'Status' },
 ];
 
 const MORE: { href: string; label: string; body: string }[] = [
-  { href: '/compare', label: 'Compare', body: 'vs corporate + shared cards' },
-  { href: '/security', label: 'Security', body: 'Architecture + disclosure' },
-  { href: '/careers', label: 'Careers', body: 'Open roles + benefits' },
-  { href: '/press', label: 'Press', body: 'Media kit + contact' },
-  { href: '/affiliate', label: 'Affiliate', body: 'Earn on every card · soon' },
+  { href: '/compare', label: 'Compare', body: 'Hackathon MVP vs legacy fork' },
+  { href: '/terms', label: 'Terms', body: 'Scope, safety, and disclaimers' },
+  { href: '/affiliate', label: 'Affiliate', body: 'Not active for this MVP' },
+  { href: '/changelog', label: 'Changelog', body: 'Project updates and notes' },
 ];
 
 export function NavLinks() {
@@ -30,7 +24,6 @@ export function NavLinks() {
   const [menuOpen, setMenuOpen] = useState(false);
   const moreWrapRef = useRef<HTMLDivElement>(null);
 
-  // ESC closes any open menu.
   useEffect(() => {
     if (!moreOpen && !menuOpen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -43,7 +36,6 @@ export function NavLinks() {
     return () => window.removeEventListener('keydown', onKey);
   }, [moreOpen, menuOpen]);
 
-  // Click outside closes the More dropdown. Only wired while open.
   useEffect(() => {
     if (!moreOpen) return;
     const onClick = (e: globalThis.MouseEvent) => {
@@ -53,14 +45,11 @@ export function NavLinks() {
     return () => window.removeEventListener('mousedown', onClick);
   }, [moreOpen]);
 
-  // Route change closes everything.
   useEffect(() => {
     setMoreOpen(false);
     setMenuOpen(false);
   }, [pathname]);
 
-  // Lock page scroll while the mobile menu is open. Both html and body
-  // need overflow:hidden — iOS Safari ignores it on body alone.
   useEffect(() => {
     if (!menuOpen) return;
     document.documentElement.style.overflow = 'hidden';
@@ -75,7 +64,6 @@ export function NavLinks() {
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '0.1rem' }}>
-      {/* Single nav menu — row on desktop, fullscreen column on mobile */}
       <div
         className={`nav-menu${menuOpen ? ' nav-menu--open' : ''}`}
         onClick={() => setMenuOpen(false)}
@@ -91,7 +79,6 @@ export function NavLinks() {
           </Link>
         ))}
 
-        {/* More — dropdown on desktop, items flow inline on mobile */}
         <div
           ref={moreWrapRef}
           className="nav-more"
@@ -153,9 +140,8 @@ export function NavLinks() {
         </Link>
       </div>
 
-      {/* Primary CTA */}
-      <Link href="/dashboard" className="nav-cta">
-        Get started
+      <Link href="/portal" className="nav-cta">
+        Try demo
         <svg
           width="13"
           height="13"
@@ -174,7 +160,6 @@ export function NavLinks() {
         </svg>
       </Link>
 
-      {/* Hamburger — visible only on mobile */}
       <button
         className="nav-toggle"
         onClick={() => setMenuOpen((v) => !v)}
@@ -192,9 +177,6 @@ export function NavLinks() {
       </button>
 
       <style>{`
-        /* Pseudo-element carries the nav's backdrop so the <nav> itself
-           doesn't create a containing block for position:fixed children
-           (the mobile menu). Background + border live here too. */
         .marketing-nav::before {
           content: '';
           position: absolute;
@@ -206,7 +188,6 @@ export function NavLinks() {
           border-bottom: 1px solid var(--border);
         }
 
-        /* ---- Desktop (default) ---- */
         .nav-menu {
           display: flex;
           align-items: center;
@@ -317,7 +298,6 @@ export function NavLinks() {
           cursor: pointer;
         }
 
-        /* ---- Mobile (≤ 860px) ---- */
         @media (max-width: 860px) {
           .nav-toggle { display: inline-flex; }
           .nav-cta { display: none; }
@@ -353,7 +333,6 @@ export function NavLinks() {
           }
           .nav-menu-link--dashboard { margin-left: 0; }
 
-          /* Flatten the More wrapper so its items flow in the column */
           .nav-more { display: contents; }
           .nav-more-btn { display: none; }
           .nav-more-dropdown { display: contents !important; }

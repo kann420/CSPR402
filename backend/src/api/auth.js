@@ -14,6 +14,8 @@
 const { Router } = require('express');
 const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
+const { PublicKey, byteHash } = require('casper-js-sdk');
 const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 const db = require('../db');
 const { sendLoginCode } = require('../lib/email');
@@ -25,6 +27,8 @@ const router = Router();
 const CODE_TTL_MINUTES = 15;
 const CODE_MAX_PER_WINDOW = 3;
 const SESSION_TTL_DAYS = 7;
+const WALLET_CHALLENGE_TTL_MINUTES = 5;
+const CASPER_PUBLIC_KEY_RE = /^(01[0-9a-fA-F]{64}|02[0-9a-fA-F]{66})$/;
 
 // ── Rate limiters ──────────────────────────────────────────────────────────
 //
@@ -83,6 +87,268 @@ function generateCode() {
 
 function normalizeEmail(email) {
   return email.trim().toLowerCase();
+}
+
+function normalizeCasperPublicKey(publicKey) {
+  if (typeof publicKey !== 'string') return null;
+  const normalized = publicKey.trim().toLowerCase();
+  if (!CASPER_PUBLIC_KEY_RE.test(normalized)) return null;
+  try {
+    PublicKey.fromHex(normalized);
+  } catch {
+    return null;
+  }
+  return normalized;
+}
+
+function resolveChallengeDomain(rawDomain) {
+  const configured = process.env.CSPR402_AUTH_DOMAIN?.trim().toLowerCase();
+  if (configured) return configured;
+  const candidate = typeof rawDomain === 'string' ? rawDomain.trim().toLowerCase() : '';
+  if (/^(cspr402\.xyz|localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(candidate)) {
+    return candidate;
+  }
+  return 'cspr402.xyz';
+}
+
+function buildWalletChallengeMessage({ domain, chainName, publicKey, nonce, issuedAt, expiresAt }) {
+  return [
+    'CSPR402 wallet login',
+    `Domain: ${domain}`,
+    `Chain: ${chainName}`,
+    `Public key: ${publicKey}`,
+    `Nonce: ${nonce}`,
+    `Issued at: ${issuedAt}`,
+    `Expires at: ${expiresAt}`,
+    'Only sign this message if you are logging in to CSPR402.',
+  ].join('\n');
+}
+
+function signatureHexToCandidateBytes(signatureHex, publicKeyHex) {
+  if (typeof signatureHex !== 'string') return null;
+  const hex = signatureHex.trim().replace(/^0x/i, '').toLowerCase();
+  if (!/^[0-9a-f]+$/.test(hex)) return null;
+  const bytes = Buffer.from(hex, 'hex');
+  const algorithmByte = Buffer.from(publicKeyHex.slice(0, 2), 'hex');
+  const candidates = [];
+  const seen = new Set();
+  const addCandidate = (candidate) => {
+    if (candidate.length !== 65) return;
+    const key = candidate.toString('hex');
+    if (seen.has(key)) return;
+    seen.add(key);
+    candidates.push(candidate);
+  };
+
+  // Casper wallets may return raw 64-byte signatures for signMessage.
+  // casper-js-sdk PublicKey.verifySignature expects the algorithm byte
+  // prefixed, matching signAndAddAlgorithmBytes().
+  if (bytes.length === 64) {
+    addCandidate(Buffer.concat([algorithmByte, bytes]));
+  } else if (bytes.length === 65) {
+    addCandidate(bytes);
+    // Some secp256k1 providers return compact r+s plus a recovery id
+    // instead of Casper's algorithm-prefixed signature bytes.
+    if (bytes[0] !== algorithmByte[0]) {
+      addCandidate(Buffer.concat([algorithmByte, bytes.subarray(0, 64)]));
+      addCandidate(Buffer.concat([algorithmByte, bytes.subarray(1)]));
+    }
+  }
+
+  return candidates.length ? candidates : null;
+}
+
+function verifyWalletSignature({ publicKey, message, signatureHex }) {
+  const signatures = signatureHexToCandidateBytes(signatureHex, publicKey);
+  if (!signatures) return false;
+  let key;
+  try {
+    key = PublicKey.fromHex(publicKey);
+  } catch {
+    return false;
+  }
+
+  const verifyPayload = (payload) => {
+    for (const signature of signatures) {
+      try {
+        if (key.verifySignature(payload, signature)) return true;
+      } catch {
+        // Try the next candidate/payload pair.
+      }
+    }
+    return false;
+  };
+
+  const rawMessage = Buffer.from(message, 'utf8');
+  if (verifyPayload(rawMessage)) return true;
+
+  // Casper Wallet's browser extension signs the raw bytes of this
+  // prefixed message for software accounts.
+  const casperMessage = Buffer.from(`Casper Message:\n${message}`, 'utf8');
+  if (verifyPayload(casperMessage)) return true;
+
+  // CSPR.click/Casper Wallet signMessage signs the Blake2b-256 digest of
+  // this prefixed payload for Ledger accounts. Keep raw-message verification
+  // above for older tests and any provider that signs literal UTF-8 bytes.
+  const casperMessageDigest = byteHash(casperMessage);
+  return verifyPayload(casperMessageDigest);
+}
+
+function walletSignatureDiagnostics({ publicKey, message, signatureHex }) {
+  if (process.env.NODE_ENV === 'production') return null;
+  const hex =
+    typeof signatureHex === 'string' ? signatureHex.trim().replace(/^0x/i, '').toLowerCase() : '';
+  const rawBytes = /^[0-9a-f]+$/.test(hex) ? Buffer.from(hex, 'hex') : null;
+  const signatures = signatureHexToCandidateBytes(signatureHex, publicKey) || [];
+  let key = null;
+  try {
+    key = PublicKey.fromHex(publicKey);
+  } catch {
+    return { public_key_prefix: publicKey?.slice?.(0, 2), key_error: 'invalid_public_key' };
+  }
+
+  const payloads = [
+    { name: 'raw_utf8', bytes: Buffer.from(message, 'utf8') },
+    {
+      name: 'casper_message_header_raw_utf8',
+      bytes: Buffer.from(`Casper Message:\n${message}`, 'utf8'),
+    },
+    { name: 'byte_hash_raw_utf8', bytes: byteHash(Buffer.from(message, 'utf8')) },
+    {
+      name: 'byte_hash_casper_message_newline',
+      bytes: byteHash(Buffer.from(`Casper Message:\n${message}`, 'utf8')),
+    },
+    {
+      name: 'byte_hash_casper_message_no_newline',
+      bytes: byteHash(Buffer.from(`Casper Message:${message}`, 'utf8')),
+    },
+  ];
+
+  const matrix = payloads.map((payload) => ({
+    payload: payload.name,
+    ok: signatures.some((signature) => {
+      try {
+        return key.verifySignature(payload.bytes, signature);
+      } catch {
+        return false;
+      }
+    }),
+  }));
+
+  return {
+    public_key_prefix: publicKey.slice(0, 2),
+    signature_hex_length: hex.length,
+    raw_byte_length: rawBytes?.length ?? null,
+    raw_first_byte: rawBytes?.length ? rawBytes[0] : null,
+    raw_last_byte: rawBytes?.length ? rawBytes[rawBytes.length - 1] : null,
+    candidate_count: signatures.length,
+    candidate_first_bytes: signatures.map((signature) => signature[0]),
+    matrix,
+  };
+}
+
+function walletEmail(publicKey) {
+  return `wallet-${publicKey.slice(0, 24)}@wallet.cspr402.local`;
+}
+
+function createSession(userId) {
+  const rawToken = crypto.randomBytes(32).toString('hex');
+  const sessionExpiresAt = new Date(
+    Date.now() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000,
+  ).toISOString();
+
+  db.prepare(
+    `
+    INSERT INTO sessions (id, user_id, token_hash, expires_at)
+    VALUES (?, ?, ?, ?)
+  `,
+  ).run(uuidv4(), userId, hashToken(rawToken), sessionExpiresAt);
+
+  return rawToken;
+}
+
+function findSession(req) {
+  const token = extractBearerToken(req);
+  if (!token) return null;
+  return /** @type {any} */ (
+    db
+      .prepare(
+        `
+    SELECT u.id, u.email, u.role, u.wallet_public_key, d.id AS dashboard_id, d.name AS dashboard_name
+    FROM sessions s
+    JOIN users u ON s.user_id = u.id
+    LEFT JOIN dashboards d ON d.user_id = u.id
+    WHERE s.token_hash = ?
+      AND datetime(s.expires_at) > datetime('now')
+  `,
+      )
+      .get(hashToken(token))
+  );
+}
+
+function bootstrapWalletUser(publicKey, now) {
+  return db.transaction(() => {
+    let u = /** @type {any} */ (
+      db.prepare(`SELECT * FROM users WHERE wallet_public_key = ?`).get(publicKey)
+    );
+    if (!u) {
+      const email = walletEmail(publicKey);
+      u = /** @type {any} */ (db.prepare(`SELECT * FROM users WHERE email = ?`).get(email));
+      if (!u) {
+        const isFirst =
+          /** @type {any} */ (db.prepare(`SELECT COUNT(*) AS n FROM users`).get()).n === 0;
+        const id = uuidv4();
+        db.prepare(
+          `INSERT INTO users (id, email, role, wallet_public_key) VALUES (?, ?, ?, ?)`,
+        ).run(id, email, isFirst ? 'owner' : 'user', publicKey);
+        u = /** @type {any} */ (db.prepare(`SELECT * FROM users WHERE id = ?`).get(id));
+      } else if (!u.wallet_public_key) {
+        db.prepare(`UPDATE users SET wallet_public_key = ? WHERE id = ?`).run(publicKey, u.id);
+        u = /** @type {any} */ (db.prepare(`SELECT * FROM users WHERE id = ?`).get(u.id));
+      }
+    }
+    db.prepare(`UPDATE users SET last_login_at = ? WHERE id = ?`).run(now, u.id);
+
+    let d = /** @type {any} */ (
+      db.prepare(`SELECT id, name FROM dashboards WHERE user_id = ?`).get(u.id)
+    );
+    if (!d) {
+      const dashId = uuidv4();
+      const name = `CSPR ${publicKey.slice(2, 10)}`;
+      db.prepare(`INSERT INTO dashboards (id, user_id, name) VALUES (?, ?, ?)`).run(
+        dashId,
+        u.id,
+        name,
+      );
+      d = { id: dashId, name };
+    }
+    return { user: u, dashboard: d };
+  })();
+}
+
+async function createPortalApiKey(row) {
+  const id = uuidv4();
+  const rawKey = `cspr402_${crypto.randomBytes(24).toString('hex')}`;
+  const keyPrefix = rawKey.slice('cspr402_'.length, 'cspr402_'.length + 12);
+  const keyHash = await bcrypt.hash(rawKey, 10);
+  const webhookSecret = `whsec_${crypto.randomBytes(32).toString('hex')}`;
+  db.prepare(
+    `
+    INSERT INTO api_keys
+      (id, key_hash, key_prefix, label, webhook_secret, wallet_public_key, dashboard_id)
+    VALUES
+      (@id, @keyHash, @keyPrefix, @label, @webhookSecret, @wallet_public_key, @dashboard_id)
+  `,
+  ).run({
+    id,
+    keyHash,
+    keyPrefix,
+    label: 'Portal wallet demo',
+    webhookSecret,
+    wallet_public_key: row.wallet_public_key || null,
+    dashboard_id: row.dashboard_id,
+  });
+  return { api_key: rawKey, api_key_id: id };
 }
 
 // Adversarial audit F2-auth (2026-04-15): coerce client IP to a
@@ -406,6 +672,187 @@ router.post('/verify', verifyLimiter, (req, res) => {
 
 // ── POST /auth/logout ────────────────────────────────────────────────────────
 
+// POST /auth/wallet/challenge
+router.post('/wallet/challenge', loginLimiter, (req, res) => {
+  if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+    return res.status(400).json({
+      error: 'invalid_request',
+      message: 'Request body must be a JSON object (set Content-Type: application/json).',
+    });
+  }
+
+  const publicKey = normalizeCasperPublicKey(req.body.public_key);
+  if (!publicKey) {
+    return res.status(400).json({
+      error: 'invalid_public_key',
+      message: 'public_key must be a valid Casper public key hex string.',
+    });
+  }
+
+  const chainName = process.env.CASPER_CHAIN_NAME || 'casper-test';
+  const domain = resolveChallengeDomain(req.body.domain || req.headers?.host);
+  const nonce = crypto.randomBytes(24).toString('hex');
+  const issuedAt = new Date().toISOString();
+  const expiresAt = new Date(Date.now() + WALLET_CHALLENGE_TTL_MINUTES * 60 * 1000).toISOString();
+  const message = buildWalletChallengeMessage({
+    domain,
+    chainName,
+    publicKey,
+    nonce,
+    issuedAt,
+    expiresAt,
+  });
+
+  db.prepare(
+    `
+    INSERT INTO wallet_auth_challenges
+      (id, public_key, nonce, message, domain, chain_name, issued_at, expires_at)
+    VALUES
+      (?, ?, ?, ?, ?, ?, ?, ?)
+  `,
+  ).run(uuidv4(), publicKey, nonce, message, domain, chainName, issuedAt, expiresAt);
+
+  res.json({
+    public_key: publicKey,
+    nonce,
+    message,
+    domain,
+    chain_name: chainName,
+    issued_at: issuedAt,
+    expires_at: expiresAt,
+  });
+});
+
+// POST /auth/wallet/verify
+router.post('/wallet/verify', verifyLimiter, (req, res) => {
+  if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+    return res.status(400).json({
+      error: 'invalid_request',
+      message: 'Request body must be a JSON object (set Content-Type: application/json).',
+    });
+  }
+
+  const publicKey = normalizeCasperPublicKey(req.body.public_key);
+  const nonce = typeof req.body.nonce === 'string' ? req.body.nonce.trim() : '';
+  const signatureHex =
+    typeof req.body.signature_hex === 'string'
+      ? req.body.signature_hex
+      : typeof req.body.signature === 'string'
+        ? req.body.signature
+        : '';
+  if (!publicKey || !nonce || !signatureHex) {
+    return res.status(400).json({
+      error: 'missing_fields',
+      message: 'public_key, nonce, and signature_hex are required.',
+    });
+  }
+
+  const row = /** @type {any} */ (
+    db
+      .prepare(
+        `
+    SELECT *
+    FROM wallet_auth_challenges
+    WHERE public_key = ?
+      AND nonce = ?
+      AND used_at IS NULL
+      AND datetime(expires_at) > datetime('now')
+    ORDER BY created_at DESC
+    LIMIT 1
+  `,
+      )
+      .get(publicKey, nonce)
+  );
+  if (!row) {
+    return res.status(401).json({
+      error: 'invalid_challenge',
+      message: 'Wallet challenge is invalid, expired, or already used.',
+    });
+  }
+
+  if (!verifyWalletSignature({ publicKey, message: row.message, signatureHex })) {
+    const debug = walletSignatureDiagnostics({ publicKey, message: row.message, signatureHex });
+    if (debug) console.warn('[auth] wallet signature did not verify:', debug);
+    return res.status(401).json({
+      error: 'invalid_signature',
+      message: 'Wallet signature did not verify for this challenge.',
+      ...(debug ? { debug } : {}),
+    });
+  }
+
+  const now = new Date().toISOString();
+  const marked = db
+    .prepare(`UPDATE wallet_auth_challenges SET used_at = ? WHERE id = ? AND used_at IS NULL`)
+    .run(now, row.id);
+  if (marked.changes === 0) {
+    return res.status(409).json({
+      error: 'challenge_replayed',
+      message: 'Wallet challenge has already been used.',
+    });
+  }
+
+  const { user, dashboard } = bootstrapWalletUser(publicKey, now);
+  const rawToken = createSession(user.id);
+
+  recordAudit({
+    dashboardId: dashboard.id,
+    actor: { id: user.id, email: user.email, role: user.role },
+    action: 'auth.wallet_session_created',
+    resourceType: 'wallet_session',
+    resourceId: user.id,
+    details: {
+      domain: row.domain,
+      chain_name: row.chain_name,
+      wallet_public_key: publicKey,
+      is_platform_owner: isPlatformOwner(user.email),
+    },
+    ip: clientIp(req),
+    userAgent: clientUserAgent(req),
+  });
+
+  res.json({
+    token: rawToken,
+    user: {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      wallet_public_key: publicKey,
+      is_platform_owner: isPlatformOwner(user.email),
+    },
+    dashboard: { id: dashboard.id, name: dashboard.name },
+  });
+});
+
+// POST /auth/portal-key
+router.post('/portal-key', verifyLimiter, async (req, res) => {
+  const row = findSession(req);
+  if (!row) return res.status(401).json({ error: 'unauthorized' });
+  if (!row.dashboard_id) {
+    return res.status(409).json({
+      error: 'dashboard_missing',
+      message: 'This wallet session does not have a dashboard yet.',
+    });
+  }
+
+  try {
+    const key = await createPortalApiKey(row);
+    recordAudit({
+      dashboardId: row.dashboard_id,
+      actor: { id: row.id, email: row.email, role: row.role },
+      action: 'api_key.portal_created',
+      resourceType: 'api_key',
+      resourceId: key.api_key_id,
+      details: { wallet_public_key: row.wallet_public_key || null },
+      ip: clientIp(req),
+      userAgent: clientUserAgent(req),
+    });
+    res.json(key);
+  } catch (err) {
+    console.error('[auth] portal api key create failed:', err);
+    res.status(500).json({ error: 'portal_key_failed' });
+  }
+});
+
 router.post('/logout', (req, res) => {
   const token = extractBearerToken(req);
   if (token) {
@@ -443,23 +890,7 @@ router.post('/logout', (req, res) => {
 // ── GET /auth/me ─────────────────────────────────────────────────────────────
 
 router.get('/me', (req, res) => {
-  const token = extractBearerToken(req);
-  if (!token) return res.status(401).json({ error: 'unauthorized' });
-
-  const row = /** @type {any} */ (
-    db
-      .prepare(
-        `
-    SELECT u.id, u.email, u.role
-    FROM sessions s
-    JOIN users u ON s.user_id = u.id
-    WHERE s.token_hash = ?
-      AND datetime(s.expires_at) > datetime('now')
-  `,
-      )
-      .get(hashToken(token))
-  );
-
+  const row = findSession(req);
   if (!row) return res.status(401).json({ error: 'unauthorized' });
 
   // Wrap in { user } to match /auth/verify's response shape — both web
@@ -467,9 +898,13 @@ router.get('/me', (req, res) => {
   // real owner was a non-owner and redirect them to /dashboard.
   res.json({
     user: {
-      ...row,
+      id: row.id,
+      email: row.email,
+      role: row.role,
+      wallet_public_key: row.wallet_public_key || null,
       is_platform_owner: isPlatformOwner(row.email),
     },
+    dashboard: row.dashboard_id ? { id: row.dashboard_id, name: row.dashboard_name } : null,
   });
 });
 

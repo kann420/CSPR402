@@ -48,11 +48,50 @@ export interface Order {
   error: string | null;
   created_at: string;
   updated_at: string;
-  stellar_txid: string | null;
+  stellar_txid?: string | null;
+  casper_deploy_hash?: string | null;
+  casper_transfer_id?: number | null;
+  casper_sender_public_key?: string | null;
+  casper_expected_sender_public_key?: string | null;
+  receipt?: PaymentReceipt | null;
   card_brand: string | null;
   api_key_id: string;
   api_key_label: string | null;
 }
+
+export interface CasperCSPRReceipt {
+  type: 'casper_cspr_receipt';
+  payment_asset: 'cspr_casper';
+  network: string;
+  chain_name: string;
+  deploy_hash: string;
+  sender_public_key: string | null;
+  recipient: string | null;
+  transfer_id: number | null;
+  amount_motes: string | null;
+  verified_at: string | null;
+  card_mode: 'mock';
+}
+
+export interface MockUsdcReceipt {
+  type: 'casper_mock_usdc_receipt';
+  payment_asset: 'mock_usdc_cep18';
+  network: string;
+  chain_name: string;
+  deploy_hash: string;
+  sender_public_key: string | null;
+  asset: 'mockUSDC';
+  decimals: number;
+  contract_package_hash: string | null;
+  contract_hash: string | null;
+  recipient_public_key: string | null;
+  recipient_account_hash: string | null;
+  amount_base_units: string | null;
+  verified_at: string | null;
+  card_mode: 'mock';
+}
+
+export type PaymentReceipt = CasperCSPRReceipt | MockUsdcReceipt;
 
 export interface ApprovalRequest {
   id: string;
@@ -85,7 +124,16 @@ export interface DashboardInfo {
   spend_limit_usdc: string | null;
   frozen: boolean;
   created_at: string;
-  network: 'mainnet' | 'testnet';
+  network: string;
+  payment_provider?: string;
+  mock_card_mode?: boolean;
+  mock_usdc?: {
+    enabled: boolean;
+    configured: boolean;
+    contract_package_hash: string | null;
+    contract_hash: string | null;
+    decimals: number;
+  };
   stats: DashboardStats;
 }
 
@@ -194,6 +242,5 @@ export interface WebhookDelivery {
   created_at: string;
 }
 
-export const USDC_ISSUER = 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN';
 export const API_BASE = '/api/admin-proxy';
 export const AUTH_BASE = '/api/auth';

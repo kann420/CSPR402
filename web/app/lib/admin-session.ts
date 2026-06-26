@@ -16,6 +16,7 @@
 import crypto from 'crypto';
 
 export const ADMIN_SESSION_COOKIE = 'cards402_admin_session';
+export const PORTAL_API_KEY_COOKIE = 'cspr402_portal_api_key';
 export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export interface SessionPayload {
@@ -82,6 +83,39 @@ export function verifySession(cookieValue: string | undefined | null): SessionPa
   }
 
   return { token, expiresAt };
+}
+
+export function sealSecret(value: string, ttlMs: number = SESSION_TTL_MS): string {
+  const secret = getSessionSecret();
+  const iv = crypto.randomBytes(12);
+  const expiresAt = Date.now() + ttlMs;
+  const cipher = crypto.createCipheriv('aes-256-gcm', secret, iv);
+  cipher.setAAD(Buffer.from(String(expiresAt), 'utf8'));
+  const ciphertext = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return ['v1', expiresAt, b64uEncode(iv), b64uEncode(tag), b64uEncode(ciphertext)].join('.');
+}
+
+export function openSealedSecret(cookieValue: string | undefined | null): string | null {
+  if (!cookieValue) return null;
+  const parts = cookieValue.split('.');
+  if (parts.length !== 5 || parts[0] !== 'v1') return null;
+  const [, expStr, ivB64, tagB64, ciphertextB64] = parts;
+  if (!ivB64 || !tagB64 || !ciphertextB64) return null;
+  const expiresAt = Number(expStr);
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) return null;
+
+  try {
+    const secret = getSessionSecret();
+    const decipher = crypto.createDecipheriv('aes-256-gcm', secret, b64uDecode(ivB64));
+    decipher.setAAD(Buffer.from(String(expiresAt), 'utf8'));
+    decipher.setAuthTag(b64uDecode(tagB64));
+    return Buffer.concat([decipher.update(b64uDecode(ciphertextB64)), decipher.final()]).toString(
+      'utf8',
+    );
+  } catch {
+    return null;
+  }
 }
 
 /**

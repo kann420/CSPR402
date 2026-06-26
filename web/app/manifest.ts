@@ -2,9 +2,10 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Cards402',
-    short_name: 'Cards402',
-    description: 'Virtual Visa cards, issued to AI agents. Pay in USDC or XLM on Stellar.',
+    name: 'CSPR402',
+    short_name: 'CSPR402',
+    description:
+      'Casper testnet payment verification for AI agents. Mock virtual card fulfilment only.',
     start_url: '/',
     display: 'standalone',
     background_color: '#050505',

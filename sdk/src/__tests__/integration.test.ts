@@ -31,8 +31,15 @@ describe('SDK integration (sandbox mode)', () => {
     expect(typeof client.createOrder).toBe('function');
     expect(typeof client.getOrder).toBe('function');
     expect(typeof client.waitForCard).toBe('function');
+    expect(typeof client.verifyCasperPayment).toBe('function');
     expect(typeof client.listOrders).toBe('function');
     expect(typeof client.getUsage).toBe('function');
+  });
+
+  it('package root import stays Casper/API-only by default', async () => {
+    const mod = await import('../index');
+    expect(typeof mod.Cards402Client).toBe('function');
+    expect('purchaseCardOWS' in mod).toBe(false);
   });
 
   it('createOrder sends correct request shape', async () => {

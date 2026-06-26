@@ -9,7 +9,7 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ['/dashboard/', '/api/', '/portal/'],
       },
     ],
-    sitemap: 'https://cards402.com/sitemap.xml',
-    host: 'https://cards402.com',
+    sitemap: 'https://cspr402.xyz/sitemap.xml',
+    host: 'https://cspr402.xyz',
   };
 }
