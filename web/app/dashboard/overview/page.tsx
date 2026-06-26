@@ -1,6 +1,9 @@
 // Overview — default dashboard landing. Shows the highest-value
-// signals in one glance: KPI tiles (spend + fleet health), spend
-// chart, system health card, recent activity feed.
+// signals in one glance: an editorial hero band + telemetry summary
+// card, KPI tiles (spend + fleet health), spend chart, system health
+// card, recent activity feed. Revamped to match the landing-page vibe
+// (type recipe, holographic summary card, staggered entrance, card
+// hover lift) via the scoped .dashboard-overview styles in globals.css.
 
 'use client';
 
@@ -14,7 +17,7 @@ import { EmptyState } from '../_ui/EmptyState';
 import { SpendChart } from '../_ui/SpendChart';
 import { OrderStatusPill } from '../_ui/OrderStatusPill';
 import { PageContainer } from '../_ui/PageContainer';
-import { PageHeader } from '../_ui/PageHeader';
+import { OverviewHero } from './OverviewHero';
 import { formatUsd, parseTimestamp, timeAgo, bucketSpendByDay } from '../_lib/format';
 import { IN_FLIGHT_ORDER_STATUSES } from '../_lib/constants';
 
@@ -57,15 +60,36 @@ export default function OverviewPage() {
 
   const recentActivity = useMemo(() => orders.slice(0, 10), [orders]);
 
+  const eyebrow = info?.frozen
+    ? 'Paused'
+    : info?.payment_provider === 'casper'
+      ? 'Casper testnet · live'
+      : 'Live';
+  const subtitle = info?.created_at
+    ? `${info.name || 'Dashboard'} · created ${timeAgo(info.created_at)}`
+    : info?.name || 'Dashboard';
+
+  // Treat an empty-string spend limit the same as null so the card's
+  // balance label and value can never disagree ("" is truthy as a string
+  // but `"" ?? x` returns "").
+  const spendLimit = info?.spend_limit_usdc || null;
+
   return (
-    <PageContainer>
-      <PageHeader
+    <PageContainer className="dashboard-overview">
+      <OverviewHero
+        eyebrow={eyebrow}
+        eyebrowLive={!info?.frozen}
         title="Overview"
-        subtitle={
-          info?.created_at
-            ? `${info.name || 'Dashboard'} · created ${timeAgo(info.created_at)}`
-            : info?.name || 'Dashboard'
-        }
+        subtitle={subtitle}
+        card={{
+          networkLabel: 'Casper',
+          balanceLabel: spendLimit ? 'Spend limit' : 'Spend 7d',
+          balanceValue: formatUsd(spendLimit ?? stats.spend7d),
+          digitsLabel: 'Active agents',
+          digitsValue: String(stats.activeAgents),
+          footLabel: info?.name || 'Dashboard',
+          live: !info?.frozen,
+        }}
       />
 
       <KpiRow>
@@ -105,13 +129,14 @@ export default function OverviewPage() {
           <SpendChart data={chartData} height={220} />
         </Card>
 
-        <Card title="System health">
+        <Card title="System health" className="health-card">
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
             <HealthRow
               label="Order intake"
               ok={!info?.frozen}
               okLabel="Accepting orders"
               failLabel="Paused"
+              pulse={!info?.frozen}
             />
             <HealthRow
               label="Casper verifier"
@@ -137,6 +162,7 @@ export default function OverviewPage() {
 
       <Card
         title="Recent activity"
+        className="overview-recent"
         actions={
           <Link
             href="/dashboard/orders"
@@ -153,11 +179,11 @@ export default function OverviewPage() {
             description="Orders from your agents will appear here as they flow through the system."
           />
         ) : (
-          <table>
+          <table className="overview-activity-table">
             <thead>
               <tr>
                 <th>Agent</th>
-                <th>Amount</th>
+                <th style={{ textAlign: 'right' }}>Amount</th>
                 <th>Rail</th>
                 <th>Status</th>
                 <th>When</th>
@@ -169,8 +195,10 @@ export default function OverviewPage() {
                   <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.74rem' }}>
                     {o.api_key_label || o.api_key_id.slice(0, 8)}
                   </td>
-                  <td style={{ fontFamily: 'var(--font-mono)' }}>{formatUsd(o.amount_usdc)}</td>
-                  <td style={{ color: 'var(--fg-dim)', fontSize: '0.72rem' }}>
+                  <td className="col-amount" style={{ fontFamily: 'var(--font-mono)' }}>
+                    {formatUsd(o.amount_usdc)}
+                  </td>
+                  <td className="col-rail" style={{ color: 'var(--fg-dim)', fontSize: '0.72rem' }}>
                     {o.payment_asset === 'mock_usdc_cep18'
                       ? 'mockUSDC'
                       : o.payment_asset === 'cspr_casper'
@@ -196,11 +224,13 @@ function HealthRow({
   ok,
   okLabel,
   failLabel,
+  pulse,
 }: {
   label: string;
   ok: boolean;
   okLabel: string;
   failLabel: string;
+  pulse?: boolean;
 }) {
   return (
     <div
@@ -212,7 +242,9 @@ function HealthRow({
       }}
     >
       <span style={{ color: 'var(--fg-muted)' }}>{label}</span>
-      <Pill tone={ok ? 'green' : 'red'}>{ok ? okLabel : failLabel}</Pill>
+      <Pill tone={ok ? 'green' : 'red'} pulse={pulse}>
+        {ok ? okLabel : failLabel}
+      </Pill>
     </div>
   );
 }

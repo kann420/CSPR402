@@ -15,7 +15,6 @@ const ROUTES: Array<{
   { path: '/docs', changeFrequency: 'weekly', priority: 0.9 },
   { path: '/docs/quickstart', changeFrequency: 'monthly', priority: 0.85 },
   { path: '/pricing', changeFrequency: 'monthly', priority: 0.9 },
-  { path: '/compare', changeFrequency: 'monthly', priority: 0.85 },
   { path: '/security', changeFrequency: 'monthly', priority: 0.8 },
   { path: '/status', changeFrequency: 'hourly', priority: 0.75 },
   { path: '/blog', changeFrequency: 'weekly', priority: 0.75 },
@@ -39,13 +38,10 @@ const ROUTES: Array<{
     changeFrequency: 'monthly',
     priority: 0.7,
   },
-  { path: '/changelog', changeFrequency: 'weekly', priority: 0.7 },
   { path: '/company', changeFrequency: 'monthly', priority: 0.7 },
   { path: '/careers', changeFrequency: 'weekly', priority: 0.7 },
   { path: '/press', changeFrequency: 'monthly', priority: 0.6 },
-  { path: '/affiliate', changeFrequency: 'monthly', priority: 0.6 },
   { path: '/privacy', changeFrequency: 'yearly', priority: 0.4 },
-  { path: '/terms', changeFrequency: 'yearly', priority: 0.4 },
   { path: '/legal/cardholder-agreement', changeFrequency: 'yearly', priority: 0.3 },
 ];
 

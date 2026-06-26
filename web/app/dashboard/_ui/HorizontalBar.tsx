@@ -78,7 +78,7 @@ export function HorizontalBar({ rows, max, height = 14 }: Props) {
                 style={{
                   width: `${width}%`,
                   height: '100%',
-                  background: 'linear-gradient(90deg, var(--green) 0%, var(--green-dim) 100%)',
+                  background: 'linear-gradient(90deg, var(--brand) 0%, var(--brand-dim) 100%)',
                   transition: 'width 240ms',
                 }}
               />

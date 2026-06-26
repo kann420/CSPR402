@@ -8,9 +8,10 @@ interface Props {
   children: ReactNode;
   maxWidth?: number;
   gap?: string | number;
+  className?: string;
 }
 
-export function PageContainer({ children, maxWidth = 1400, gap = '1.25rem' }: Props) {
+export function PageContainer({ children, maxWidth = 1400, gap = '1.25rem', className }: Props) {
   const style: CSSProperties = {
     padding: '1.5rem 1.75rem',
     display: 'flex',
@@ -19,7 +20,7 @@ export function PageContainer({ children, maxWidth = 1400, gap = '1.25rem' }: Pr
     maxWidth,
   };
   return (
-    <div className="dashboard-page-container" style={style}>
+    <div className={`dashboard-page-container${className ? ' ' + className : ''}`} style={style}>
       {children}
     </div>
   );

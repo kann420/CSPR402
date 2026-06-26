@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { PageHero, PageSection } from '@/app/components/MarketingPage';
 import { ogForPage, twitterForPage } from '@/app/lib/seo';
 
@@ -191,18 +190,7 @@ export default function SecurityPage() {
               security@cards402.com
             </a>{' '}
             with reproduction steps. We acknowledge within 24 hours, triage within 72, and publish a
-            postmortem to{' '}
-            <Link
-              href="/changelog"
-              style={{
-                color: 'var(--fg)',
-                borderBottom: '1px solid var(--green-border)',
-                textDecoration: 'none',
-              }}
-            >
-              /changelog
-            </Link>{' '}
-            once the fix is live.
+            postmortem once the fix is live.
           </p>
 
           <div

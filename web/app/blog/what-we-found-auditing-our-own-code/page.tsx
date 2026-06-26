@@ -307,11 +307,7 @@ export default function BlogPost() {
           <h2 style={s.h2}>The full list</h2>
           <p>
             Every fix has a detailed commit message with the pre-fix code, the exploit scenario, and
-            the rationale for the specific defense. The{' '}
-            <Link href="/changelog" style={{ color: 'var(--green)' }}>
-              changelog
-            </Link>{' '}
-            has the categorised summary; the git log has the per-finding detail.
+            the rationale for the specific defense. The git log has the per-finding detail.
           </p>
         </div>
       </article>

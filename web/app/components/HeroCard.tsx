@@ -181,11 +181,11 @@ export function HeroCard() {
           <div className="hc-outline-glow" aria-hidden />
           <svg
             className="hc-card-outline"
-            viewBox="0 0 384 600"
+            viewBox="0 0 600 378"
             preserveAspectRatio="none"
             aria-hidden
           >
-            <rect x="1.5" y="1.5" width="381" height="597" rx="28" ry="28" />
+            <rect x="1.5" y="1.5" width="597" height="375" rx="28" ry="28" />
           </svg>
           <div className="hc-card-shell" aria-hidden />
           <div className="hc-noise" aria-hidden />
@@ -194,23 +194,30 @@ export function HeroCard() {
           <div className="hc-orb hc-orb-two" aria-hidden />
           <div className="hc-card-content">
             <header className="hc-topline">
-              <img className="hc-brand-wordmark" src="/logo-transparent.svg" alt="CSPR402" />
-              <div className="hc-topline-right">Virtual Card</div>
+              <span className="hc-brand-wordmark" aria-label="x402">
+                x402
+              </span>
+              <div className="hc-topline-right">
+                <span className="hc-net-dot" aria-hidden />
+                Casper
+              </div>
             </header>
             <div className="hc-middle">
-              <div className="hc-chip" aria-hidden />
-              <div className="hc-balance">
-                <span>Available</span>
-                <strong>$250.00</strong>
+              <div className="hc-middle-left">
+                <div className="hc-chip" aria-hidden />
+                <div className="hc-balance">
+                  <span>Available</span>
+                  <strong>$420.69</strong>
+                </div>
               </div>
               <div className="hc-digits">
-                <div className="hc-label">Card Sequence</div>
-                <div className="hc-value">4242 0402 4020 7890</div>
+                <div className="hc-label">Card Number</div>
+                <div className="hc-value">6969 4200 6969 4242</div>
               </div>
             </div>
             <footer className="hc-bottomline">
-              <div>YOUR AGENT</div>
-              <div>VALID 12/28</div>
+              <div>AI AGENT</div>
+              <div className="hc-bottomline-right">VISA · 12/29</div>
             </footer>
           </div>
         </article>
@@ -248,9 +255,9 @@ function SceneStyles() {
         overflow: hidden;
         pointer-events: none;
         background:
-          radial-gradient(circle at 22% 22%, rgba(124, 245, 208, 0.09), transparent 26rem),
-          radial-gradient(circle at 78% 18%, rgba(255, 125, 182, 0.07), transparent 22rem),
-          radial-gradient(circle at 70% 85%, rgba(155, 209, 255, 0.08), transparent 30rem);
+          radial-gradient(circle at 22% 22%, rgba(255, 42, 35, 0.10), transparent 26rem),
+          radial-gradient(circle at 78% 18%, rgba(255, 42, 35, 0.06), transparent 22rem),
+          radial-gradient(circle at 70% 85%, rgba(180, 11, 6, 0.08), transparent 30rem);
       }
       .hc-scene::before,
       .hc-scene::after {
@@ -282,10 +289,10 @@ function SceneStyles() {
            Visual difference is small: still a soft multi-colour glow
            behind the card, just without the conic sweep. */
         background:
-          radial-gradient(circle at 30% 30%, rgba(255, 207, 110, 0.08), transparent 55%),
-          radial-gradient(circle at 72% 40%, rgba(124, 245, 208, 0.07), transparent 58%),
-          radial-gradient(circle at 55% 80%, rgba(155, 209, 255, 0.08), transparent 60%),
-          radial-gradient(circle at 85% 70%, rgba(255, 125, 182, 0.06), transparent 45%);
+          radial-gradient(circle at 30% 30%, rgba(255, 42, 35, 0.10), transparent 55%),
+          radial-gradient(circle at 72% 40%, rgba(225, 26, 20, 0.07), transparent 58%),
+          radial-gradient(circle at 55% 80%, rgba(180, 11, 6, 0.08), transparent 60%),
+          radial-gradient(circle at 85% 70%, rgba(255, 42, 35, 0.06), transparent 45%);
         opacity: 0.7;
       }
 
@@ -303,7 +310,7 @@ function SceneStyles() {
            on top AND re-rendered that blur on every pointer move
            because of the var(--card-x/y) transform binding. Now the
            halo is static. */
-        background: radial-gradient(circle, rgba(255, 207, 110, 0.14), transparent 62%);
+        background: radial-gradient(circle, rgba(255, 42, 35, 0.16), transparent 62%);
         opacity: 0.85;
         transform: translate(-50%, -50%);
       }
@@ -318,7 +325,7 @@ function SceneStyles() {
       }
       .hc-halo::after {
         inset: 30%;
-        border-color: rgba(124, 245, 208, 0.12);
+        border-color: rgba(255, 42, 35, 0.14);
       }
 
       @media (max-width: 1100px) {
@@ -373,8 +380,8 @@ function CardStyles() {
            identical-looking. */
         background: radial-gradient(
           ellipse at center,
-          rgba(255, 180, 70, 0.28),
-          rgba(255, 180, 70, 0.08) 48%,
+          rgba(255, 42, 35, 0.28),
+          rgba(255, 42, 35, 0.08) 48%,
           rgba(0, 0, 0, 0) 72%
         );
         transform: translate3d(0, 0, -80px) scale(1.1);
@@ -383,8 +390,8 @@ function CardStyles() {
       }
       .hc-card {
         position: relative;
-        width: min(84vw, 22rem);
-        aspect-ratio: 0.64;
+        width: min(92vw, 34rem);
+        aspect-ratio: 1.586;
         border-radius: 1.7rem;
         overflow: hidden;
         background:
@@ -396,17 +403,17 @@ function CardStyles() {
           ),
           linear-gradient(
             160deg,
-            rgba(255, 207, 110, 0.16),
-            rgba(124, 245, 208, 0.06) 42%,
-            rgba(155, 209, 255, 0.16) 78%,
-            rgba(255, 125, 182, 0.1)
+            rgba(255, 42, 35, 0.18),
+            rgba(225, 26, 20, 0.08) 42%,
+            rgba(120, 8, 5, 0.18) 78%,
+            rgba(255, 42, 35, 0.1)
           ),
           #0a0a0a;
         border: 1px solid rgba(255, 255, 255, 0.16);
         box-shadow:
           0 2rem 4rem rgba(0, 0, 0, 0.65),
           0 0 0 1px rgba(255, 255, 255, 0.04) inset,
-          0 0 4rem rgba(255, 207, 110, 0.13);
+          0 0 4rem rgba(255, 42, 35, 0.16);
         transform-style: preserve-3d;
         transform: translate3d(var(--card-x), var(--card-y), 0)
           rotateX(var(--rotate-x)) rotateY(var(--rotate-y));
@@ -468,10 +475,10 @@ function CardStyles() {
           linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015)),
           linear-gradient(
             145deg,
-            rgba(255, 207, 110, 0.18),
-            rgba(124, 245, 208, 0.08) 44%,
-            rgba(155, 209, 255, 0.18) 78%,
-            rgba(255, 125, 182, 0.12)
+            rgba(255, 42, 35, 0.20),
+            rgba(225, 26, 20, 0.10) 44%,
+            rgba(120, 8, 5, 0.20) 78%,
+            rgba(255, 42, 35, 0.12)
           );
         opacity: 0;
         transform: translateZ(10px);
@@ -512,7 +519,7 @@ function CardStyles() {
         stroke-dashoffset: 2200;
         filter:
           drop-shadow(0 0 8px rgba(255, 255, 255, 0.2))
-          drop-shadow(0 0 18px rgba(255, 207, 110, 0.18));
+          drop-shadow(0 0 18px rgba(255, 42, 35, 0.22));
         animation:
           hc-drawOutline 900ms cubic-bezier(0.65, 0, 0.35, 1) forwards 80ms,
           hc-outlineFade 700ms ease forwards 1120ms;
@@ -528,7 +535,7 @@ function CardStyles() {
         pointer-events: none;
         background: radial-gradient(
           circle at 50% 50%,
-          rgba(255, 207, 110, 0.16),
+          rgba(255, 42, 35, 0.18),
           transparent 54%
         );
         filter: blur(18px);
@@ -570,7 +577,7 @@ function CardStyles() {
       }
       .hc-rings::after {
         inset: 1.4rem;
-        border-color: rgba(124, 245, 208, 0.2);
+        border-color: rgba(255, 42, 35, 0.22);
       }
 
       .hc-orb {
@@ -587,7 +594,7 @@ function CardStyles() {
         background: radial-gradient(
           circle at 35% 35%,
           rgba(255, 255, 255, 0.8),
-          rgba(255, 207, 110, 0.08) 38%,
+          rgba(255, 42, 35, 0.10) 38%,
           transparent 68%
         );
         transform: translateZ(84px);
@@ -601,7 +608,7 @@ function CardStyles() {
         background: radial-gradient(
           circle at 40% 40%,
           rgba(255, 255, 255, 0.75),
-          rgba(124, 245, 208, 0.12) 34%,
+          rgba(255, 42, 35, 0.14) 34%,
           transparent 70%
         );
         transform: translateZ(64px);
@@ -614,7 +621,7 @@ function CardStyles() {
         height: 100%;
         display: grid;
         grid-template-rows: auto 1fr auto;
-        padding: 1.4rem;
+        padding: 1.3rem 1.6rem;
         /* Content enters last — after the outline has drawn and the
            shell fill has wiped up — lifting from blur to sharp so
            the numbers, chip, and balance appear to be printed onto
@@ -638,20 +645,53 @@ function CardStyles() {
         white-space: nowrap;
       }
 
-      /* Cards402 wordmark on the card face — SVG mask coloured with cream ink. */
+      /* x402 wordmark on the card face — display serif with a warm glow so
+         it reads as the card's brand, not body copy. */
       .hc-brand-wordmark {
         display: block;
-        width: 4.1rem;
-        height: 2.4rem;
-        object-fit: contain;
-        object-position: left center;
-        filter: drop-shadow(0 0 12px rgba(255, 207, 110, 0.25));
+        font-family: var(--font-display);
+        font-size: 1.5rem;
+        font-weight: 600;
+        letter-spacing: -0.04em;
+        line-height: 1;
+        color: #fff8ec;
+        text-transform: none;
+        text-shadow:
+          0 0 14px rgba(255, 42, 35, 0.45),
+          0 0 28px rgba(255, 42, 35, 0.22);
+        font-variation-settings: 'opsz' 144, 'SOFT' 30;
         flex-shrink: 0;
+      }
+
+      /* Network tag on the top-right — "Casper" with a live mint dot. */
+      .hc-topline-right {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+      .hc-net-dot {
+        width: 0.4rem;
+        height: 0.4rem;
+        border-radius: 50%;
+        background: #ff2a23;
+        box-shadow: 0 0 8px rgba(255, 42, 35, 0.7);
+      }
+      .hc-bottomline-right {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
       }
 
       .hc-middle {
         display: grid;
-        align-content: center;
+        grid-template-columns: auto 1fr;
+        align-items: center;
+        gap: 1.6rem;
+      }
+      .hc-middle-left {
+        display: grid;
+        align-items: center;
+        grid-template-columns: auto auto;
         gap: 1rem;
       }
 
@@ -702,7 +742,7 @@ function CardStyles() {
         font-weight: 700;
         letter-spacing: -0.04em;
         color: #fff8ec;
-        text-shadow: 0 0 2rem rgba(255, 207, 110, 0.24);
+        text-shadow: 0 0 2rem rgba(255, 42, 35, 0.28);
         font-family: var(--font-display);
         font-variation-settings: 'opsz' 144, 'SOFT' 20;
       }
@@ -710,6 +750,8 @@ function CardStyles() {
       .hc-digits {
         display: grid;
         gap: 0.25rem;
+        justify-content: end;
+        text-align: right;
         transform: translateZ(70px);
         font-family: var(--font-mono);
         color: rgba(255, 249, 235, 0.95);
@@ -812,11 +854,17 @@ function CardStyles() {
 
       @media (max-width: 640px) {
         .hc-card {
-          width: min(78vw, 19rem);
-          border-radius: 1.4rem;
+          width: min(92vw, 30rem);
+          border-radius: 1.3rem;
         }
         .hc-card-content {
-          padding: 1.1rem;
+          padding: 1.1rem 1.25rem;
+        }
+        .hc-middle {
+          gap: 1rem;
+        }
+        .hc-middle-left {
+          gap: 0.7rem;
         }
         .hc-rings {
           display: none;
@@ -824,7 +872,10 @@ function CardStyles() {
       }
       @media (max-width: 380px) {
         .hc-card {
-          width: min(84vw, 16.5rem);
+          width: min(92vw, 26rem);
+        }
+        .hc-brand-wordmark {
+          font-size: 1.2rem;
         }
       }
     `}</style>

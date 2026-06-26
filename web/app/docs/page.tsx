@@ -6,7 +6,7 @@ import { CopyCodeBlock } from '@/app/components/CopyCodeBlock';
 export const metadata: Metadata = {
   title: 'API Docs',
   description:
-    'CSPR402 API reference for creating an order, paying with Casper testnet CSPR, and verifying the resulting deploy.',
+    'CSPR402 API reference: create an order, pay with Casper testnet CSPR, verify the deploy, and receive a mock card.',
 };
 
 const createOrderRequest = `POST /v1/orders
@@ -75,6 +75,35 @@ const verifyResponse = `{
   }
 }`;
 
+const pollPending = `GET /v1/orders/92d636de-df11-4196-9627-ec7850c925b7
+X-Api-Key: cards402_...
+
+{
+  "order_id": "92d636de-df11-4196-9627-ec7850c925b7",
+  "status": "pending_payment",
+  "phase": "awaiting_payment",
+  "amount_usdc": "25.00",
+  "payment_asset": "cspr_casper",
+  "created_at": "2026-06-24T09:45:00.000Z",
+  "updated_at": "2026-06-24T09:45:00.000Z"
+}`;
+
+const pollDelivered = `{
+  "order_id": "92d636de-df11-4196-9627-ec7850c925b7",
+  "status": "delivered",
+  "phase": "ready",
+  "amount_usdc": "25.00",
+  "payment_asset": "cspr_casper",
+  "created_at": "2026-06-24T09:45:00.000Z",
+  "updated_at": "2026-06-24T09:48:12.000Z",
+  "card": {
+    "number": "4111111111111111",
+    "cvv": "123",
+    "expiry": "12/99",
+    "brand": "Visa"
+  }
+}`;
+
 function Section({
   id,
   eyebrow,
@@ -114,7 +143,7 @@ export default function DocsPage() {
   return (
     <div style={{ maxWidth: 920, margin: '0 auto', padding: '4.5rem 1.75rem 6rem' }}>
       <div className="type-eyebrow" style={{ color: 'var(--green)', marginBottom: '1rem' }}>
-        Docs - Day 2 API
+        API Reference
       </div>
       <h1
         className="type-display"
@@ -126,52 +155,69 @@ export default function DocsPage() {
         className="type-body"
         style={{ maxWidth: 680, fontSize: '1rem', color: 'var(--fg-muted)' }}
       >
-        CSPR402 now documents the actual implemented MVP: create an order, send a Casper testnet
-        native transfer with a unique <code>transfer_id</code>, then ask the backend to verify the
-        deploy before mock fulfillment. For local setup, start with{' '}
+        Create an order, send a Casper testnet native transfer with a unique{' '}
+        <code>transfer_id</code>, then ask the backend to verify the deploy before mock fulfillment.
+        For local setup, start with{' '}
         <Link href="/docs/quickstart" style={{ color: 'var(--fg)' }}>
           Quickstart
         </Link>
         .
       </p>
 
-      <Section id="auth" eyebrow="01 - Auth" title="One API key header.">
+      <Section id="auth" eyebrow="01 · Authentication" title="One header, one key.">
         <p className="type-body" style={{ maxWidth: 720 }}>
-          All agent-side requests use <code>X-Api-Key</code>. Keep the real value in local env only.
-          The web demo at <Link href="/portal">/portal</Link> asks you to paste the key at runtime
-          and does not hardcode it into source.
+          Every request carries an <code>X-Api-Key</code> header. Keys are prefixed{' '}
+          <code>cards402_</code> and scoped to a per-key spend budget. Keep the real value in local
+          env only — the web demo at <Link href="/portal">/portal</Link> asks for the key at runtime
+          and never hardcodes it into source.
         </p>
+        <CopyCodeBlock label="Header">X-Api-Key: cards402_a1b2c3d4e5f6...</CopyCodeBlock>
       </Section>
 
-      <Section
-        id="create-order"
-        eyebrow="02 - Create order"
-        title="Get exact Casper payment instructions."
-      >
+      <Section id="create-order" eyebrow="02 · Create order" title="One transfer in, one card out.">
         <p className="type-body" style={{ maxWidth: 720 }}>
           <code>POST /v1/orders</code> returns the treasury recipient, exact amount, amount in
-          motes, transfer id, and expiry. The agent should pay exactly that instruction.
+          motes, transfer id, and expiry. The agent sends exactly that instruction to Casper testnet
+          within the payment window.
         </p>
         <CopyCodeBlock label="Request">{createOrderRequest}</CopyCodeBlock>
         <div style={{ height: '0.9rem' }} />
         <CopyCodeBlock label="Response">{createOrderResponse}</CopyCodeBlock>
       </Section>
 
-      <Section
-        id="verify"
-        eyebrow="03 - Verify deploy"
-        title="Confirm the actual transfer before delivery."
-      >
+      <Section id="verify" eyebrow="03 · Verify deploy" title="Prove the transfer, get the card.">
         <p className="type-body" style={{ maxWidth: 720 }}>
-          <code>POST /v1/orders/:id/verify-payment</code> is the Day 2 checkpoint. Backend only
-          fulfills once the deploy is found and all verification rules pass.
+          <code>POST /v1/orders/:id/verify-payment</code> is the verification step. The backend
+          looks up the deploy on Casper testnet, checks every rule in the next section, and only
+          fulfills once all of them pass. Idempotent — call it as many times as you like.
         </p>
         <CopyCodeBlock label="Request">{verifyRequest}</CopyCodeBlock>
         <div style={{ height: '0.9rem' }} />
         <CopyCodeBlock label="Response">{verifyResponse}</CopyCodeBlock>
       </Section>
 
-      <Section id="rules" eyebrow="04 - Rules" title="What backend verification enforces.">
+      <Section id="poll" eyebrow="04 · Poll" title="When you'd rather not stream.">
+        <p className="type-body" style={{ maxWidth: 720 }}>
+          <code>GET /v1/orders/:id</code> returns the same order shape as the create response. Poll
+          it after the transfer lands and before (or instead of) calling verify. The{' '}
+          <code>poll_url</code> from the create response is the path to use.
+        </p>
+        <CopyCodeBlock label="Pending">{pollPending}</CopyCodeBlock>
+        <div style={{ height: '0.9rem' }} />
+        <CopyCodeBlock label="Delivered">{pollDelivered}</CopyCodeBlock>
+      </Section>
+
+      <Section
+        id="rules"
+        eyebrow="05 · Verification rules"
+        title="Six rules, enforced server-side."
+      >
+        <p
+          className="type-body"
+          style={{ maxWidth: 720, color: 'var(--fg-muted)', marginBottom: '1.25rem' }}
+        >
+          The backend re-runs all six on every verify call. Fail any one and the deploy is rejected.
+        </p>
         <div
           style={{
             display: 'grid',
@@ -205,7 +251,14 @@ export default function DocsPage() {
         </div>
       </Section>
 
-      <Section id="statuses" eyebrow="05 - Statuses" title="Stable order states.">
+      <Section id="statuses" eyebrow="06 · Order statuses" title="A tiny state machine.">
+        <p
+          className="type-body"
+          style={{ maxWidth: 720, color: 'var(--fg-muted)', marginBottom: '1.25rem' }}
+        >
+          Linear and terminal-leaning: <code>pending_payment</code> resolves to{' '}
+          <code>delivered</code> on a verified deploy; everything else is a dead end.
+        </p>
         <div style={{ overflowX: 'auto' }}>
           <table>
             <thead>
@@ -232,7 +285,14 @@ export default function DocsPage() {
         </div>
       </Section>
 
-      <Section id="errors" eyebrow="06 - Errors" title="Common verification failures.">
+      <Section id="errors" eyebrow="07 · Error codes" title="Typed, stable, documented.">
+        <p
+          className="type-body"
+          style={{ maxWidth: 720, color: 'var(--fg-muted)', marginBottom: '1.25rem' }}
+        >
+          All errors return JSON with an <code>error</code> string and an optional{' '}
+          <code>message</code>. The codes below cover every verification failure mode.
+        </p>
         <div style={{ overflowX: 'auto' }}>
           <table>
             <thead>

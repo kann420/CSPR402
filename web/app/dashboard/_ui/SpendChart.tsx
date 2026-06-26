@@ -72,8 +72,8 @@ export function SpendChart({ data, height = 200 }: Props) {
       >
         <defs>
           <linearGradient id="spendFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--green)" stopOpacity="0.35" />
-            <stop offset="100%" stopColor="var(--green)" stopOpacity="0" />
+            <stop offset="0%" stopColor="var(--brand)" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="var(--brand)" stopOpacity="0" />
           </linearGradient>
         </defs>
         {/* horizontal gridlines */}
@@ -89,16 +89,24 @@ export function SpendChart({ data, height = 200 }: Props) {
             strokeWidth={0.5}
           />
         ))}
-        <path d={areaPath} fill="url(#spendFill)" />
-        <path d={path} stroke="var(--green)" strokeWidth={1.5} fill="none" />
+        <path d={areaPath} fill="url(#spendFill)" className="spend-chart-area" />
+        <path
+          d={path}
+          stroke="var(--brand)"
+          strokeWidth={1.5}
+          fill="none"
+          className="spend-chart-line"
+          pathLength={1}
+        />
         {points.map((p, i) => (
           <circle
             key={i}
             cx={p.x}
             cy={p.y}
             r={2}
-            fill="var(--green)"
+            fill="var(--brand)"
             opacity={p.b.amount > 0 ? 1 : 0}
+            className="spend-point"
           />
         ))}
       </svg>

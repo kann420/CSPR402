@@ -23,7 +23,6 @@ integration, cash access, or a mainnet stablecoin rail.
 - [Pricing](https://cards402.com/pricing): Demo economics, MVP boundaries, and the FAQ.
 - [Security](https://cards402.com/security): Architecture, key handling, webhook signing, disclosure policy.
 - [Status](https://cards402.com/status): Live operational health of the current local build.
-- [Changelog](https://cards402.com/changelog): Everything shipped, tagged by surface area. [RSS](https://cards402.com/changelog/feed.xml)
 
 ## How an agent uses CSPR402
 
@@ -41,7 +40,6 @@ that fulfilment happens only after the deploy is verified against the order.
 
 ## Legal
 
-- [Terms of service](https://cards402.com/terms): Service scope, acceptable use, and liability notes for the MVP.
 - [Privacy policy](https://cards402.com/privacy): What we collect, processors, retention.
 - [Mock-card disclosure](https://cards402.com/legal/cardholder-agreement): What the simulated card payload means in this MVP, and what it does not mean.
 
@@ -50,4 +48,3 @@ that fulfilment happens only after the deploy is verified against the order.
 - [Company](https://cards402.com/company): Mission, principles, roadmap.
 - [Careers](https://cards402.com/careers): Open roles with published salary bands.
 - [Press](https://cards402.com/press): Media contact, press kit, quick facts.
-- [Affiliate program](https://cards402.com/affiliate): Not active in the current MVP.

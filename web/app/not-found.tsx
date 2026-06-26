@@ -17,11 +17,6 @@ const SUGGESTIONS = [
   },
   { href: '/pricing', label: 'Pricing', body: 'Demo economics and MVP boundaries.' },
   { href: '/dashboard', label: 'Dashboard', body: 'Keys, orders, and agents.' },
-  {
-    href: '/changelog',
-    label: 'Changelog',
-    body: 'Everything shipped, chronologically.',
-  },
 ];
 
 export default function NotFound() {

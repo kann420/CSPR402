@@ -5,7 +5,7 @@ import { CopyCodeBlock } from '@/app/components/CopyCodeBlock';
 export const metadata: Metadata = {
   title: 'Quickstart',
   description:
-    'Local quickstart for CSPR402: set env, prepare treasury and agent keys, boot backend and web, then run a Casper testnet smoke flow.',
+    'Five minutes from cold clone to a verified Casper testnet deploy: set env, faucet two keys, boot backend and web, create an order, send CSPR, and verify the deploy for a mock card.',
 };
 
 const envSample = `PAYMENT_PROVIDER=casper
@@ -37,72 +37,73 @@ const verifyCurl = `curl -X POST http://127.0.0.1:4000/v1/orders/<order_id>/veri
 
 const steps = [
   {
-    n: '01',
-    title: 'Fill local env only',
+    n: 'Step 01',
+    title: 'Set local env',
     body: (
       <>
         <p>
-          Put real values in <code>backend/.env.local</code>. Do not hardcode RPC URLs, API keys, or
-          treasury secrets into source files.
+          Put real values in <code>backend/.env.local</code> — not in source. RPC URLs, the treasury
+          public key, and the admin session key all live here. Nothing should be hardcoded into the
+          repo.
         </p>
         <CopyCodeBlock label=".env.local">{envSample}</CopyCodeBlock>
       </>
     ),
   },
   {
-    n: '02',
+    n: 'Step 02',
     title: 'Prepare treasury and agent wallets',
     body: (
       <>
         <p>
-          Treasury is the configured recipient public key the backend will verify against. Agent is
-          a separate local keypair that sends the Casper testnet transfer. Faucet both on Casper
-          testnet before you run the smoke flow.
+          Treasury is the configured recipient public key the backend verifies against. Agent is a
+          separate local keypair that sends the Casper testnet transfer. Faucet both on{' '}
+          <code>casper-test</code> before you run the smoke flow.
         </p>
         <p>
-          If you already created the keypairs in the previous steps with this repo, keep reusing
-          those local files. No Stellar wallet or trustline setup is needed for the CSPR402 demo.
+          Reuse any local keypair files you already generated with this repo. No trustline setup is
+          needed for the CSPR402 demo — settlement is native CSPR on Casper testnet.
         </p>
       </>
     ),
   },
   {
-    n: '03',
+    n: 'Step 03',
     title: 'Boot backend and web',
     body: (
       <>
         <p>
-          Run the backend with the local env, then boot the Next.js app. The root script created for
-          this repo can also open both windows for you.
+          Start the backend with the local env, then boot the Next.js app in a second terminal. The
+          root script can also open both windows for you.
         </p>
         <CopyCodeBlock label="Boot">{bootCommands}</CopyCodeBlock>
       </>
     ),
   },
   {
-    n: '04',
+    n: 'Step 04',
     title: 'Create order and send CSPR',
     body: (
       <>
         <p>
-          Use the agent demo script or the new <Link href="/portal">portal demo</Link> to create an
-          order. The payment instruction will tell you the exact treasury recipient, amount, and
-          transfer id to send. The portal path logs in with Casper Wallet and does not ask you to
-          paste an API key.
+          Use the agent demo script or the <Link href="/portal">portal demo</Link> to create an
+          order. The payment instruction gives you the exact treasury recipient, amount, and{' '}
+          <code>transfer_id</code> to send — pay it exactly. The portal path logs in with Casper
+          Wallet and never asks you to paste an API key.
         </p>
         <CopyCodeBlock label="Agent demo">{agentSend}</CopyCodeBlock>
       </>
     ),
   },
   {
-    n: '05',
+    n: 'Step 05',
     title: 'Verify deploy and inspect receipt',
     body: (
       <>
         <p>
-          After the transfer lands, submit the deploy hash back to the backend. A successful verify
-          returns a Casper receipt and a mock card payload. You can do this in the portal or by
-          HTTP.
+          Once the transfer lands, submit the deploy hash back to the backend. A successful verify
+          returns a Casper receipt and a mock card payload. Do it in the portal, or by HTTP with the
+          curl below.
         </p>
         <CopyCodeBlock label="Manual verify">{verifyCurl}</CopyCodeBlock>
       </>
@@ -126,18 +127,21 @@ export default function QuickstartPage() {
         className="type-body"
         style={{ maxWidth: 680, fontSize: '1rem', color: 'var(--fg-muted)' }}
       >
-        This quickstart is for the current fork only. It assumes a local backend, a local web app,
-        Casper testnet CSPR, and mock fulfillment. If you want the interactive path, open{' '}
+        Five minutes from a cold clone to a verified Casper testnet deploy. You will set local env,
+        faucet two testnet keys, boot the backend and web, create an order, send exact CSPR, then
+        verify the deploy for a mock card. For the interactive path, open{' '}
         <Link href="/portal" style={{ color: 'var(--fg)' }}>
           /portal
         </Link>{' '}
-        after booting both apps.
+        after both apps are running.
       </p>
 
       {steps.map((step, index) => (
         <section
           key={step.n}
+          id={`step-${step.n.split(' ')[1]}`}
           style={{
+            scrollMarginTop: 96,
             paddingTop: index === 0 ? '2rem' : '2.8rem',
             marginTop: index === 0 ? '1rem' : 0,
             borderTop: '1px solid var(--border)',

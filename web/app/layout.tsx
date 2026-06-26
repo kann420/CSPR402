@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
-import { Fraunces, IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google';
+import { Fraunces, Inter, JetBrains_Mono } from 'next/font/google';
 import { headers } from 'next/headers';
 import { MarketingChrome } from '@/app/components/MarketingChrome';
 import './globals.css';
@@ -13,14 +13,23 @@ const displayFont = Fraunces({
   style: ['normal', 'italic'],
 });
 
-const bodyFont = IBM_Plex_Sans({
+// Inter — the UI/body face. A modern, neutral grotesque that's tighter
+// and more refined than IBM Plex Sans, tuned for screens and small UI
+// labels. Carries the whole app chrome; pairs with Fraunces (display)
+// and JetBrains Mono (numeric/code) for the editorial + engineering
+// contrast that fits the Casper red-black product vibe.
+const bodyFont = Inter({
   subsets: ['latin'],
   variable: '--font-body',
   display: 'swap',
   weight: ['300', '400', '500', '600', '700'],
 });
 
-const monoFont = IBM_Plex_Mono({
+// JetBrains Mono — the numeric/code face. Crisper and more legible than
+// IBM Plex Mono at small sizes, with a developer-tool character that
+// matches the on-chain/Casper context. Used for KPI values, keys,
+// addresses, and the spend chart.
+const monoFont = JetBrains_Mono({
   subsets: ['latin'],
   variable: '--font-mono-next',
   display: 'swap',
@@ -30,11 +39,11 @@ const monoFont = IBM_Plex_Mono({
 const SITE_URL = 'https://cspr402.xyz';
 const SITE_NAME = 'CSPR402';
 const SITE_DESCRIPTION =
-  'Hackathon MVP for Casper testnet transfers, backend deploy verification, and simulated virtual card fulfillment.';
+  'Verify a single on-chain Casper payment and return a ready-to-use virtual card for AI agents. No custodial wallet, no off-chain trust, no manual reconciliation.';
 
 export const metadata: Metadata = {
   title: {
-    default: `${SITE_NAME} - Casper testnet payment demo`,
+    default: `${SITE_NAME} — On-chain Casper payments, verified into cards`,
     template: `%s - ${SITE_NAME}`,
   },
   description: SITE_DESCRIPTION,
@@ -61,15 +70,15 @@ export const metadata: Metadata = {
     locale: 'en_GB',
     url: SITE_URL,
     siteName: SITE_NAME,
-    title: `${SITE_NAME} - Casper testnet payment demo`,
+    title: `${SITE_NAME} — On-chain Casper payments, verified into cards`,
     description:
-      'Create an order, send Casper testnet CSPR, verify the deploy, and receive a simulated virtual card receipt.',
+      'AI agents pay in CSPR on Casper. CSPR402 verifies the deploy on-chain and returns a ready-to-use virtual card — no custodial wallet, no off-chain trust.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: `${SITE_NAME} - Casper testnet payment demo`,
+    title: `${SITE_NAME} — On-chain Casper payments, verified into cards`,
     description:
-      'Create an order, send Casper testnet CSPR, verify the deploy, and receive a simulated virtual card receipt.',
+      'AI agents pay in CSPR on Casper. CSPR402 verifies the deploy on-chain and returns a ready-to-use virtual card — no custodial wallet, no off-chain trust.',
   },
   robots: {
     index: true,
@@ -99,7 +108,6 @@ const jsonLdOrg = {
   url: SITE_URL,
   logo: `${SITE_URL}/icon.png`,
   description: SITE_DESCRIPTION,
-  sameAs: ['https://github.com/CTX-com/Cards402'],
 };
 
 const jsonLdSite = {

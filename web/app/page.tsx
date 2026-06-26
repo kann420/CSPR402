@@ -1,56 +1,26 @@
 import Link from 'next/link';
-import { CopyCodeBlock } from '@/app/components/CopyCodeBlock';
-
-const orderSnippet = `const order = await fetch('http://127.0.0.1:4000/v1/orders', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'X-Api-Key': process.env.CSPR402_API_KEY!,
-  },
-  body: JSON.stringify({
-    amount_usdc: '25.00',
-    payment_asset: 'cspr_casper',
-    payer_public_key: '<casper public key>',
-  }),
-}).then((res) => res.json());
-
-// order.payment => recipient, amount, transfer_id, expires_at`;
-
-const verifySnippet = `const verified = await fetch(
-  \`http://127.0.0.1:4000/v1/orders/\${order.order_id}/verify-payment\`,
-  {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Api-Key': process.env.CSPR402_API_KEY!,
-    },
-    body: JSON.stringify({
-      deploy_hash: '<casper deploy hash>',
-      sender_public_key: '<optional agent pubkey>',
-    }),
-  },
-).then((res) => res.json());`;
+import { HeroCard, HeroScene } from '@/app/components/HeroCard';
 
 const steps = [
   {
     num: '01',
     title: 'Create order',
-    body: 'Backend returns a Casper testnet payment instruction with recipient, exact motes, transfer_id, and expiration.',
+    body: 'The API returns a Casper payment instruction — recipient, exact motes, transfer_id, and expiration — for the amount your agent needs.',
   },
   {
     num: '02',
     title: 'Send CSPR',
-    body: 'Agent or local script submits one native transfer with casper-js-sdk. No hardcoded RPC or secrets in code.',
+    body: 'Your agent submits one native transfer on Casper. No hardcoded RPC, no shared secrets, no custodial wallet sitting between you and the chain.',
   },
   {
     num: '03',
     title: 'Verify deploy',
-    body: 'Backend checks recipient, amount, transfer_id, execution success, and idempotency before fulfillment.',
+    body: 'The backend verifies recipient, amount, transfer_id, execution success, and idempotency straight from the deploy before anything ships.',
   },
   {
     num: '04',
-    title: 'Return receipt',
-    body: 'Order is marked delivered and the API returns a mock virtual card plus a Casper receipt payload.',
+    title: 'Card delivered',
+    body: 'Order is fulfilled and the API returns a ready-to-use virtual card number plus the Casper receipt that paid for it.',
   },
 ];
 
@@ -58,117 +28,94 @@ export default function HomePage() {
   return (
     <>
       <section
+        className="home-hero"
         style={{
-          padding: '6.25rem 1.35rem 5rem',
+          padding: '6.5rem 1.35rem 5.5rem',
           position: 'relative',
           overflow: 'hidden',
+          isolation: 'isolate',
         }}
       >
-        <div
-          className="radial-green-glow"
-          aria-hidden
-          style={{ opacity: 0.2, top: '-10%', right: '-5%', width: 520, height: 520 }}
-        />
+        <HeroScene />
         <div
           style={{
-            maxWidth: 1180,
+            maxWidth: 820,
             margin: '0 auto',
-            display: 'grid',
-            gridTemplateColumns: 'minmax(0, 1.05fr) minmax(0, 0.95fr)',
-            gap: '3rem',
-            alignItems: 'start',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            position: 'relative',
+            zIndex: 1,
           }}
-          className="home-hero-grid"
         >
-          <div>
-            <div
-              className="type-eyebrow"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.55rem' }}
-            >
-              <span
-                className="pulse-green"
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: '50%',
-                  background: 'var(--green)',
-                  boxShadow: '0 0 12px var(--green-glow)',
-                }}
-              />
-              Day 2 build - Casper testnet payment verification
-            </div>
-
-            <h1
-              className="type-display"
+          <div
+            className="type-eyebrow"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.55rem' }}
+          >
+            <span
+              className="pulse-green"
               style={{
-                marginTop: '1.35rem',
-                marginBottom: '1.25rem',
-                fontSize: 'clamp(2.7rem, 5.8vw + 0.5rem, 5rem)',
-                color: 'var(--fg)',
-                maxWidth: 760,
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: 'var(--green)',
+                boxShadow: '0 0 12px var(--green-glow)',
               }}
-            >
-              CSPR402 turns one Casper transfer into one verified mock card flow.
-            </h1>
-
-            <p
-              className="type-body"
-              style={{
-                maxWidth: 620,
-                fontSize: '1rem',
-                color: 'var(--fg-muted)',
-                marginBottom: '1.8rem',
-              }}
-            >
-              This fork no longer sells a Stellar or real Visa story. It is a local hackathon MVP:
-              create order, pay with Casper testnet CSPR, verify the deploy, and receive a simulated
-              virtual card plus receipt.
-            </p>
-
-            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-              <Link href="/portal" className="home-cta home-cta--primary">
-                Open portal demo
-              </Link>
-              <Link href="/docs/quickstart" className="home-cta home-cta--secondary">
-                Local quickstart
-              </Link>
-            </div>
+            />
+            Casper testnet · verified card payments
           </div>
 
-          <div
+          <h1
+            className="type-display"
             style={{
-              background: 'linear-gradient(180deg, rgba(20,28,21,0.9), rgba(8,10,8,0.96))',
-              border: '1px solid var(--green-border)',
-              borderRadius: 18,
-              padding: '1.1rem',
-              boxShadow: 'var(--shadow-float)',
+              marginTop: '1.4rem',
+              marginBottom: '1.15rem',
+              fontSize: 'clamp(2.6rem, 5.4vw + 0.5rem, 4.6rem)',
+              color: 'var(--fg)',
+              maxWidth: 720,
             }}
           >
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '0.95rem',
-              }}
-            >
-              <div className="type-eyebrow" style={{ color: 'var(--green)' }}>
-                Demo surface
-              </div>
-              <span
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '0.7rem',
-                  color: 'var(--fg-dim)',
-                }}
-              >
-                local only
-              </span>
-            </div>
-            <CopyCodeBlock label="Create order">{orderSnippet}</CopyCodeBlock>
-            <div style={{ height: '0.85rem' }} />
-            <CopyCodeBlock label="Verify deploy">{verifySnippet}</CopyCodeBlock>
+            One Casper transfer. <br />
+            One verified card.
+          </h1>
+
+          <p
+            className="type-body"
+            style={{
+              maxWidth: 620,
+              margin: '0 auto 1.9rem',
+              fontSize: '1.02rem',
+              color: 'var(--fg-muted)',
+            }}
+          >
+            AI agents need to spend money, but getting them a card usually means custodial wallets,
+            off-chain trust, and reconciliation by hand. CSPR402 verifies a single on-chain Casper
+            payment and returns a virtual card — no middleman holding funds, no manual matching.
+          </p>
+
+          <div
+            style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'center' }}
+          >
+            <Link href="/dashboard" className="home-cta home-cta--primary">
+              Open Dashboard
+            </Link>
+            <Link href="/docs/quickstart" className="home-cta home-cta--secondary">
+              Read the quickstart
+            </Link>
           </div>
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            marginTop: '3.5rem',
+            position: 'relative',
+            zIndex: 1,
+          }}
+        >
+          <HeroCard />
         </div>
       </section>
 
@@ -190,10 +137,10 @@ export default function HomePage() {
           }}
         >
           {[
-            { label: 'Rail', value: 'CSPR', sub: 'Casper testnet native transfer' },
-            { label: 'Verify', value: 'Deploy', sub: 'recipient + amount + transfer_id' },
-            { label: 'Fulfillment', value: 'Mock', sub: 'simulated virtual card only' },
-            { label: 'Secrets', value: '.env', sub: 'RPC, keys, API vars kept local' },
+            { label: 'Rail', value: 'CSPR', sub: 'Casper native transfer' },
+            { label: 'Verify', value: 'On-chain', sub: 'deploy recipient + amount + id' },
+            { label: 'Settlement', value: 'Instant', sub: 'verified → fulfilled' },
+            { label: 'Secrets', value: 'Yours', sub: 'keys + RPC stay with the agent' },
           ].map((item) => (
             <div key={item.label}>
               <div className="type-eyebrow" style={{ fontSize: '0.62rem', marginBottom: '0.7rem' }}>
@@ -231,7 +178,7 @@ export default function HomePage() {
       <section style={{ padding: '5rem 1.35rem' }}>
         <div style={{ maxWidth: 1180, margin: '0 auto' }}>
           <div className="type-eyebrow" style={{ color: 'var(--green)', marginBottom: '1rem' }}>
-            Flow
+            How it works
           </div>
           <h2
             className="type-display-tight"
@@ -242,7 +189,7 @@ export default function HomePage() {
               color: 'var(--fg)',
             }}
           >
-            The Day 2 path is intentionally narrow, testable, and honest.
+            Pay on Casper. Verify on Casper. Get a card.
           </h2>
 
           <div
@@ -255,6 +202,7 @@ export default function HomePage() {
             {steps.map((step) => (
               <article
                 key={step.num}
+                className="home-step"
                 style={{
                   padding: '1.6rem',
                   background: 'var(--surface)',
@@ -311,40 +259,37 @@ export default function HomePage() {
             background: 'var(--surface)',
             border: '1px solid var(--border)',
             borderRadius: 16,
+            textAlign: 'center',
           }}
         >
-          <div className="type-eyebrow" style={{ color: 'var(--green)', marginBottom: '0.85rem' }}>
-            What changed from the fork
-          </div>
           <h2
             className="type-display-tight"
             style={{ fontSize: 'clamp(1.6rem, 3vw + 0.5rem, 2.2rem)', margin: '0 0 1rem' }}
           >
-            No more pretending this repo still runs on Stellar.
+            Stop hand-reconciling agent payments.
           </h2>
           <p
             className="type-body"
-            style={{ maxWidth: 700, fontSize: '0.95rem', marginBottom: '1.4rem' }}
+            style={{ maxWidth: 620, margin: '0 auto 1.4rem', fontSize: '0.95rem' }}
           >
-            The web copy, docs, and operator surfaces now point at Casper testnet transfer
-            verification. Anything not implemented yet is labeled as not wired, instead of quietly
-            inheriting legacy Stellar or issuer copy from upstream.
+            One deploy, one verification, one card. Built on Casper so the proof of payment is the
+            payment itself — no CSV exports, no matching emails, no waiting on a custodian to
+            reconcile.
           </p>
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <Link href="/docs" className="home-cta home-cta--secondary">
-              Read API docs
+          <div
+            style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'center' }}
+          >
+            <Link href="/docs" className="home-cta home-cta--primary">
+              Read the API docs
             </Link>
             <Link href="/status" className="home-cta home-cta--secondary">
-              Check local status
+              Check status
             </Link>
           </div>
         </div>
       </section>
 
       <style>{`
-        .home-hero-grid {
-          grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
-        }
         .home-cta {
           display: inline-flex;
           align-items: center;
@@ -354,11 +299,12 @@ export default function HomePage() {
           padding: 0.82rem 1.3rem;
           font-family: var(--font-body);
           font-size: 0.88rem;
-          transition: transform 0.3s var(--ease-out), background 0.3s var(--ease-out);
+          transition: transform 0.3s var(--ease-out), background 0.3s var(--ease-out),
+            border-color 0.3s var(--ease-out), box-shadow 0.3s var(--ease-out);
         }
         .home-cta--primary {
-          background: var(--fg);
-          color: var(--bg);
+          background: var(--brand);
+          color: #fff;
           font-weight: 600;
         }
         .home-cta--secondary {
@@ -370,10 +316,15 @@ export default function HomePage() {
         .home-cta:hover {
           transform: translateY(-1px);
         }
-        @media (max-width: 900px) {
-          .home-hero-grid {
-            grid-template-columns: minmax(0, 1fr) !important;
-          }
+        .home-cta--primary:hover {
+          box-shadow: 0 8px 24px -8px var(--brand-glow);
+        }
+        .home-step {
+          transition: border-color 0.3s var(--ease-out), transform 0.3s var(--ease-out);
+        }
+        .home-step:hover {
+          transform: translateY(-2px);
+          border-color: var(--green-border);
         }
       `}</style>
     </>

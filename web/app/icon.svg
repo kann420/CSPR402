@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1036" height="604" viewBox="250 210 1036 604" role="img" aria-labelledby="title desc">
-  <title id="title">CSPR402 Logo</title>
-  <desc id="desc">Clean vector redraw of the CSPR402 neon payment-card logo — transparent (no background plate), tight-cropped to the mark so it fills inline wordmark boxes without a black box.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="398 142 740 740" role="img" aria-labelledby="title desc">
+  <title id="title">CSPR402</title>
+  <desc id="desc">CSPR402 neon payment-card mark — transparent favicon synced with the app logo.</desc>
   <defs>
     <radialGradient id="redHalo" cx="50%" cy="50%" r="50%">
       <stop offset="0" stop-color="#ff160d" stop-opacity="0.56"/>

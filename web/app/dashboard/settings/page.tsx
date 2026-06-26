@@ -35,6 +35,13 @@ export default function SettingsPage() {
   const isPlatformOwner = !!user?.is_platform_owner;
   const toast = useToast();
 
+  // Appearance (theme + density) is hidden — the dashboard runs dark-only
+  // to match the landing's red-black vibe, and the theme toggle is hidden
+  // in the header too. The Appearance card below is kept behind this flag
+  // so restoring it is a one-line flip (the theme/density state stays
+  // wired and is just never rendered).
+  const SHOW_APPEARANCE = false;
+
   // Theme preference
   const [theme, setTheme] = useState<Theme>('dark');
   useEffect(() => {
@@ -143,7 +150,7 @@ export default function SettingsPage() {
           Settings
         </div>
         <div style={{ fontSize: '0.78rem', color: 'var(--fg-dim)' }}>
-          Account, appearance, notifications, and local data.
+          Account, notifications, and local data.
         </div>
       </div>
 
@@ -170,59 +177,62 @@ export default function SettingsPage() {
 
       {isPlatformOwner && <PlatformTreasuryCard />}
 
-      <Card title="Appearance" padding="1.25rem 1.5rem">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <Row label="Theme" description="Dark is default. System follows your OS preference.">
-            <div style={{ display: 'flex', gap: '0.4rem' }}>
-              {(['dark', 'light', 'system'] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => pickTheme(t)}
-                  style={{
-                    padding: '0.4rem 0.75rem',
-                    borderRadius: 6,
-                    border: `1px solid ${theme === t ? 'var(--fg)' : 'var(--border)'}`,
-                    background: theme === t ? 'var(--surface-2)' : 'transparent',
-                    color: theme === t ? 'var(--fg)' : 'var(--fg-muted)',
-                    fontSize: '0.74rem',
-                    cursor: 'pointer',
-                    fontWeight: theme === t ? 600 : 500,
-                    textTransform: 'capitalize',
-                  }}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-          </Row>
-          <Row
-            label="Density"
-            description="Compact trims row padding for denser tables. Comfortable is the default."
-          >
-            <div style={{ display: 'flex', gap: '0.4rem' }}>
-              {(['comfortable', 'compact'] as const).map((d) => (
-                <button
-                  key={d}
-                  onClick={() => pickDensity(d)}
-                  style={{
-                    padding: '0.4rem 0.75rem',
-                    borderRadius: 6,
-                    border: `1px solid ${density === d ? 'var(--fg)' : 'var(--border)'}`,
-                    background: density === d ? 'var(--surface-2)' : 'transparent',
-                    color: density === d ? 'var(--fg)' : 'var(--fg-muted)',
-                    fontSize: '0.74rem',
-                    cursor: 'pointer',
-                    fontWeight: density === d ? 600 : 500,
-                    textTransform: 'capitalize',
-                  }}
-                >
-                  {d}
-                </button>
-              ))}
-            </div>
-          </Row>
-        </div>
-      </Card>
+      {/* Hidden: Appearance (theme + density). See SHOW_APPEARANCE above. */}
+      {SHOW_APPEARANCE && (
+        <Card title="Appearance" padding="1.25rem 1.5rem">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <Row label="Theme" description="Dark is default. System follows your OS preference.">
+              <div style={{ display: 'flex', gap: '0.4rem' }}>
+                {(['dark', 'light', 'system'] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => pickTheme(t)}
+                    style={{
+                      padding: '0.4rem 0.75rem',
+                      borderRadius: 6,
+                      border: `1px solid ${theme === t ? 'var(--fg)' : 'var(--border)'}`,
+                      background: theme === t ? 'var(--surface-2)' : 'transparent',
+                      color: theme === t ? 'var(--fg)' : 'var(--fg-muted)',
+                      fontSize: '0.74rem',
+                      cursor: 'pointer',
+                      fontWeight: theme === t ? 600 : 500,
+                      textTransform: 'capitalize',
+                    }}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </Row>
+            <Row
+              label="Density"
+              description="Compact trims row padding for denser tables. Comfortable is the default."
+            >
+              <div style={{ display: 'flex', gap: '0.4rem' }}>
+                {(['comfortable', 'compact'] as const).map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => pickDensity(d)}
+                    style={{
+                      padding: '0.4rem 0.75rem',
+                      borderRadius: 6,
+                      border: `1px solid ${density === d ? 'var(--fg)' : 'var(--border)'}`,
+                      background: density === d ? 'var(--surface-2)' : 'transparent',
+                      color: density === d ? 'var(--fg)' : 'var(--fg-muted)',
+                      fontSize: '0.74rem',
+                      cursor: 'pointer',
+                      fontWeight: density === d ? 600 : 500,
+                      textTransform: 'capitalize',
+                    }}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+            </Row>
+          </div>
+        </Card>
+      )}
 
       <Card title="Notifications" padding="1.25rem 1.5rem">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -281,8 +291,8 @@ export default function SettingsPage() {
             lineHeight: 1.5,
           }}
         >
-          Agent groups, notification preferences, and appearance are stored in this browser. Export
-          to move them to another machine, or clear everything to reset.
+          Agent groups and notification preferences are stored in this browser. Export to move them
+          to another machine, or clear everything to reset.
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <Button onClick={exportData}>Export settings</Button>

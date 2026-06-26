@@ -7,7 +7,7 @@
 //
 // Usage (call site supplies the copy):
 //
-//   <AnnouncementBanner id="2026-Q2-live-metrics" href="/changelog">
+//   <AnnouncementBanner id="2026-Q2-live-metrics" href="/status">
 //     Live metrics are now on the landing page
 //   </AnnouncementBanner>
 //

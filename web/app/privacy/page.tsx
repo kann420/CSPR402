@@ -198,8 +198,7 @@ export default function PrivacyPage() {
                 <p>
                   Material changes to this policy (new sub-processor, new retention policy, new data
                   category collected) are announced via email to all active account holders at least
-                  30 days before they take effect. You can review the history of this page on our{' '}
-                  <Link href="/changelog">Changelog</Link>.
+                  30 days before they take effect.
                 </p>
                 <p>
                   Questions about this policy:{' '}

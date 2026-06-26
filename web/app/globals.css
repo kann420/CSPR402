@@ -35,6 +35,17 @@
   --green-border: rgba(124, 255, 178, 0.26);
   --green-glow: rgba(124, 255, 178, 0.35);
 
+  /* ── Brand red (marketing accent) ─────────────────────────────────── */
+  /* Casper-style vivid red; harmonizes with the logo (#ff3422). The
+     marketing surface remaps --green* -> --brand* via .marketing-surface
+     so marketing pages inherit red accents without per-file edits. The
+     dashboard bypasses MarketingChrome and keeps real green. */
+  --brand: #ff2a23;
+  --brand-dim: #e11a14;
+  --brand-muted: rgba(255, 42, 35, 0.12);
+  --brand-border: rgba(255, 42, 35, 0.3);
+  --brand-glow: rgba(255, 42, 35, 0.4);
+
   --red: #ff7a7a;
   --red-muted: rgba(255, 122, 122, 0.12);
   --red-border: rgba(255, 122, 122, 0.26);
@@ -58,9 +69,8 @@
      <html>. We alias the old --font-mono here so the dashboard keeps
      working without touching component code. */
   --font-display: 'Fraunces', 'IBM Plex Serif', Georgia, 'Times New Roman', serif;
-  --font-body:
-    'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  --font-mono: var(--font-mono-next, 'IBM Plex Mono'), 'JetBrains Mono', ui-monospace, monospace;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: var(--font-mono-next, 'JetBrains Mono'), ui-monospace, monospace;
 
   /* ── Motion ───────────────────────────────────────────────────────── */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -91,6 +101,13 @@ html[data-theme='light'] {
   --green-border: rgba(5, 150, 105, 0.26);
   --green-glow: rgba(5, 150, 105, 0.18);
 
+  /* Brand red (marketing accent) — light theme override */
+  --brand: #d90f0a;
+  --brand-dim: #b50b06;
+  --brand-muted: rgba(217, 15, 10, 0.1);
+  --brand-border: rgba(217, 15, 10, 0.24);
+  --brand-glow: rgba(217, 15, 10, 0.2);
+
   --red: #dc2626;
   --red-muted: rgba(220, 38, 38, 0.08);
   --red-border: rgba(220, 38, 38, 0.22);
@@ -107,6 +124,23 @@ html[data-theme='light'] {
   --shadow-card: 0 1px 2px rgba(10, 10, 10, 0.06), 0 0 0 1px rgba(10, 10, 10, 0.03);
   --shadow-hero: 0 40px 120px -40px rgba(10, 10, 10, 0.22), 0 0 0 1px rgba(10, 10, 10, 0.06);
   --shadow-float: 0 20px 48px -24px rgba(10, 10, 10, 0.2);
+}
+
+/* ── Marketing surface accent remap ───────────────────────────────────
+   Applied on the marketing chrome (nav, main, footer). Because CSS
+   custom properties inherit, every marketing page rendered inside
+   <main class="marketing-surface"> resolves --green* to the brand red
+   tokens above with zero per-file edits. The dashboard bypasses
+   MarketingChrome, so its --green* stays the real success-green.
+   Rules that reference var(--green*) — :focus-visible, ::selection,
+   .glow-green, .radial-green-glow — auto-adapt: red on marketing,
+   green on the dashboard. */
+.marketing-surface {
+  --green: var(--brand);
+  --green-dim: var(--brand-dim);
+  --green-muted: var(--brand-muted);
+  --green-border: var(--brand-border);
+  --green-glow: var(--brand-glow);
 }
 
 @theme inline {
@@ -267,18 +301,18 @@ pre {
 /* ── Selection ─────────────────────────────────────────────────────── */
 
 ::selection {
-  background: var(--green);
+  background: var(--brand);
   color: #000;
 }
 
 /* ── Focus styles ──────────────────────────────────────────────────── */
 
 /* Only apply the accent ring to keyboard focus — mouse clicks keep the
-   quiet default so we don't flash a green ring on every button press.
+   quiet default so we don't flash a red ring on every button press.
    The 2px offset lifts it above the element's own border so rounded
    pills and cards still look clean. */
 :focus-visible {
-  outline: 2px solid var(--green);
+  outline: 2px solid var(--brand);
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -305,7 +339,7 @@ pre {
 }
 .skip-link:focus {
   transform: translateY(0);
-  outline: 2px solid var(--green);
+  outline: 2px solid var(--brand);
   outline-offset: 2px;
 }
 
@@ -343,12 +377,16 @@ pre {
   animation: pulse-green 2s ease-in-out infinite;
 }
 
-/* Respect reduced motion — all fancy reveals collapse to plain opacity */
+/* Respect reduced motion — all fancy reveals collapse to their final
+   state instantly. animation-delay is zeroed too so staggered entrances
+   (e.g. the overview choreography) don't sit at their opacity:0 /
+   stroke-dashoffset:1 `from` state during the preserved delay. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
@@ -443,9 +481,14 @@ pre {
 
 /* ── Dashboard responsive (unchanged from before) ─────────────────── */
 
-@media (max-width: 640px) {
+@media (max-width: 860px) {
   .docs-sidebar {
     display: none;
+  }
+  /* Stack the mobile in-page TOC above the content instead of beside it. */
+  .docs-shell {
+    flex-direction: column;
+    gap: 0;
   }
 }
 
@@ -495,13 +538,13 @@ pre {
   }
 }
 
-@media (max-width: 480px) {
-  /* Theme toggle hides on the smallest viewport — preference is in
-     localStorage so it's set-once anyway. Reclaims a 32px column for
-     the bell and avatar. */
-  .dashboard-header-theme {
-    display: none !important;
-  }
+/* Theme toggle is hidden app-wide — the dashboard runs dark-only to
+   match the landing's red-black vibe. The saved preference still loads
+   on mount (Header keeps its loadTheme/applyTheme effect), so an
+   existing choice is honoured without a visible switch. Remove this
+   rule to bring the toggle back at all viewport sizes. */
+.dashboard-header-theme {
+  display: none !important;
 }
 
 /* ── Dashboard card scroll hint ───────────────────────────────────── */
@@ -556,15 +599,16 @@ html[data-theme='light'] .dashboard-backdrop::before {
 
 /* ── Dashboard microinteractions ──────────────────────────────────── */
 
-/* KPI tile hover — quietly raise the border to the green accent and
-   lift one pixel. Subtle enough for a financial surface, just enough
-   to confirm the tile is interactive. */
+/* KPI tile hover — quietly raise the border to the Casper brand accent
+   and lift one pixel. Subtle enough for a financial surface, just enough
+   to confirm the tile is interactive. Green is reserved for live/success
+   status pills, so the decorative hover uses the brand red. */
 .kpi-tile:hover {
   transform: translateY(-1px);
-  border-color: var(--green-border) !important;
+  border-color: var(--brand-border) !important;
   box-shadow:
-    0 8px 24px -16px var(--green-glow),
-    0 0 0 1px var(--green-border) inset;
+    0 8px 24px -16px var(--brand-glow),
+    0 0 0 1px var(--brand-border) inset;
 }
 
 /* Table row hover — the global tr:hover already paints a subtle
@@ -584,8 +628,8 @@ tbody tr:hover td:first-child::before {
   top: 0;
   bottom: 0;
   width: 2px;
-  background: var(--green);
-  box-shadow: 0 0 12px var(--green-glow);
+  background: var(--brand);
+  box-shadow: 0 0 12px var(--brand-glow);
   animation: row-accent-in 0.3s var(--ease-out) both;
 }
 @keyframes row-accent-in {
@@ -680,4 +724,454 @@ tr:hover td {
 }
 .link-arrow:hover::after {
   transform: translateX(4px);
+}
+
+/* ── Overview hero + entrance choreography ───────────────────────────
+   Revamps /dashboard/overview to match the landing vibe: editorial hero
+   band (type-eyebrow + pulse-green dot + Fraunces display title + body),
+   a compact always-dark summary card fed with real telemetry, staggered
+   transform/opacity entrance, chart line draw-in, and a unifying card
+   hover lift. All bespoke rules are scoped to .dashboard-overview so
+   every other dashboard page is untouched except the Card radius
+   (10→14, set in Card.tsx) + the .dashboard-card hover lift below.
+   Entrances are one-shot (fill-mode both → no pre-delay flash) and
+   collapsed by the global prefers-reduced-motion guard. The `translate`
+   property is used for rises so the existing transform-based hovers
+   (.kpi-tile:hover, .dashboard-card:hover) compose instead of clobber. */
+
+.overview-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1.75rem;
+  align-items: center;
+  padding-bottom: 0.25rem;
+  position: relative;
+  isolation: isolate;
+}
+/* Red-black ambient wash behind the hero band — a faint echo of the
+   landing's HeroScene, static (no blur, no rAF) so it stays cheap on an
+   operational page. isolation:isolate scopes the band's stacking context,
+   so the z-index:-1 glow paints behind the text + card but never bleeds
+   behind the page background. */
+.overview-hero::before {
+  content: '';
+  position: absolute;
+  inset: -0.5rem -1rem 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 80% at 82% 18%, rgba(255, 42, 35, 0.1), transparent 70%),
+    radial-gradient(50% 70% at 12% 92%, rgba(120, 8, 5, 0.08), transparent 75%);
+  border-radius: 18px;
+}
+.overview-hero-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+.overview-hero-reveal {
+  opacity: 0;
+  animation: ov-rise 0.6s var(--ease-out) both;
+}
+
+/* ── Dashboard summary hero card (always-dark, like a physical card) ── */
+.ov-hero-card {
+  position: relative;
+  width: min(100%, 20rem);
+  aspect-ratio: 1.586;
+  border-radius: 1.4rem;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow:
+    0 1.5rem 3rem rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+    0 0 3rem var(--brand-glow);
+  color: #f5f1e8;
+  font-family: var(--font-body);
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.14),
+      rgba(255, 255, 255, 0.02) 35%,
+      rgba(255, 255, 255, 0.08)
+    ),
+    linear-gradient(
+      160deg,
+      rgba(255, 42, 35, 0.18),
+      rgba(225, 26, 20, 0.08) 42%,
+      rgba(120, 8, 5, 0.18) 78%,
+      rgba(255, 42, 35, 0.1)
+    ),
+    #0a0a0a;
+  transition:
+    transform 0.4s var(--ease-out),
+    box-shadow 0.4s var(--ease-out);
+}
+.overview-hero .ov-hero-card:hover {
+  transform: translateY(-3px) scale(1.01);
+  box-shadow:
+    0 2rem 3.5rem rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+    0 0 4rem var(--brand-glow);
+}
+.ov-hero-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px 34px),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.03) 0 1px, transparent 1px 34px);
+  mask-image: linear-gradient(180deg, transparent, black 18%, black 82%, transparent);
+  -webkit-mask-image: linear-gradient(180deg, transparent, black 18%, black 82%, transparent);
+  opacity: 0.35;
+}
+/* One-shot sheen sweep across the card face on entrance. Pseudo-element
+   has no hover, so transform is safe here. */
+.ov-hero-sheen {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.ov-hero-sheen::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -60%;
+  width: 50%;
+  background: linear-gradient(115deg, transparent, rgba(255, 255, 255, 0.18) 45%, transparent 60%);
+  transform: skewX(-12deg) translateX(0);
+  opacity: 0;
+  animation: ov-sheen 1.6s var(--ease-out) 0.55s both;
+  will-change: transform, opacity;
+}
+.ov-hero-card-content {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  padding: 1.25rem 1.4rem;
+}
+.ov-hero-topline,
+.ov-hero-bottomline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-size: 0.62rem;
+  color: rgba(255, 245, 225, 0.65);
+}
+.ov-hero-brand {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  text-transform: none;
+  color: #fff8ec;
+  text-shadow:
+    0 0 14px var(--brand-glow),
+    0 0 28px var(--brand-glow);
+  font-variation-settings:
+    'opsz' 144,
+    'SOFT' 30;
+}
+.ov-hero-net {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.ov-hero-net-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: var(--brand);
+  box-shadow: 0 0 8px var(--brand-glow);
+  display: inline-block;
+}
+.ov-hero-middle {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 1.2rem;
+}
+.ov-hero-middle-left {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  gap: 0.9rem;
+}
+.ov-hero-chip {
+  width: 2.6rem;
+  height: 2rem;
+  border-radius: 0.55rem;
+  position: relative;
+  background:
+    linear-gradient(135deg, rgba(255, 245, 210, 0.95), rgba(255, 207, 110, 0.45)),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.2), transparent);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+.ov-hero-chip::before {
+  content: '';
+  position: absolute;
+  inset: 0.3rem;
+  border: 1px solid rgba(90, 60, 0, 0.18);
+  border-radius: 0.35rem;
+}
+.ov-hero-balance span {
+  display: block;
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 245, 225, 0.65);
+  margin-bottom: 0.35rem;
+}
+.ov-hero-balance strong {
+  display: block;
+  font-size: clamp(1.4rem, 2.6vw, 1.85rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #fff8ec;
+  text-shadow: 0 0 1.5rem var(--brand-glow);
+  font-family: var(--font-display);
+  font-variation-settings:
+    'opsz' 144,
+    'SOFT' 20;
+}
+.ov-hero-digits {
+  display: grid;
+  gap: 0.2rem;
+  justify-content: end;
+  text-align: right;
+  font-family: var(--font-mono);
+  color: rgba(255, 249, 235, 0.95);
+}
+.ov-hero-digits-label {
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: rgba(255, 245, 225, 0.6);
+}
+.ov-hero-digits-value {
+  font-size: 0.85rem;
+  letter-spacing: 0.12em;
+}
+.ov-hero-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.ov-hero-status-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green-glow);
+  display: inline-block;
+}
+.ov-hero-card[data-live='true'] .ov-hero-net-dot,
+.ov-hero-card[data-live='true'] .ov-hero-status-dot {
+  animation: pulse-green 2s ease-in-out infinite;
+}
+.ov-hero-card[data-live='false'] .ov-hero-net-dot,
+.ov-hero-card[data-live='false'] .ov-hero-status-dot {
+  background: var(--red);
+  box-shadow: none;
+}
+
+/* ── Entrance keyframes (transform/opacity + translate only) ────────── */
+@keyframes ov-rise {
+  from {
+    opacity: 0;
+    translate: 0 16px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@keyframes ov-drawLine {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes ov-areaFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes ov-sheen {
+  0% {
+    transform: skewX(-12deg) translateX(0);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    transform: skewX(-12deg) translateX(360%);
+    opacity: 0;
+  }
+}
+
+/* ── Scoped entrance choreography (.dashboard-overview only) ─────────── */
+.dashboard-overview .kpi-tile {
+  position: relative;
+  opacity: 0;
+  animation: ov-rise 0.5s var(--ease-out) both;
+}
+.dashboard-overview .kpi-tile:nth-child(1) {
+  animation-delay: 0.34s;
+}
+.dashboard-overview .kpi-tile:nth-child(2) {
+  animation-delay: 0.42s;
+}
+.dashboard-overview .kpi-tile:nth-child(3) {
+  animation-delay: 0.5s;
+}
+.dashboard-overview .kpi-tile:nth-child(4) {
+  animation-delay: 0.58s;
+}
+.dashboard-overview .kpi-tile:nth-child(5) {
+  animation-delay: 0.66s;
+}
+/* "Lit from above" hairline — subtle top sheen on each tile. */
+.dashboard-overview .kpi-tile::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 1.1rem;
+  right: 1.1rem;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--brand-glow), transparent);
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.dashboard-overview .overview-split > * {
+  opacity: 0;
+  animation: ov-rise 0.55s var(--ease-out) both;
+}
+.dashboard-overview .overview-split > *:nth-child(1) {
+  animation-delay: 0.72s;
+}
+.dashboard-overview .overview-split > *:nth-child(2) {
+  animation-delay: 0.82s;
+}
+
+.dashboard-overview .overview-recent {
+  opacity: 0;
+  animation: ov-rise 0.55s var(--ease-out) 0.95s both;
+}
+
+/* Chart line draw-in + area fade + point hover (scoped). pathLength=1
+   normalizes the dash math so stroke-dasharray:1 = whole path. */
+.dashboard-overview .spend-chart-line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: ov-drawLine 1.1s var(--ease-out) 1s both;
+}
+.dashboard-overview .spend-chart-area {
+  opacity: 0;
+  animation: ov-areaFade 0.7s var(--ease-out) 1.15s both;
+}
+.dashboard-overview .spend-point {
+  transition:
+    r 180ms var(--ease-out),
+    filter 180ms var(--ease-out);
+}
+.dashboard-overview .spend-point:hover {
+  r: 4;
+  filter: drop-shadow(0 0 6px var(--brand-glow));
+}
+
+/* System-health header gets a subtle top highlight. Green is reserved for
+   the live/success status pills inside the card, so the header wash stays
+   neutral (surface-hover is theme-adaptive) to keep the red-black vibe. */
+.dashboard-overview .health-card > div:first-child {
+  background: linear-gradient(180deg, var(--surface-hover), transparent 70%);
+}
+
+/* Recent-activity table: tabular amounts, right-aligned, accent on hover. */
+.overview-activity-table .col-amount {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+.overview-activity-table .col-rail {
+  font-variant-numeric: tabular-nums;
+}
+.overview-activity-table tbody tr:hover .col-amount {
+  color: var(--brand);
+  transition: color 0.3s var(--ease-out);
+}
+
+/* Unifying card hover lift (dashboard-wide). !important mirrors the
+   existing .kpi-tile:hover pattern because Card.tsx sets border +
+   box-shadow inline. Entrances above animate `translate`, so this
+   `transform` hover composes rather than clobbers. */
+.dashboard-card {
+  transition:
+    transform 0.3s var(--ease-out),
+    border-color 0.3s var(--ease-out),
+    box-shadow 0.3s var(--ease-out);
+}
+.dashboard-card:hover {
+  transform: translateY(-1px);
+  border-color: var(--brand-border) !important;
+  box-shadow:
+    var(--shadow-card),
+    0 8px 24px -16px var(--brand-glow),
+    0 0 0 1px var(--brand-border) inset !important;
+}
+
+/* Sidebar logo (top-left Wordmark) — quiet hover lift + red glow so the
+   brand mark responds to the pointer the way the landing card does. The
+   scale + drop-shadow compose with the link's flex layout; both collapse
+   to instant under prefers-reduced-motion via the global guard. */
+.dashboard-sidebar-logo {
+  border-radius: 8px;
+  transition:
+    transform 0.25s var(--ease-out),
+    filter 0.25s var(--ease-out);
+}
+.dashboard-sidebar-logo:hover {
+  transform: scale(1.04);
+  filter: drop-shadow(0 0 10px var(--brand-glow));
+}
+
+/* Marketing (landing) header logo — same hover language as the dashboard
+   sidebar logo: a quiet scale + red drop-shadow glow on the mark. The
+   transparent Wordmark (logo-transparent.svg) has no black plate, so the
+   glow reads as the neon card mark lighting up rather than a black box
+   lifting. The mark is the .marketing-logo-mark img inside the link. */
+.marketing-logo-mark {
+  transition:
+    transform 0.25s var(--ease-out),
+    filter 0.25s var(--ease-out);
+}
+.marketing-logo:hover .marketing-logo-mark {
+  transform: scale(1.04);
+  filter: drop-shadow(0 0 10px var(--brand-glow));
+}
+
+@media (max-width: 900px) {
+  .overview-hero {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+  .overview-hero > div:last-child {
+    justify-self: center;
+  }
 }

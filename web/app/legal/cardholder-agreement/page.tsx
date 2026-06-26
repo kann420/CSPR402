@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { LegalBody, PageHero } from '@/app/components/MarketingPage';
 
 export const metadata: Metadata = {
@@ -16,14 +15,8 @@ const breadcrumbJsonLd = {
     {
       '@type': 'ListItem',
       position: 1,
-      name: 'Legal',
-      item: 'https://cards402.com/terms',
-    },
-    {
-      '@type': 'ListItem',
-      position: 2,
       name: 'Mock card disclosure',
-      item: 'https://cards402.com/legal/cardholder-agreement',
+      item: 'https://cspr402.xyz/legal/cardholder-agreement',
     },
   ],
 };
@@ -128,11 +121,6 @@ export default function CardholderAgreementPage() {
                 <p>
                   This page is a product-scope disclosure for the current MVP. It is not legal
                   advice, not issuer terms, and not evidence of production card issuance.
-                </p>
-                <p>
-                  <Link href="/terms" className="link-subtle">
-                    CSPR402 Terms of Service →
-                  </Link>
                 </p>
               </>
             ),

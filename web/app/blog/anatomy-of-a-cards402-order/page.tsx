@@ -366,18 +366,7 @@ export default function BlogPost() {
                 maxWidth: 460,
               }}
             >
-              New posts cross-post to the changelog. Drop{' '}
-              <Link
-                href="/changelog/feed.xml"
-                style={{
-                  color: 'var(--fg)',
-                  textDecoration: 'none',
-                  borderBottom: '1px solid var(--green-border)',
-                }}
-              >
-                the RSS feed
-              </Link>{' '}
-              into your reader to get every future post and shipped change.
+              New posts land here as they ship.
             </p>
           </div>
           <Link

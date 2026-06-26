@@ -10,17 +10,25 @@ interface Props {
   style?: CSSProperties;
   title?: ReactNode;
   actions?: ReactNode;
+  className?: string;
 }
 
-export function Card({ children, padding = '1rem 1.25rem', style, title, actions }: Props) {
+export function Card({
+  children,
+  padding = '1rem 1.25rem',
+  style,
+  title,
+  actions,
+  className,
+}: Props) {
   const isEdgeToEdge = padding === 0 || padding === '0';
   return (
     <div
-      className={isEdgeToEdge ? 'dashboard-card dashboard-card-scroll' : 'dashboard-card'}
+      className={`dashboard-card${isEdgeToEdge ? ' dashboard-card-scroll' : ''}${className ? ' ' + className : ''}`}
       style={{
         background: 'var(--surface)',
         border: '1px solid var(--border)',
-        borderRadius: 10,
+        borderRadius: 14,
         boxShadow: 'var(--shadow-card)',
         // Scroll shell for borderless table cards needs overflow-hidden
         // on the wrapper so the fade mask we paint via CSS stays

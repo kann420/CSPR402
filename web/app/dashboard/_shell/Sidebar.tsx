@@ -22,6 +22,10 @@ interface Item {
 interface Section {
   label?: string;
   items: Item[];
+  // Temporarily-hidden sections are kept in SECTIONS (so the route + the
+  // Developer tooling stay in the code) but skipped at render so users
+  // can't navigate into them from the sidebar. Flip to false to restore.
+  hidden?: boolean;
 }
 
 function Icon({ d }: { d: string }) {
@@ -77,6 +81,10 @@ const SECTIONS: Section[] = [
   },
   {
     label: 'Developer',
+    // Hidden for now — Webhooks tooling is staged but not user-ready.
+    // The section + /dashboard/developer route are kept in the codebase;
+    // only the sidebar entry is suppressed. Set hidden: false to bring it back.
+    hidden: true,
     items: [
       {
         href: '/dashboard/developer',
@@ -130,6 +138,7 @@ export function Sidebar() {
     >
       <Link
         href="/dashboard/overview"
+        className="dashboard-sidebar-logo"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -139,7 +148,7 @@ export function Sidebar() {
           color: 'var(--fg)',
         }}
       >
-        <Wordmark height={30} />
+        <Wordmark height={30} transparent />
         <span
           style={{
             fontSize: '0.54rem',
@@ -157,6 +166,7 @@ export function Sidebar() {
       </Link>
 
       {SECTIONS.map((section, sIdx) => {
+        if (section.hidden) return null;
         const visible = section.items.filter((i) => !i.permission || perms.can(i.permission));
         if (visible.length === 0) return null;
         return (
