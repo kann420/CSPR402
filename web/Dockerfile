@@ -11,6 +11,7 @@ COPY web/package.json ./web/
 COPY sdk/package.json ./sdk/
 RUN npm ci --workspace=web --include-workspace-root
 # build-time helpers + web source
+COPY skill.md ./skill.md
 COPY scripts ./scripts
 COPY web ./web
 RUN npm --workspace=web run build && npm prune --omit=dev

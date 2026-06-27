@@ -8,6 +8,7 @@ COPY web/package.json ./web/
 COPY sdk/package.json ./sdk/
 RUN npm ci --workspace=web --include-workspace-root
 
+COPY skill.md ./skill.md
 COPY scripts ./scripts
 COPY web ./web
 COPY sdk ./sdk
