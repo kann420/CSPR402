@@ -538,8 +538,8 @@ export default function AgentDetailPage({ params }: PageProps) {
             style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}
           >
             <div style={{ fontSize: '0.78rem', color: 'var(--fg-dim)', textAlign: 'center' }}>
-              Send CSPR (or mockUSDC) on Casper testnet to this address to fund the agent. Funds
-              show up on the dashboard within ~30 seconds.
+              Send CSPR (or mockUSDC) on Casper to this address to fund the agent. Funds show up on
+              the dashboard within ~30 seconds.
             </div>
             <QrCode text={agent.wallet_public_key} size={240} />
             <div

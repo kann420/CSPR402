@@ -22,8 +22,8 @@ export default function DeveloperPage() {
         <div style={{ fontSize: '0.8rem', color: 'var(--fg-muted)', lineHeight: 1.6 }}>
           The dashboard shell keeps this area visible for the full operator workflow, but webhook
           delivery logs and test sends are intentionally disabled for the Casper MVP demo. The
-          backend payment path is still live through order creation, Casper testnet verification,
-          and mock virtual card fulfillment.
+          backend payment path is still live through order creation, Casper payment verification,
+          and virtual card fulfillment.
         </div>
       </Card>
 
@@ -37,8 +37,8 @@ export default function DeveloperPage() {
             }}
           >
             The <code>cspr402</code> npm package ships a CLI for onboarding and a TypeScript SDK for
-            Casper testnet payment verification. Keep API keys in environment variables or the local
-            CLI config, never in source code.
+            Casper payment verification. Keep API keys in environment variables or the local CLI
+            config, never in source code.
           </div>
           <Snippet title="Install" code={`npm install cspr402@latest`} />
           <Snippet

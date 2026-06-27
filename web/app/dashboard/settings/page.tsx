@@ -350,9 +350,8 @@ function PlatformTreasuryCard() {
           lineHeight: 1.5,
         }}
       >
-        CSPR402 verifies Casper testnet transfers against one configured treasury public key. This
-        panel shows that local configuration. Live treasury balances are not wired into the
-        dashboard yet.
+        CSPR402 verifies Casper transfers against one configured treasury public key. This panel
+        shows that local configuration. Live treasury balances are not wired into the dashboard yet.
       </div>
       {error && (
         <div

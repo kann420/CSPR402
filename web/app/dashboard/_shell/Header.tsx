@@ -12,6 +12,7 @@ import { useDashboard } from '../_lib/DashboardProvider';
 import { applyTheme, loadTheme, saveTheme, type Theme } from '../_ui/theme';
 import { logout } from '../_lib/api';
 import { GlobalSearch } from './GlobalSearch';
+import { networkLabel } from '../_lib/network';
 
 function SvgIcon({ d, size = 16 }: { d: string; size?: number }) {
   return (
@@ -98,7 +99,7 @@ export function Header() {
         title={
           systemHealthy
             ? isPlatformOwner
-              ? 'Live - Casper testnet'
+              ? `Live - ${networkLabel(info)}`
               : 'Live'
             : 'Mock fulfillment frozen'
         }

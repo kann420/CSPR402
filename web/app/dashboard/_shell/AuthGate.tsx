@@ -139,7 +139,7 @@ export function AuthGate() {
             lineHeight: 1.5,
           }}
         >
-          Sign in with a Casper testnet wallet to open the demo dashboard.
+          Sign in with a Casper wallet to open the demo dashboard.
         </div>
 
         <Button

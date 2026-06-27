@@ -20,6 +20,7 @@ import { PageContainer } from '../_ui/PageContainer';
 import { OverviewHero } from './OverviewHero';
 import { formatUsd, parseTimestamp, timeAgo, bucketSpendByDay } from '../_lib/format';
 import { IN_FLIGHT_ORDER_STATUSES } from '../_lib/constants';
+import { networkLabel } from '../_lib/network';
 
 export default function OverviewPage() {
   const { info, agents, orders } = useDashboard();
@@ -63,7 +64,7 @@ export default function OverviewPage() {
   const eyebrow = info?.frozen
     ? 'Paused'
     : info?.payment_provider === 'casper'
-      ? 'Casper testnet · live'
+      ? `${networkLabel(info)} · live`
       : 'Live';
   const subtitle = info?.created_at
     ? `${info.name || 'Dashboard'} · created ${timeAgo(info.created_at)}`
@@ -141,11 +142,11 @@ export default function OverviewPage() {
             <HealthRow
               label="Casper verifier"
               ok={info?.payment_provider === 'casper'}
-              okLabel="Casper testnet"
+              okLabel={networkLabel(info)}
               failLabel="Legacy mode"
             />
             <HealthRow
-              label="Mock issuer"
+              label="Virtual card issuer"
               ok={info?.mock_card_mode !== false}
               okLabel="Ready"
               failLabel="Unknown"

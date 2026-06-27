@@ -105,7 +105,7 @@ export default function PlatformTreasuryPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
               {[
                 'Recipient equals configured treasury public key.',
-                'Transfer is on Casper testnet.',
+                'Transfer is on the configured Casper network.',
                 'Deploy execution succeeded.',
                 'Amount and transfer_id match the order.',
                 'Order has not expired and has not already been fulfilled.',

@@ -275,7 +275,7 @@ export function CreateAgentDrawer({ open, onClose }: Props) {
             <StepRow
               state={stepState(step, 'awaiting_deposit')}
               title="Awaiting deposit"
-              detail="Fund the Casper testnet public key with enough CSPR for native transfers and gas."
+              detail="Fund the Casper public key with enough CSPR for native transfers and gas."
             />
             <StepRow
               state={stepState(step, 'funded')}
@@ -286,7 +286,7 @@ export function CreateAgentDrawer({ open, onClose }: Props) {
                 // to funded. Surface the real on-chain CSPR amount
                 // instead of the never-fetched walletBalances map.
                 liveAgent?.agent?.detail?.startsWith('cspr=')
-                  ? `${liveAgent.agent.detail.slice(5)} CSPR testnet`
+                  ? `${liveAgent.agent.detail.slice(5)} CSPR`
                   : (liveAgent?.agent?.detail ?? undefined)
               }
             />
@@ -363,8 +363,8 @@ export function CreateAgentDrawer({ open, onClose }: Props) {
                   lineHeight: 1.45,
                 }}
               >
-                Fund this public key with Casper testnet CSPR. The stepper will flip to{' '}
-                <strong>Funded</strong> once the agent reports a usable balance.
+                Fund this public key with CSPR. The stepper will flip to <strong>Funded</strong>{' '}
+                once the agent reports a usable balance.
               </div>
             </div>
           )}
