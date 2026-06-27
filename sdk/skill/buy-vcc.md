@@ -50,12 +50,12 @@ When invoked:
 5. Display the card details:
 
    ```
-   ✅ Mock Virtual Card Ready
+   ✅ Virtual Card Ready
 
    Number: XXXX XXXX XXXX XXXX
    CVV:    XXX
    Expiry: XX/XX
-   Brand:  Visa (mock)
+   Brand:  CSPR402 Virtual Card
 
    Order: <order_id>
    ```
@@ -74,7 +74,7 @@ When invoked:
 
    If there is no limit, say "no limit set".
 
-7. Remind the user this is a one-time use mock virtual card for the Casper testnet demo.
+7. Remind the user this is a one-time use simulated virtual card for the Casper testnet demo.
 
 ## Environment variables needed
 

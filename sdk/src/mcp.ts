@@ -111,14 +111,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: 'purchase_vcc',
       description:
-        'Create a CSPR402 mock virtual card order and return Casper testnet payment instructions. The agent must pay externally, then call verify_payment.',
+        'Create a CSPR402 virtual card order and return Casper payment instructions. The agent must pay externally, then call verify_payment.',
       inputSchema: {
         type: 'object',
         properties: {
           amount_usdc: {
             type: 'string',
             pattern: '^\\d+(\\.\\d{1,2})?$',
-            description: "Mock card value in USD, for example '25.00'.",
+            description: "Virtual card value in USD, for example '25.00'.",
           },
           payment_asset: {
             type: 'string',
@@ -276,7 +276,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         `Receipt: ${verified.receipt.type}`,
         `Deploy: ${verified.receipt.deploy_hash}`,
         verified.order.card
-          ? `Mock card: ${verified.order.card.brand || 'Mock Virtual Card'}`
+          ? `Virtual card: ${verified.order.card.brand || 'CSPR402 Virtual Card'}`
           : null,
       ].filter(Boolean) as string[];
       return { content: [{ type: 'text', text: lines.join('\n') }] };
@@ -305,7 +305,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         lines.push(`Receipt: ${order.receipt.type}`);
         lines.push(`Deploy: ${order.receipt.deploy_hash}`);
       }
-      if (order.card) lines.push(`Mock card: ${order.card.brand || 'Mock Virtual Card'}`);
+      if (order.card) lines.push(`Virtual card: ${order.card.brand || 'CSPR402 Virtual Card'}`);
       if (order.error) lines.push(`Error: ${order.error}`);
       if (order.note) lines.push(`Note: ${order.note}`);
       return { content: [{ type: 'text', text: lines.join('\n') }] };

@@ -1,7 +1,7 @@
 # cspr402
 
 > Simulated virtual cards for AI agents — pay with native CSPR (or mockUSDC
-> via CEP-18) on Casper testnet, get a mock card number, CVV, and expiry
+> via CEP-18) on Casper testnet, get a virtual card number, CVV, and expiry
 > after the deploy is verified. The active MVP path is Casper testnet CSPR
 > order creation and deploy verification, with optional mockUSDC CEP-18
 > test-token payments.
@@ -9,7 +9,7 @@
 CSPR402 is an x402-inspired API: an AI agent pays on Casper testnet, the
 backend verifies the Casper deploy, and returns a simulated virtual card.
 This SDK lets agents create an order, submit a Casper native CSPR transfer,
-and receive mock card details programmatically — all in one call.
+and receive virtual card details programmatically — all in one call.
 
 [cspr402.xyz](https://cspr402.xyz) is the dashboard and docs surface.
 
@@ -50,7 +50,7 @@ console.log(card.number, card.cvv, card.expiry);
 1. `POST /v1/orders` with the amount
 2. Sign + submit the Casper native CSPR (or mockUSDC CEP-18) transfer from your agent key
 3. Subscribe to the SSE stream at `/v1/orders/:id/stream`
-4. Return the mock card details as soon as the `ready` event arrives (deploy verified)
+4. Return the virtual card details as soon as the `ready` event arrives (deploy verified)
 
 No polling loops, no webhook endpoint required.
 
@@ -149,7 +149,7 @@ try {
 
 ## Keeping card details safe
 
-`purchaseCardCasper` returns the mock card PAN, CVV, and expiry as plain strings. **Treat them as secrets.** Don't log them, don't write them to disk, don't send them to observability pipelines unless those pipelines are explicitly PCI-compliant.
+`purchaseCardCasper` returns the virtual card PAN, CVV, and expiry as plain strings. **Treat them as secrets.** Don't log them, don't write them to disk, don't send them to observability pipelines unless those pipelines are explicitly PCI-compliant.
 
 ## Links
 

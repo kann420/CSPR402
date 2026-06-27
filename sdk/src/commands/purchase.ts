@@ -60,7 +60,7 @@ does not store private key material or sign transfers. Pay from Casper Wallet,
 CSPR.click, casper-client, or your own agent runtime, then verify the deploy hash.
 
 Options:
-  -a, --amount <USD>              Mock virtual card value, for example 25.00
+  -a, --amount <USD>              Virtual card value, for example 25.00
   --asset <asset>                 cspr_casper (default) or mock_usdc_cep18
   --payer-public-key <hex>        Casper testnet public key to bind the order
   --order <order-id>              Existing order to verify
@@ -188,7 +188,9 @@ export async function purchaseCommand(argv: string[]): Promise<number> {
       process.stdout.write(`Receipt: ${verified.receipt.type}\n`);
       process.stdout.write(`Deploy: ${verified.receipt.deploy_hash}\n`);
       if (verified.order.card) {
-        process.stdout.write(`Mock card: ${verified.order.card.brand || 'Mock Virtual Card'}\n`);
+        process.stdout.write(
+          `Virtual card: ${verified.order.card.brand || 'CSPR402 Virtual Card'}\n`,
+        );
       }
       return 0;
     }

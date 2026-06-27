@@ -5,14 +5,22 @@ const DEFAULT_RPC_URL = 'https://node.testnet.casper.network/rpc';
 const MOTES_PER_CSPR = 1_000_000_000n;
 
 function usage(): void {
-  process.stderr.write(`Usage: cspr402 wallet <subcommand> [--public-key <hex>] [--rpc-url <url>]
+  process.stderr
+    .write(`Usage: cspr402 wallet <subcommand> [--public-key <hex>] [--rpc-url <url>] [--rpc-auth <token>]
 
 Subcommands:
   address              Print the configured Casper public key
   key-path             Print the configured local key-file path, if one was saved
-  balance              Query Casper testnet CSPR balance for the configured public key
+  balance              Query Casper CSPR balance for the configured public key
   info                 Print configured wallet context
   -h, --help           Show this message
+
+Options:
+  --rpc-url <url>      Casper node JSON-RPC URL (or CSPR402_CASPER_NODE_RPC_URL)
+  --rpc-auth <token>   Authorization header value for an authenticated RPC
+                       provider such as CSPR.cloud (raw token, no "Bearer ");
+                       or CSPR402_CASPER_NODE_RPC_AUTH. Unset for free no-auth
+                       endpoints (Tatum, public testnet).
 
 The wallet command is read-only. It never reads or stores private key material;
 the optional key path is only a local pointer saved by onboarding.
@@ -63,6 +71,21 @@ function resolveRpcUrl(rest: string[]): string {
 }
 
 /**
+ * Optional Authorization header value for an authenticated RPC provider
+ * (e.g. CSPR.cloud `node.cspr.cloud` wants a raw access token, no "Bearer ").
+ * Free no-auth endpoints leave it unset. Sent verbatim as the Authorization
+ * header on every RPC call.
+ */
+function resolveRpcAuth(rest: string[]): string | undefined {
+  return (
+    parseFlag(rest, '--rpc-auth') ||
+    process.env.CSPR402_CASPER_NODE_RPC_AUTH ||
+    process.env.CASPER_NODE_RPC_AUTH ||
+    undefined
+  );
+}
+
+/**
  * Error from the Casper JSON-RPC layer. Carries the numeric `code` so
  * callers can classify (e.g. -32009 "No such account" = unfunded key,
  * not an outage).
@@ -82,10 +105,17 @@ class CasperRpcError extends Error {
  * array form is rejected with -32602). Returns `body.result`; throws
  * `CasperRpcError` (with `code`) on an RPC error or non-200.
  */
-async function rpcCall(rpcUrl: string, method: string, params: unknown): Promise<unknown> {
+async function rpcCall(
+  rpcUrl: string,
+  method: string,
+  params: unknown,
+  auth?: string,
+): Promise<unknown> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (auth) headers.Authorization = auth;
   const res = await fetch(rpcUrl, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({ id: 1, jsonrpc: '2.0', method, params }),
   });
   const body = (await res.json().catch(() => ({}))) as {
@@ -126,12 +156,21 @@ interface BalanceResult {
  * with `motes: '0'` (NOT an error — the agent simply hasn't been
  * funded yet).
  */
-async function fetchBalance(publicKey: string, rpcUrl: string): Promise<BalanceResult> {
+async function fetchBalance(
+  publicKey: string,
+  rpcUrl: string,
+  auth?: string,
+): Promise<BalanceResult> {
   let accountInfo: unknown;
   try {
-    accountInfo = await rpcCall(rpcUrl, 'state_get_account_info', {
-      public_key: publicKey,
-    });
+    accountInfo = await rpcCall(
+      rpcUrl,
+      'state_get_account_info',
+      {
+        public_key: publicKey,
+      },
+      auth,
+    );
   } catch (err) {
     if (err instanceof CasperRpcError && err.code === ACCOUNT_NOT_FOUND_CODE) {
       return { accountHash: null, motes: '0', notFound: true };
@@ -146,9 +185,14 @@ async function fetchBalance(publicKey: string, rpcUrl: string): Promise<BalanceR
     return { accountHash: null, motes: '0', notFound: true };
   }
 
-  const balanceResult = (await rpcCall(rpcUrl, 'query_balance', {
-    purse_identifier: { main_purse_under_account_hash: accountHash },
-  })) as Record<string, unknown> | undefined;
+  const balanceResult = (await rpcCall(
+    rpcUrl,
+    'query_balance',
+    {
+      purse_identifier: { main_purse_under_account_hash: accountHash },
+    },
+    auth,
+  )) as Record<string, unknown> | undefined;
   const balance = balanceResult?.balance;
   if (typeof balance !== 'string' || !/^\d+$/.test(balance)) {
     throw new Error('Casper RPC did not return a parseable balance.');
@@ -207,7 +251,8 @@ export async function walletCommand(argv: string[]): Promise<number> {
     if (sub === 'balance') {
       const publicKey = resolvePublicKey(rest);
       const rpcUrl = resolveRpcUrl(rest);
-      const balance = await fetchBalance(publicKey, rpcUrl);
+      const rpcAuth = resolveRpcAuth(rest);
+      const balance = await fetchBalance(publicKey, rpcUrl, rpcAuth);
       process.stdout.write(`address:      ${publicKey}\n`);
       if (balance.notFound) {
         process.stdout.write('status:       account not funded yet\n');

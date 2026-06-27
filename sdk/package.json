@@ -1,7 +1,7 @@
 {
   "name": "cspr402",
-  "version": "0.4.8",
-  "description": "CSPR402 SDK and CLI for Casper testnet payment verification and mock virtual cards",
+  "version": "0.4.9",
+  "description": "CSPR402 SDK and CLI for Casper payment verification and simulated virtual cards",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {

@@ -23,8 +23,8 @@ When invoked with an order ID:
 
 3. Interpret `order.phase` and present clearly:
    - `awaiting_payment` — waiting for the Casper testnet deploy to arrive
-   - `processing` — deploy confirmed, mock card being provisioned
-   - `ready` — mock card is ready (display card details)
+   - `processing` — deploy confirmed, virtual card being provisioned
+   - `ready` — virtual card is ready (display card details)
    - `failed` — order failed (show `order.error`; mention refund if applicable)
    - `refunded` — refund sent (show `order.refund.casper_deploy_hash`)
    - `expired` — payment window expired, no funds taken
@@ -32,7 +32,7 @@ When invoked with an order ID:
 4. If `phase === 'ready'`, display card details:
 
    ```
-   ✅ Mock Virtual Card Ready
+   ✅ Virtual Card Ready
 
    Number: XXXX XXXX XXXX XXXX
    CVV:    XXX
