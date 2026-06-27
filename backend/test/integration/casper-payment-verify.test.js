@@ -4,6 +4,7 @@ const { describe, it, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 const { PublicKey } = require('casper-js-sdk');
 const { request, resetDb, db, createTestKey } = require('../helpers/app');
+const { luhnValid } = require('../../src/lib/virtual-card');
 
 const DEPLOY_HASH = 'a'.repeat(64);
 const SENDER = '01' + 'b'.repeat(64);
@@ -247,12 +248,14 @@ describe('POST /v1/orders/:id/verify-payment — Casper CSPR', () => {
     assert.equal(res.body.receipt.amount_motes, order.payment.amount_motes);
     assert.equal(res.body.receipt.card_mode, 'mock');
     assert.equal(res.body.order.phase, 'ready');
-    assert.equal(res.body.order.card.number, '4242424242424242');
+    // Card is now generated fresh per order: a unique Luhn-valid Visa-pattern PAN.
+    assert.match(res.body.order.card.number, /^4\d{15}$/);
+    assert.equal(luhnValid(res.body.order.card.number), true);
 
     const poll = await request.get(`/v1/orders/${order.order_id}`).set('X-Api-Key', key.key);
     assert.equal(poll.status, 200);
     assert.equal(poll.body.phase, 'ready');
-    assert.equal(poll.body.card.brand, 'Mock Virtual Card');
+    assert.equal(poll.body.card.brand, 'CSPR402 Virtual Card');
     assert.equal(poll.body.receipt.type, 'casper_cspr_receipt');
 
     const row = db
@@ -457,7 +460,7 @@ describe('POST /v1/orders/:id/verify-payment — Casper CSPR', () => {
     assert.equal(first.body.receipt.payment_asset, 'mock_usdc_cep18');
     assert.equal(first.body.receipt.contract_package_hash, PACKAGE_HASH);
     assert.equal(first.body.receipt.amount_base_units, '10000000');
-    assert.equal(first.body.order.card.brand, 'Mock Virtual Card');
+    assert.equal(first.body.order.card.brand, 'CSPR402 Virtual Card');
     assert.equal(second.status, 200);
     assert.equal(second.body.note, 'already_verified');
 

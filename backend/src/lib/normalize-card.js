@@ -67,6 +67,9 @@ function normalizeCardBrand(rawBrand) {
   if (trimmed.length === 0) return null;
 
   const lower = trimmed.toLowerCase();
+  // CSPR402's own simulated virtual card brand — pass through as-is so the
+  // project brand is preserved (generated per-order by lib/virtual-card).
+  if (lower.includes('cspr402')) return 'CSPR402 Virtual Card';
   if (lower.includes('mock')) return 'Mock Virtual Card';
   if (lower.includes('visa')) return 'USD Visa Card';
   if (lower.includes('master')) return 'USD Mastercard';

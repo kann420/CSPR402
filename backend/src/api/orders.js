@@ -67,12 +67,6 @@ function canonicalJson(value, depth = 0) {
 // nothing reasonable needs it).
 const MAX_METADATA_JSON_BYTES = 8 * 1024;
 const MAX_WEBHOOK_URL_CHARS = 2048;
-const MOCK_CASPER_CARD = {
-  number: '4242424242424242',
-  cvv: '123',
-  expiry: '12/99',
-  brand: 'Mock Virtual Card',
-};
 const CASPER_PUBLIC_KEY_RE = /^(01[0-9a-fA-F]{64}|02[0-9a-fA-F]{66})$/;
 
 function isValidCasperPublicKey(value) {
@@ -1075,8 +1069,11 @@ function paymentReceipt({ order, payment, verification, deployHash, verifiedAt =
   };
 }
 
-// POST /orders/:id/verify-payment — verify a Casper testnet payment deploy and
-// fulfill one mock virtual card. Supports native CSPR and mockUSDC CEP-18.
+// POST /orders/:id/verify-payment — verify a Casper payment deploy and fulfill
+// one simulated virtual card. Supports native CSPR and mockUSDC CEP-18. The
+// card is generated fresh per order (Luhn-valid Visa-pattern PAN, unique per
+// agent) — see lib/virtual-card. It is a SIMULATED demo artifact, not a real
+// bank-issued/spendable card.
 router.post('/:id/verify-payment', orderPollLimiter, async (req, res) => {
   if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
     return res.status(400).json({
@@ -1229,7 +1226,9 @@ router.post('/:id/verify-payment', orderPollLimiter, async (req, res) => {
   }
 
   const { sealCard } = require('../lib/card-vault');
-  const sealed = sealCard(MOCK_CASPER_CARD);
+  const { generateVirtualCard } = require('../lib/virtual-card');
+  const virtualCard = generateVirtualCard();
+  const sealed = sealCard(virtualCard);
   const now = new Date().toISOString();
   const receipt = paymentReceipt({
     order,
@@ -1327,7 +1326,7 @@ router.post('/:id/verify-payment', orderPollLimiter, async (req, res) => {
         amount_usdc: order.amount_usdc,
         payment_asset: order.payment_asset,
         receipt,
-        card: MOCK_CASPER_CARD,
+        card: virtualCard,
       },
       keyRow?.webhook_secret || null,
     ).catch(() => {});

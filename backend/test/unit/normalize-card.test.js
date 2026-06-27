@@ -25,6 +25,13 @@ describe('normalizeCardBrand', () => {
     assert.equal(normalizeCardBrand('Mock Virtual Card'), 'Mock Virtual Card');
   });
 
+  it('passes the CSPR402 project brand through unchanged', () => {
+    assert.equal(normalizeCardBrand('CSPR402 Virtual Card'), 'CSPR402 Virtual Card');
+    // The cspr402 rule wins over the mock rule, so a project-branded
+    // card never degrades to 'Mock Virtual Card'.
+    assert.equal(normalizeCardBrand('CSPR402 Mock Visa'), 'CSPR402 Virtual Card');
+  });
+
   it('replaces Mastercard variants with USD Mastercard', () => {
     assert.equal(normalizeCardBrand('Mastercard® Prepaid'), 'USD Mastercard');
     assert.equal(normalizeCardBrand('Master Card eGift'), 'USD Mastercard');
