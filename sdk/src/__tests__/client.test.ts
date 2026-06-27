@@ -50,8 +50,8 @@ const CASPER_ORDER_RESPONSE = {
   status: 'pending_payment',
   payment: {
     type: 'casper_cspr_transfer' as const,
-    network: 'testnet' as const,
-    chain_name: 'casper-test' as const,
+    network: 'mainnet' as const,
+    chain_name: 'casper' as const,
     recipient: '01' + 'a'.repeat(64),
     order_id: 'ord_casper',
     amount_usdc: '10.00',
@@ -71,8 +71,8 @@ const MOCK_USDC_ORDER_RESPONSE = {
     type: 'casper_cep18_transfer' as const,
     asset: 'mockUSDC' as const,
     decimals: 6 as const,
-    network: 'testnet' as const,
-    chain_name: 'casper-test' as const,
+    network: 'mainnet' as const,
+    chain_name: 'casper' as const,
     contract_package_hash: 'f'.repeat(64),
     contract_hash: 'e'.repeat(64),
     sender_public_key: '01' + 'b'.repeat(64),
@@ -129,7 +129,7 @@ describe('Cards402Client.createOrder', () => {
     const res = await client().createOrder({ amount_usdc: '10.00' });
     expect(res.payment.type).toBe('casper_cspr_transfer');
     if (res.payment.type !== 'casper_cspr_transfer') throw new Error('expected Casper payment');
-    expect(res.payment.chain_name).toBe('casper-test');
+    expect(res.payment.chain_name).toBe('casper');
     expect(res.payment.amount_motes).toBe('1000000000000');
     expect(res.payment.transfer_id).toBe(100000);
   });
@@ -264,8 +264,8 @@ describe('Cards402Client.verifyCasperPayment', () => {
           type: 'casper_cspr_receipt',
           order_id: 'ord_casper',
           payment_asset: 'cspr_casper',
-          network: 'testnet',
-          chain_name: 'casper-test',
+          network: 'mainnet',
+          chain_name: 'casper',
           deploy_hash: deployHash,
           sender_public_key: '01' + 'b'.repeat(64),
           recipient: '01' + 'a'.repeat(64),
@@ -301,8 +301,8 @@ describe('Cards402Client.verifyCasperPayment', () => {
           type: 'casper_mock_usdc_receipt',
           order_id: 'ord_mock_usdc',
           payment_asset: 'mock_usdc_cep18',
-          network: 'testnet',
-          chain_name: 'casper-test',
+          network: 'mainnet',
+          chain_name: 'casper',
           deploy_hash: deployHash,
           sender_public_key: senderPublicKey,
           asset: 'mockUSDC',

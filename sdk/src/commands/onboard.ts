@@ -73,7 +73,7 @@ material directly.
 
 Options:
   --claim <code>             One-time claim code from the dashboard. Required.
-  --casper-public-key <hex>  Casper testnet public key for payer binding.
+  --casper-public-key <hex>  Casper mainnet public key for payer binding.
   --casper-key-path <path>   Local key-file path. Keep the file outside git.
   --api-base <url>           Override the default https://api.cspr402.xyz/v1
   -h, --help                 Show this message
@@ -258,7 +258,7 @@ export async function onboardCommand(argv: string[]): Promise<number> {
   }
   process.stdout.write('\n');
   process.stdout.write(
-    'Next step: fund that public key with Casper testnet CSPR for native transfers.\n',
+    'Next step: fund that public key with Casper mainnet CSPR for native transfers.\n',
   );
   process.stdout.write('Your operator sees setup progress live in the CSPR402 dashboard.\n');
   return 0;

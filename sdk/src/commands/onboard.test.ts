@@ -65,7 +65,7 @@ describe('deriveDefaultWalletName', () => {
 // ── onboard auto-keygen integration ─────────────────────────────────────────
 //
 // Locks in the root-cause fix: `onboard --claim <code>` with no
-// --casper-public-key auto-generates an Ed25519 Casper testnet keypair,
+// --casper-public-key auto-generates an Ed25519 Casper mainnet keypair,
 // writes the PEM (0600), and reports `state='awaiting_funding'` with a
 // real wallet_public_key — the previously-unreachable "Awaiting deposit"
 // stepper step. Pre-fix, a fresh agent reported `state='initializing'`

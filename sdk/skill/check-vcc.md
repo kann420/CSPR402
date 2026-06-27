@@ -22,7 +22,7 @@ When invoked with an order ID:
    ```
 
 3. Interpret `order.phase` and present clearly:
-   - `awaiting_payment` — waiting for the Casper testnet deploy to arrive
+   - `awaiting_payment` — waiting for the Casper mainnet deploy to arrive
    - `processing` — deploy confirmed, virtual card being provisioned
    - `ready` — virtual card is ready (display card details)
    - `failed` — order failed (show `order.error`; mention refund if applicable)

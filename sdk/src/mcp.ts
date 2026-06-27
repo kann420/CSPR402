@@ -67,7 +67,7 @@ function safeMessage(err: unknown, fallback: string): string {
 function paymentText(payment: PaymentInstructions): string[] {
   if (payment.type === 'casper_cspr_transfer') {
     return [
-      'Payment rail: Casper testnet CSPR',
+      'Payment rail: Casper mainnet CSPR',
       `chain_name: ${payment.chain_name}`,
       `recipient: ${payment.recipient}`,
       payment.sender_public_key
@@ -127,7 +127,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           },
           payer_public_key: {
             type: 'string',
-            description: 'Casper testnet public key to bind the order to a sender.',
+            description: 'Casper mainnet public key to bind the order to a sender.',
           },
         },
         required: ['amount_usdc'],
@@ -135,7 +135,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: 'verify_payment',
-      description: 'Verify a finalized Casper testnet deploy hash for an existing CSPR402 order.',
+      description: 'Verify a finalized Casper mainnet deploy hash for an existing CSPR402 order.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -193,7 +193,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               'To finish setup, run:',
               '  cspr402 onboard --claim <claim_code>',
               '',
-              'Onboard auto-generates a Casper testnet Ed25519 keypair and reports the',
+              'Onboard auto-generates a Casper mainnet Ed25519 keypair and reports the',
               "public key to your operator's dashboard. Add --casper-public-key <hex>",
               'only if you want to reuse a pre-existing key.',
               '',

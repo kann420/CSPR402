@@ -1,7 +1,10 @@
 import { loadCards402Config } from '../config';
 
 const CASPER_PUBLIC_KEY_RE = /^(01[0-9a-f]{64}|02[0-9a-f]{66})$/i;
-const DEFAULT_RPC_URL = 'https://node.testnet.casper.network/rpc';
+// Default to a free no-auth Casper MAINNET RPC (Tatum gateway). CSPR402
+// runs on mainnet; override with --rpc-url / CSPR402_CASPER_NODE_RPC_URL
+// (e.g. CSPR.cloud's node.cspr.cloud/rpc, which needs --rpc-auth).
+const DEFAULT_RPC_URL = 'https://casper-mainnet.gateway.tatum.io/rpc';
 const MOTES_PER_CSPR = 1_000_000_000n;
 
 function usage(): void {
@@ -20,7 +23,7 @@ Options:
   --rpc-auth <token>   Authorization header value for an authenticated RPC
                        provider such as CSPR.cloud (raw token, no "Bearer ");
                        or CSPR402_CASPER_NODE_RPC_AUTH. Unset for free no-auth
-                       endpoints (Tatum, public testnet).
+                       endpoints (the default Tatum mainnet gateway).
 
 The wallet command is read-only. It never reads or stores private key material;
 the optional key path is only a local pointer saved by onboarding.

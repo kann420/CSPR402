@@ -55,14 +55,14 @@ function usage(): void {
   cspr402 purchase --amount <USD> --asset mock_usdc_cep18 --payer-public-key <hex>
   cspr402 purchase --order <order-id> --verify <deploy-hash> [--sender-public-key <hex>]
 
-Creates a CSPR402 order and prints Casper testnet payment instructions. The CLI
+Creates a CSPR402 order and prints Casper mainnet payment instructions. The CLI
 does not store private key material or sign transfers. Pay from Casper Wallet,
 CSPR.click, casper-client, or your own agent runtime, then verify the deploy hash.
 
 Options:
   -a, --amount <USD>              Virtual card value, for example 25.00
   --asset <asset>                 cspr_casper (default) or mock_usdc_cep18
-  --payer-public-key <hex>        Casper testnet public key to bind the order
+  --payer-public-key <hex>        Casper mainnet public key to bind the order
   --order <order-id>              Existing order to verify
   --verify <deploy-hash>          Casper deploy hash to verify
   --sender-public-key <hex>       Sender public key for verify; defaults to payer/config key
@@ -124,7 +124,7 @@ function printPayment(payment: PaymentInstructions): void {
   process.stdout.write('\nPayment instruction\n');
   process.stdout.write('-------------------\n');
   if (payment.type === 'casper_cspr_transfer') {
-    process.stdout.write(`Rail:        Casper testnet CSPR\n`);
+    process.stdout.write(`Rail:        Casper mainnet CSPR\n`);
     process.stdout.write(`Chain:       ${payment.chain_name}\n`);
     process.stdout.write(`Recipient:   ${payment.recipient}\n`);
     if (payment.sender_public_key)

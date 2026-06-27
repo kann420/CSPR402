@@ -1,4 +1,4 @@
-// Casper testnet Ed25519 keypair generation + PEM persistence.
+// Casper mainnet Ed25519 keypair generation + PEM persistence.
 //
 // `cspr402 onboard` calls `generateCasperEd25519Key()` to mint a fresh
 // agent keypair when the operator did not supply `--casper-public-key`,
@@ -47,7 +47,7 @@ function ed25519PublicKeyHex(pub: crypto.KeyObject | Buffer): string {
 }
 
 /**
- * Generate a fresh Ed25519 Casper testnet keypair using Node's built-in
+ * Generate a fresh Ed25519 Casper mainnet keypair using Node's built-in
  * crypto. Returns the PKCS8 PEM private key + the Casper public key hex.
  * Validates the derived public key against `CASPER_PUBLIC_KEY_RE`.
  */

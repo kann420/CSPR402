@@ -64,8 +64,8 @@ export interface SorobanPaymentInstructions {
 
 export interface CasperCSPRPaymentInstructions {
   type: 'casper_cspr_transfer';
-  network: 'testnet';
-  chain_name: 'casper-test';
+  network: string;
+  chain_name: string;
   recipient: string;
   sender_public_key?: string | null;
   order_id: string;
@@ -80,8 +80,8 @@ export interface MockUsdcCep18PaymentInstructions {
   type: 'casper_cep18_transfer';
   asset: 'mockUSDC';
   decimals: 6;
-  network: 'testnet';
-  chain_name: 'casper-test';
+  network: string;
+  chain_name: string;
   contract_package_hash: string;
   contract_hash: string | null;
   sender_public_key: string;

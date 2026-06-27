@@ -21,13 +21,13 @@ async function main(): Promise<number> {
   }
 
   if (cmd === '-h' || cmd === '--help' || cmd === 'help') {
-    process.stdout.write(`cspr402 - Casper testnet payment verification for AI agents
+    process.stdout.write(`cspr402 - Casper mainnet payment verification for AI agents
 
 Usage:
   cspr402 onboard --claim <code>    Set up an agent from a dashboard claim code
   cspr402 purchase --amount <USD>   Create a native CSPR order
   cspr402 wallet address            Print this agent's Casper public key
-  cspr402 wallet balance            Print this agent's testnet CSPR balance
+  cspr402 wallet balance            Print this agent's Casper mainnet CSPR balance
   cspr402 mcp                       Start the MCP server over stdio (default)
   cspr402 version                   Print the SDK version
   cspr402 --help                    Show this message

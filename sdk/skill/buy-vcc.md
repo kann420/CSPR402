@@ -1,7 +1,7 @@
 # Buy VCC
 
 Purchase a simulated virtual card via cspr402.xyz by paying with CSPR (or
-mockUSDC) on Casper testnet.
+mockUSDC) on Casper mainnet.
 
 ## Usage
 
@@ -17,7 +17,7 @@ When invoked:
      ```typescript
      import { setupCasperAgent } from 'cspr402';
      const address = setupCasperAgent(process.env.CSPR402_AGENT_NAME!);
-     // Fund address with testnet CSPR, then come back
+     // Fund address with mainnet CSPR, then come back
      ```
 
 2. Ask what amount they want (default $10 if not specified) and whether to pay with native CSPR or mockUSDC (CEP-18).
@@ -74,11 +74,11 @@ When invoked:
 
    If there is no limit, say "no limit set".
 
-7. Remind the user this is a one-time use simulated virtual card for the Casper testnet demo.
+7. Remind the user this is a one-time use simulated virtual card for the Casper mainnet demo.
 
 ## Environment variables needed
 
 - `CARDS402_API_KEY` — your CSPR402 API key (get one at cspr402.xyz)
-- `CSPR402_AGENT_NAME` — agent label (must be funded with testnet CSPR or mockUSDC)
+- `CSPR402_AGENT_NAME` — agent label (must be funded with mainnet CSPR or mockUSDC)
 - `CSPR402_AGENT_PASSPHRASE` — agent key encryption passphrase (optional)
 - `CSPR402_KEY_PATH` — agent key file path (optional, default: cspr402 config dir)
