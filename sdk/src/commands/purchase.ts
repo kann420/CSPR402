@@ -1,4 +1,10 @@
-import { CSPR402Client, type OrderResponse, type PaymentInstructions } from '../client';
+import {
+  CSPR402Client,
+  Cards402Error,
+  type OrderResponse,
+  type PaymentInstructions,
+  type VerifyCasperPaymentResponse,
+} from '../client';
 import { loadCards402Config } from '../config';
 
 type PaymentAsset = 'cspr_casper' | 'mock_usdc_cep18';
@@ -11,6 +17,7 @@ interface PurchaseArgs {
   orderId?: string;
   verifyDeployHash?: string;
   senderPublicKey?: string;
+  noWait?: boolean;
   help?: boolean;
 }
 
@@ -45,8 +52,58 @@ function parseArgs(argv: string[]): PurchaseArgs {
     else if (arg.startsWith('--order-id=')) out.orderId = arg.slice('--order-id='.length);
     else if (arg === '--verify') out.verifyDeployHash = argv[++i];
     else if (arg.startsWith('--verify=')) out.verifyDeployHash = arg.slice('--verify='.length);
+    else if (arg === '--no-wait') out.noWait = true;
   }
   return out;
+}
+
+// Casper mainnet finality is ~16s/block, and a deploy can sit in the mempool
+// for several blocks before executing. The backend returns 425
+// (payment_pending) until the deploy is finalized. Without this loop the CLI
+// throws on the first 425 and exits, forcing the operator to re-run `purchase
+// --verify` by hand every block — which is where the multi-minute purchase
+// latency came from. Mirror node-agent's verifyPaymentWithRetry instead.
+const VERIFY_TIMEOUT_MS = parsePositiveEnv('CSPR402_VERIFY_TIMEOUT_MS', 300000);
+const VERIFY_POLL_MS = parsePositiveEnv('CSPR402_VERIFY_POLL_MS', 5000);
+
+function parsePositiveEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return Math.floor(n);
+}
+
+async function verifyPaymentWithRetry(
+  client: CSPR402Client,
+  orderId: string,
+  deployHash: string,
+  senderPublicKey: string | undefined,
+): Promise<VerifyCasperPaymentResponse> {
+  const deadline = Date.now() + VERIFY_TIMEOUT_MS;
+  let attempts = 0;
+  // First attempt is immediate so a fast (already-finalized) verify still
+  // returns in one round-trip with no delay.
+  while (Date.now() < deadline) {
+    attempts += 1;
+    try {
+      return await client.verifyCasperPayment(orderId, deployHash, {
+        ...(senderPublicKey ? { senderPublicKey } : {}),
+      });
+    } catch (err) {
+      const pending =
+        err instanceof Cards402Error && (err.status === 425 || err.code === 'payment_pending');
+      if (!pending || Date.now() + VERIFY_POLL_MS >= deadline) throw err;
+      process.stdout.write(
+        `Payment still pending on Casper mainnet, retrying verify in ${VERIFY_POLL_MS}ms (attempt ${attempts})...\n`,
+      );
+      await new Promise((r) => setTimeout(r, VERIFY_POLL_MS));
+    }
+  }
+  throw new Error(
+    `Timed out waiting for Casper payment verification after ${attempts} attempts ` +
+      `(${VERIFY_TIMEOUT_MS / 1000}s). Poll the order status or re-run with a larger CSPR402_VERIFY_TIMEOUT_MS.`,
+  );
 }
 
 function usage(): void {
@@ -66,7 +123,13 @@ Options:
   --order <order-id>              Existing order to verify
   --verify <deploy-hash>          Casper deploy hash to verify
   --sender-public-key <hex>       Sender public key for verify; defaults to payer/config key
+  --no-wait                       Verify once and exit on 425 pending instead of polling
   -h, --help                      Show this message
+
+Verify polls the backend every CSPR402_VERIFY_POLL_MS (default 5000) until the
+deploy finalizes, up to CSPR402_VERIFY_TIMEOUT_MS (default 300000). Casper
+mainnet finality is ~16s/block, so a pending deploy normally clears in well
+under the 5-minute budget. Use --no-wait for the old one-shot behavior.
 
 Examples:
   cspr402 purchase --amount 10 --payer-public-key 01...
@@ -180,9 +243,11 @@ export async function purchaseCommand(argv: string[]): Promise<number> {
           loadCards402Config()?.casper_public_key,
         'sender public key',
       );
-      const verified = await client.verifyCasperPayment(orderId, deployHash, {
-        ...(senderPublicKey ? { senderPublicKey } : {}),
-      });
+      const verified = args.noWait
+        ? await client.verifyCasperPayment(orderId, deployHash, {
+            ...(senderPublicKey ? { senderPublicKey } : {}),
+          })
+        : await verifyPaymentWithRetry(client, orderId, deployHash, senderPublicKey);
       process.stdout.write(`Payment verified for ${verified.order.order_id}\n`);
       process.stdout.write(`Status: ${verified.order.status} (phase: ${verified.order.phase})\n`);
       process.stdout.write(`Receipt: ${verified.receipt.type}\n`);
