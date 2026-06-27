@@ -1,12 +1,12 @@
-// Casper testnet wallet balance fetch — used by the funding poller
+// Casper mainnet wallet balance fetch — used by the funding poller
 // (jobs.js::checkAgentFundingStatus) to flip `agent_state` from
 // `awaiting_funding` to `funded` once an agent's Casper public key
-// receives its first testnet CSPR deposit.
+// receives its first mainnet CSPR deposit.
 //
 // RPC shape is the struct/object form required by node api_version
 // 2.0.0 (the legacy `[{name,value}]` array form is rejected with
 // -32602). Verified empirically against
-// https://node.testnet.casper.network/rpc (api 2.0.0, protocol 2.2.2):
+// https://casper-mainnet.gateway.tatum.io/rpc (api 2.0.0, protocol 2.2.2):
 //   state_get_account_info  params: { public_key: <hex> }
 //     success -> result.account.account_hash  (string, "account-hash-"-prefixed)
 //     unfunded -> error.code -32009 "No such account"

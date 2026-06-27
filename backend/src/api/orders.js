@@ -1124,7 +1124,7 @@ router.post('/:id/verify-payment', orderPollLimiter, async (req, res) => {
   if (order.payment_asset !== 'cspr_casper' && order.payment_asset !== 'mock_usdc_cep18') {
     return res.status(409).json({
       error: 'wrong_payment_provider',
-      message: 'This order is not awaiting a Casper testnet payment.',
+      message: 'This order is not awaiting a Casper mainnet payment.',
     });
   }
 

@@ -125,7 +125,7 @@ function buildCasperPayment(opts) {
   const minimumMotes = minTransferMotes();
   if (amountMotes < minimumMotes) {
     throw new CasperPaymentAmountError(
-      `Casper native transfers on ${process.env.CASPER_CHAIN_NAME || 'casper-test'} must be at least ${formatCSPR(minimumMotes)} CSPR.`,
+      `Casper native transfers on ${process.env.CASPER_CHAIN_NAME || 'casper'} must be at least ${formatCSPR(minimumMotes)} CSPR.`,
       {
         amount_motes: amountMotes.toString(),
         amount_cspr: formatCSPR(amountMotes),

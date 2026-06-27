@@ -1,5 +1,5 @@
 // @ts-check
-// Casper testnet CSPR deploy verification for CardCasper402.
+// Casper mainnet CSPR deploy verification for CardCasper402.
 
 const {
   CLValueParser,

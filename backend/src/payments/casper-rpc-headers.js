@@ -11,8 +11,7 @@
 // CSPR.cloud expects the raw access token as the `Authorization` header value
 // (NO `Bearer ` prefix), e.g. `Authorization: 55f79117-fc4d-4d60-9956-...`.
 // Set `CASPER_NODE_RPC_AUTH` to that exact value. Free no-auth endpoints
-// (Tatum `casper-mainnet.gateway.tatum.io`, the public testnet node) simply
-// leave it unset.
+// (Tatum `casper-mainnet.gateway.tatum.io`) simply leave it unset.
 
 /**
  * Headers for a raw-fetch Casper JSON-RPC POST.

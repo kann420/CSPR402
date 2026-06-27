@@ -700,7 +700,7 @@ router.post('/wallet/challenge', loginLimiter, (req, res) => {
     });
   }
 
-  const chainName = process.env.CASPER_CHAIN_NAME || 'casper-test';
+  const chainName = process.env.CASPER_CHAIN_NAME || 'casper';
   const domain = resolveChallengeDomain(req.body.domain || req.headers?.host);
   const nonce = crypto.randomBytes(24).toString('hex');
   const issuedAt = new Date().toISOString();
@@ -838,7 +838,7 @@ router.post('/wallet/verify', verifyLimiter, (req, res) => {
 //
 // Hackathon-only dashboard fallback. This route is disabled unless the
 // deployment explicitly sets CSPR402_DEMO_DASHBOARD_LOGIN=true. It creates a
-// normal short-lived backend session for a fixed Casper testnet public key; the
+// normal short-lived backend session for a fixed Casper mainnet public key; the
 // web app still wraps the returned token in an HttpOnly cookie so browser JS
 // never sees the bearer token.
 router.post('/demo-login', loginLimiter, (req, res) => {

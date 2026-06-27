@@ -251,6 +251,14 @@ router.get('/', (req, res) => {
           (process.env.CASPER_NETWORK === 'mainnet' ? 'casper' : 'casper-test')
         : process.env.STELLAR_NETWORK || 'mainnet',
     payment_provider: process.env.PAYMENT_PROVIDER || 'casper',
+    // CSPR/USD rate the backend uses for order pricing (usdToMotes in
+    // casper.js). Exposed so the dashboard can convert an agent's CSPR
+    // balance to USD for display without a hardcoded heuristic. Null when
+    // PAYMENT_PROVIDER !== 'casper' or CSPR_USD_RATE is unset.
+    cspr_usd_rate:
+      (process.env.PAYMENT_PROVIDER || 'casper') === 'casper'
+        ? process.env.CSPR_USD_RATE || null
+        : null,
     mock_card_mode: process.env.MOCK_CARD_MODE !== 'false',
     mock_usdc: {
       enabled: process.env.MOCK_USDC_ENABLED === 'true',
