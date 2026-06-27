@@ -171,7 +171,7 @@ export function HeroCard() {
     <>
       <div className="hc-card-wrap">
         <div className="hc-card-shadow" aria-hidden />
-        <article ref={cardRef} className="hc-card" aria-label="CSPR402 mock virtual card">
+        <article ref={cardRef} className="hc-card" aria-label="CSPR402 virtual card">
           {/* Load-in choreography elements (rendered first so they sit
               underneath the noise + content layers in z-order):
                 · outline-glow: soft radial that pulses outward

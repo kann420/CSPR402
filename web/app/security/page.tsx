@@ -22,7 +22,7 @@ const PILLARS = [
   {
     eyebrow: 'Custody',
     title: 'Non-custodial by architecture.',
-    body: 'Agents send the Casper testnet payment directly on-chain. CSPR402 verifies the finalized deploy before fulfilment and does not rely on a pre-funded customer balance sitting in custody while an order is pending.',
+    body: 'Agents send the Casper mainnet payment directly on-chain. CSPR402 verifies the finalized deploy before fulfilment and does not rely on a pre-funded customer balance sitting in custody while an order is pending.',
   },
   {
     eyebrow: 'Keys',

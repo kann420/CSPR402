@@ -4,7 +4,7 @@ import { PageHero, PageSection } from '@/app/components/MarketingPage';
 import { ogForPage, twitterForPage } from '@/app/lib/seo';
 
 const DESCRIPTION =
-  'CSPR402 is a Casper testnet MVP. No signup fee, no issuer fee schedule, and no real card fulfilment - just clearly-scoped demo economics.';
+  'CSPR402 is a Casper mainnet MVP. No signup fee, no issuer fee schedule, and no real card fulfilment - just clearly-scoped demo economics.';
 
 export const metadata: Metadata = {
   title: 'Pricing',
@@ -12,12 +12,13 @@ export const metadata: Metadata = {
   alternates: { canonical: 'https://cspr402.xyz/pricing' },
   openGraph: ogForPage({
     title: 'Pricing - CSPR402',
-    description: 'Casper testnet demo economics. Wallet-paid network fees. Mock fulfilment only.',
+    description:
+      'Casper mainnet demo economics. Wallet-paid network fees. Simulated fulfilment only.',
     path: '/pricing',
   }),
   twitter: twitterForPage({
     title: 'Pricing - CSPR402',
-    description: 'Casper testnet demo economics.',
+    description: 'Casper mainnet demo economics.',
   }),
 };
 
@@ -35,7 +36,7 @@ const FEE_ROWS = [
     highlight: true,
   },
   {
-    label: 'Casper testnet network fee',
+    label: 'Casper mainnet network fee',
     value: 'Wallet-paid',
     note: 'Your wallet pays the normal on-chain fee for submitting the deploy. CSPR402 does not add a separate network surcharge.',
   },
@@ -53,9 +54,9 @@ const FEE_ROWS = [
 ];
 
 const LIMITS = [
-  { label: 'Settlement rail', value: 'Casper testnet CSPR' },
+  { label: 'Settlement rail', value: 'Casper mainnet CSPR' },
   { label: 'Verification mode', value: 'Deploy hash + transfer_id' },
-  { label: 'Fulfilment', value: 'Mock virtual card only' },
+  { label: 'Fulfilment', value: 'Virtual card only' },
   { label: 'Optional bonus rail', value: 'mockUSDC CEP-18' },
 ];
 
@@ -66,11 +67,11 @@ const FAQ = [
   },
   {
     q: 'Do I pay network fees?',
-    a: 'Yes. Your wallet pays the normal Casper testnet fee for the deploy you submit. CSPR402 does not add a second fee layer on top of that.',
+    a: 'Yes. Your wallet pays the normal Casper mainnet fee for the deploy you submit. CSPR402 does not add a second fee layer on top of that.',
   },
   {
     q: 'What assets are supported?',
-    a: 'The MVP path is native Casper testnet CSPR. mockUSDC CEP-18 is an optional bonus path for demos, but the product language should stay explicit that it is a mock token rail.',
+    a: 'The MVP path is native Casper mainnet CSPR. mockUSDC CEP-18 is an optional bonus path for demos, but the product language should stay explicit that it is a mock token rail.',
   },
   {
     q: 'What exactly gets verified?',
@@ -86,7 +87,7 @@ const FAQ = [
   },
   {
     q: 'How does CSPR402 stay non-custodial?',
-    a: 'The agent sends the Casper testnet payment directly on-chain and the backend verifies the finalized deploy. The service does not hold a pre-funded customer balance in escrow while the order is pending.',
+    a: 'The agent sends the Casper mainnet payment directly on-chain and the backend verifies the finalized deploy. The service does not hold a pre-funded customer balance in escrow while the order is pending.',
   },
 ];
 
@@ -106,9 +107,9 @@ const faqJsonLd = {
 const productJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Product',
-  name: 'CSPR402 - Casper testnet payment demo for AI agents',
+  name: 'CSPR402 - Casper mainnet payment demo for AI agents',
   description:
-    'Casper-first payment verification for autonomous agents. Native CSPR in, mock virtual card receipt out.',
+    'Casper-first payment verification for autonomous agents. Native CSPR in, virtual card receipt out.',
   brand: { '@type': 'Brand', name: 'CSPR402' },
   offers: {
     '@type': 'Offer',
@@ -132,9 +133,9 @@ export default function PricingPage() {
       />
       <PageHero
         eyebrow="Pricing"
-        title="Casper testnet in. Mock"
+        title="Casper mainnet in. Virtual"
         accent="fulfilment"
-        intro="CSPR402 is a hackathon MVP, not a production issuer. There is no subscription, no signup fee, and no hidden platform charge. The only real cost in the happy path is the on-chain Casper testnet fee your wallet pays to submit the deploy."
+        intro="CSPR402 is a hackathon MVP, not a production issuer. There is no subscription, no signup fee, and no hidden platform charge. The only real cost in the happy path is the on-chain Casper mainnet fee your wallet pays to submit the deploy."
       />
 
       <PageSection>
@@ -202,7 +203,7 @@ export default function PricingPage() {
               className="type-body"
               style={{ maxWidth: 500, fontSize: '0.95rem', marginBottom: '2rem' }}
             >
-              Keep the language precise: Casper testnet payment, backend verification, and simulated
+              Keep the language precise: Casper mainnet payment, backend verification, and simulated
               virtual card fulfilment. Nothing on this page should be read as a production card
               programme.
             </p>
@@ -266,7 +267,7 @@ export default function PricingPage() {
                 letterSpacing: '-0.02em',
               }}
             >
-              Mock virtual card only
+              Virtual card only
             </h3>
             <p
               style={{
@@ -293,7 +294,7 @@ export default function PricingPage() {
                 gap: '0.35rem',
               }}
             >
-              <li>Payment rail · Casper testnet native CSPR</li>
+              <li>Payment rail · Casper mainnet native CSPR</li>
               <li>Correlation · order_id + transfer_id + deploy hash</li>
               <li>Card mode · simulated / mock only</li>
               <li>Issuer dependency · none in this MVP path</li>

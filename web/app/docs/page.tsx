@@ -6,7 +6,7 @@ import { CopyCodeBlock } from '@/app/components/CopyCodeBlock';
 export const metadata: Metadata = {
   title: 'API Docs',
   description:
-    'CSPR402 API reference: create an order, pay with Casper testnet CSPR, verify the deploy, and receive a mock card.',
+    'CSPR402 API reference: create an order, pay with Casper mainnet CSPR, verify the deploy, and receive a virtual card.',
 };
 
 const createOrderRequest = `POST /v1/orders
@@ -24,8 +24,8 @@ const createOrderResponse = `{
   "amount_usdc": "25.00",
   "payment": {
     "type": "casper_cspr_transfer",
-    "network": "testnet",
-    "chain_name": "casper-test",
+    "network": "mainnet",
+    "chain_name": "casper",
     "recipient": "01f7...treasury-public-key",
     "amount": "2500",
     "amount_motes": "250000000000",
@@ -51,8 +51,8 @@ const verifyResponse = `{
     "type": "casper_cspr_receipt",
     "order_id": "92d636de-df11-4196-9627-ec7850c925b7",
     "payment_asset": "cspr_casper",
-    "network": "testnet",
-    "chain_name": "casper-test",
+    "network": "mainnet",
+    "chain_name": "casper",
     "deploy_hash": "73eb92b1c72b52b5a469bcab4c7e894fdf619245100bd8ad00893b8a59132988",
     "sender_public_key": "0203...optional-agent-public-key",
     "recipient": "01f7...treasury-public-key",
@@ -149,13 +149,13 @@ export default function DocsPage() {
         className="type-display"
         style={{ fontSize: 'clamp(2.4rem, 4vw + 0.5rem, 3.8rem)', margin: '0 0 1.2rem' }}
       >
-        Casper testnet payment flow, end to end.
+        Casper mainnet payment flow, end to end.
       </h1>
       <p
         className="type-body"
         style={{ maxWidth: 680, fontSize: '1rem', color: 'var(--fg-muted)' }}
       >
-        Create an order, send a Casper testnet native transfer with a unique{' '}
+        Create an order, send a Casper mainnet native transfer with a unique{' '}
         <code>transfer_id</code>, then ask the backend to verify the deploy before mock fulfillment.
         For local setup, start with{' '}
         <Link href="/docs/quickstart" style={{ color: 'var(--fg)' }}>
@@ -177,7 +177,7 @@ export default function DocsPage() {
       <Section id="create-order" eyebrow="02 · Create order" title="One transfer in, one card out.">
         <p className="type-body" style={{ maxWidth: 720 }}>
           <code>POST /v1/orders</code> returns the treasury recipient, exact amount, amount in
-          motes, transfer id, and expiry. The agent sends exactly that instruction to Casper testnet
+          motes, transfer id, and expiry. The agent sends exactly that instruction to Casper mainnet
           within the payment window.
         </p>
         <CopyCodeBlock label="Request">{createOrderRequest}</CopyCodeBlock>
@@ -188,7 +188,7 @@ export default function DocsPage() {
       <Section id="verify" eyebrow="03 · Verify deploy" title="Prove the transfer, get the card.">
         <p className="type-body" style={{ maxWidth: 720 }}>
           <code>POST /v1/orders/:id/verify-payment</code> is the verification step. The backend
-          looks up the deploy on Casper testnet, checks every rule in the next section, and only
+          looks up the deploy on Casper mainnet, checks every rule in the next section, and only
           fulfills once all of them pass. Idempotent — call it as many times as you like.
         </p>
         <CopyCodeBlock label="Request">{verifyRequest}</CopyCodeBlock>
@@ -226,7 +226,7 @@ export default function DocsPage() {
           }}
         >
           {[
-            'Deploy exists on Casper testnet and execution succeeded.',
+            'Deploy exists on Casper mainnet and execution succeeded.',
             'Recipient equals the configured treasury public key.',
             'Amount matches the order payment instruction.',
             'transfer_id maps to the order and is not reused.',
@@ -270,7 +270,7 @@ export default function DocsPage() {
             <tbody>
               {[
                 ['pending_payment', 'Order was created and is waiting for the Casper transfer.'],
-                ['delivered', 'Deploy verified, mock card fulfilled, receipt available.'],
+                ['delivered', 'Deploy verified, virtual card fulfilled, receipt available.'],
                 ['failed', 'Verification or fulfillment failed.'],
                 ['expired', 'Payment window ended before a valid transfer was confirmed.'],
                 ['rejected', 'Order could not proceed due to policy or operator action.'],

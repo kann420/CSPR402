@@ -47,7 +47,7 @@ export default function PrivacyPage() {
                   </li>
                   <li>
                     We do <strong>not</strong> operate a live issuer programme in this MVP. Returned
-                    mock card details are demo artifacts, not production cardholder records.
+                    virtual card details are demo artifacts, not production cardholder records.
                   </li>
                   <li>
                     We do not sell, rent, or license any customer data to anyone, ever. We never
@@ -114,7 +114,7 @@ export default function PrivacyPage() {
                 <p>We use the following sub-processors:</p>
                 <ul>
                   <li>
-                    <strong>Casper network infrastructure</strong> - the Casper testnet itself,
+                    <strong>Casper network infrastructure</strong> - the Casper mainnet itself,
                     where on-chain payment records live publicly and outside our control.
                   </li>
                   <li>
@@ -147,7 +147,7 @@ export default function PrivacyPage() {
                   </li>
                   <li>
                     <strong>Casper deploy records:</strong> retained indefinitely. These are also
-                    visible on the Casper testnet ledger.
+                    visible on the Casper mainnet ledger.
                   </li>
                   <li>
                     <strong>Login codes:</strong> expire 15 minutes after being sent.

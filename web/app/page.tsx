@@ -63,7 +63,7 @@ export default function HomePage() {
                 boxShadow: '0 0 12px var(--green-glow)',
               }}
             />
-            Casper testnet · verified card payments
+            Casper mainnet · verified card payments
           </div>
 
           <h1

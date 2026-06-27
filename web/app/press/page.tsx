@@ -22,8 +22,8 @@ const FACTS = [
   { label: 'Founded', value: '2026' },
   { label: 'Headquarters', value: 'Remote · London · Vancouver' },
   { label: 'Category', value: 'Agent payment infrastructure' },
-  { label: 'Settlement', value: 'Casper testnet CSPR' },
-  { label: 'Fulfilment', value: 'Mock virtual card' },
+  { label: 'Settlement', value: 'Casper mainnet CSPR' },
+  { label: 'Fulfilment', value: 'Virtual card' },
   { label: 'Funding', value: 'Bootstrapped' },
 ];
 
@@ -34,7 +34,7 @@ const TOPICS = [
   },
   {
     title: 'Casper-first payment verification',
-    body: 'Why the MVP starts with native Casper testnet transfers, strict backend deploy verification, and a clearly-labeled mock fulfilment path.',
+    body: 'Why the MVP starts with native Casper mainnet transfers, strict backend deploy verification, and a clearly-labeled mock fulfilment path.',
   },
   {
     title: 'Mock rails without fake claims',

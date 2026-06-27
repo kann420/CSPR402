@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { LegalBody, PageHero } from '@/app/components/MarketingPage';
 
 export const metadata: Metadata = {
-  title: 'Mock card disclosure',
+  title: 'Virtual card disclosure',
   description:
     'What the simulated card payload means in the CSPR402 MVP, and what it does not mean.',
   alternates: { canonical: 'https://cspr402.xyz/legal/cardholder-agreement' },
@@ -15,7 +15,7 @@ const breadcrumbJsonLd = {
     {
       '@type': 'ListItem',
       position: 1,
-      name: 'Mock card disclosure',
+      name: 'Virtual card disclosure',
       item: 'https://cspr402.xyz/legal/cardholder-agreement',
     },
   ],
@@ -29,8 +29,8 @@ export default function CardholderAgreementPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
       <PageHero
-        eyebrow="Legal · Mock card disclosure"
-        title="Mock card"
+        eyebrow="Legal · Virtual card disclosure"
+        title="Virtual card"
         accent="disclosure"
         intro={
           <>
@@ -72,7 +72,7 @@ export default function CardholderAgreementPage() {
                   <li>No stored-value account</li>
                   <li>No ATM, cash, or merchant acceptance</li>
                   <li>No issuer-backed refund or dispute process</li>
-                  <li>No claim that mock card details can be spent anywhere</li>
+                  <li>No claim that virtual card details can be spent anywhere</li>
                 </ul>
               </>
             ),
@@ -82,9 +82,9 @@ export default function CardholderAgreementPage() {
             body: (
               <>
                 <p>
-                  Before the mock card payload is returned, the backend verifies the Casper testnet
-                  deploy against the order. That includes deploy success, deploy hash, recipient,
-                  amount, transfer_id, expiration window, and idempotent order state.
+                  Before the virtual card payload is returned, the backend verifies the Casper
+                  payment deploy against the order. That includes deploy success, deploy hash,
+                  recipient, amount, transfer_id, expiration window, and idempotent order state.
                 </p>
               </>
             ),
@@ -94,9 +94,9 @@ export default function CardholderAgreementPage() {
             body: (
               <>
                 <p>
-                  Even though the payload is mock data, treat it like sensitive demo output. Do not
-                  paste it into random logs, screenshots, or public issues. The product language is
-                  explicit because ambiguous demos become security and trust problems later.
+                  Even though the payload is simulated data, treat it like sensitive demo output. Do
+                  not paste it into random logs, screenshots, or public issues. The product language
+                  is explicit because ambiguous demos become security and trust problems later.
                 </p>
               </>
             ),

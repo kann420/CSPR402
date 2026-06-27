@@ -157,9 +157,9 @@ export function MarketingChrome({ children }: { children: ReactNode }) {
 
             <FooterCol title="Mode">
               <div style={{ fontSize: '0.82rem', color: 'var(--fg-muted)', lineHeight: 1.55 }}>
-                Casper testnet only.
+                Casper mainnet only.
                 <br />
-                Mock virtual card only.
+                Virtual card only.
                 <br />
                 No real Visa issuance in this MVP.
               </div>
@@ -195,7 +195,7 @@ export function MarketingChrome({ children }: { children: ReactNode }) {
                     boxShadow: '0 0 10px var(--green-glow)',
                   }}
                 />
-                Casper testnet flow enabled
+                Casper mainnet flow enabled
               </span>
             </div>
           </div>

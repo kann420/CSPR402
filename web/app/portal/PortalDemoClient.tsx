@@ -87,7 +87,7 @@ export function PortalDemoClient() {
         ? `Wallet session ready: ${shortKey(walletPublicKey)}`
         : walletPublicKey
           ? `Wallet connected: ${shortKey(walletPublicKey)}`
-          : 'Connect a Casper testnet wallet.',
+          : 'Connect a Casper mainnet wallet.',
       payment?.recipient
         ? `Recipient: ${shortKey(payment.recipient)}`
         : 'Recipient appears after create-order.',
@@ -191,7 +191,7 @@ export function PortalDemoClient() {
       const publicKey = await ensureWalletSession();
       if (payment.recipient.toLowerCase() === publicKey.toLowerCase()) {
         throw new Error(
-          'Configured treasury recipient matches the connected wallet. Set CASPER_TREASURY_PUBLIC_KEY to a different testnet account and restart the backend.',
+          'Configured treasury recipient matches the connected wallet. Set CASPER_TREASURY_PUBLIC_KEY to a different Casper account and restart the backend.',
         );
       }
       // Casper nodes reject future timestamps, so backdate slightly to absorb local clock skew.
@@ -269,14 +269,14 @@ export function PortalDemoClient() {
         className="type-display"
         style={{ fontSize: 'clamp(2.3rem, 4vw + 0.5rem, 3.8rem)', margin: '0 0 1rem' }}
       >
-        Pay with Casper testnet CSPR, then verify the deploy.
+        Pay with Casper mainnet CSPR, then verify the deploy.
       </h1>
       <p
         className="type-body"
         style={{ maxWidth: 760, color: 'var(--fg-muted)', marginBottom: '2rem' }}
       >
         Connect a Casper wallet, create a CSPR-native order, approve the transfer, and receive one
-        mock virtual card receipt. mockUSDC CEP-18 stays available as an advanced rail.
+        virtual card receipt. mockUSDC CEP-18 stays available as an advanced rail.
       </p>
 
       <div className="portal-grid" style={{ display: 'grid', gap: '1.25rem' }}>
@@ -383,7 +383,7 @@ export function PortalDemoClient() {
             {verified ? (
               <JsonBlock value={verified} />
             ) : (
-              <EmptyCopy text="After verification, this panel shows the receipt and mock virtual card payload." />
+              <EmptyCopy text="After verification, this panel shows the receipt and virtual card payload." />
             )}
           </Panel>
         </div>

@@ -26,7 +26,7 @@ const PRINCIPLES = [
   },
   {
     title: 'Ship one good thing.',
-    body: 'CSPR402 does one job: turn a Casper testnet payment into a verified mock-card receipt. We will not bolt on a rewards programme, a fiat on-ramp, or a fake production narrative.',
+    body: 'CSPR402 does one job: turn a Casper mainnet payment into a verified mock-card receipt. We will not bolt on a rewards programme, a fiat on-ramp, or a fake production narrative.',
   },
   {
     title: 'Write it down.',
@@ -42,7 +42,7 @@ const MILESTONES = [
   {
     date: 'Q1 2026',
     title: 'Casper-native MVP founded',
-    body: 'Scoped CSPR402 as a Casper-native payment-verification demo from day one: a single Casper testnet payment, backend deploy verification, and clearly-labeled mock fulfilment.',
+    body: 'Scoped CSPR402 as a Casper-native payment-verification demo from day one: a single Casper mainnet payment, backend deploy verification, and clearly-labeled mock fulfilment.',
     status: 'Shipped',
   },
   {
@@ -72,7 +72,7 @@ export default function CompanyPage() {
         eyebrow="Company"
         title="Payment infrastructure for autonomous"
         accent="agents"
-        intro="CSPR402 exists because agent payment demos get fuzzy fast: vague wallets, vague settlement, vague receipts, and a lot of hand-waving around what was actually verified. We're taking the opposite route: one Casper testnet payment, one backend verification pass, one clearly-labeled mock fulfilment result."
+        intro="CSPR402 exists because agent payment demos get fuzzy fast: vague wallets, vague settlement, vague receipts, and a lot of hand-waving around what was actually verified. We're taking the opposite route: one Casper mainnet payment, one backend verification pass, one clearly-labeled mock fulfilment result."
       />
 
       <PageSection>
@@ -109,7 +109,7 @@ export default function CompanyPage() {
               human". Neither scales.
             </p>
             <p className="type-body" style={{ fontSize: '1rem', marginBottom: '1.2rem' }}>
-              CSPR402 is the smallest credible answer we could ship. A Casper testnet payment in, a
+              CSPR402 is the smallest credible answer we could ship. A Casper mainnet payment in, a
               simulated virtual card receipt out, and a verification path that makes every important
               decision explicit. Boring, correct, and mostly invisible. That's the job.
             </p>

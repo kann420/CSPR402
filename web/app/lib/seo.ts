@@ -14,7 +14,7 @@ export const SHARED_OG: Metadata['openGraph'] = {
       url: OG_IMAGE_URL,
       width: 1200,
       height: 630,
-      alt: 'CSPR402 - Casper testnet payment demo',
+      alt: 'CSPR402 - Casper mainnet payment demo',
     },
   ],
 };
