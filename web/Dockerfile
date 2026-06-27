@@ -10,7 +10,8 @@ COPY package*.json tsconfig.base.json ./
 COPY web/package.json ./web/
 COPY sdk/package.json ./sdk/
 RUN npm ci --workspace=web --include-workspace-root
-# web source
+# build-time helpers + web source
+COPY scripts ./scripts
 COPY web ./web
 RUN npm --workspace=web run build && npm prune --omit=dev
 
