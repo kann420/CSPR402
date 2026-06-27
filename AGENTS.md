@@ -1,7 +1,7 @@
 # CSPR402 Agent Guide
 
 CSPR402 is an x402-inspired API where an AI agent or user pays on Casper
-testnet, the backend verifies the Casper deploy, then returns a simulated
+mainnet, the backend verifies the Casper deploy, then returns a simulated
 virtual card and receipt.
 
 The active payment path is Casper-only. Remaining Stellar/Soroban files in
@@ -18,7 +18,7 @@ behavior is current.
   a test transaction, or ask the user.
 - Always debug and verify changes. Every implementation step should end with a
   relevant command, test, smoke check, or documented blocker.
-- Use Casper testnet only for the MVP. Do not claim production Visa issuance or
+- Use Casper mainnet only for the MVP. Do not claim production Visa issuance or
   production USDC support unless it has been explicitly implemented and
   verified.
 - The virtual card issuer is simulated for this hackathon MVP. Never represent
@@ -29,14 +29,14 @@ behavior is current.
 Ship the smallest credible demo first:
 
 1. Create an order via API.
-2. Return Casper testnet payment instructions.
-3. Pay with native CSPR on Casper testnet.
+2. Return Casper mainnet payment instructions.
+3. Pay with native CSPR on Casper mainnet.
 4. Backend verifies the finalized payment.
 5. Backend marks the order paid and fulfills a virtual card.
 6. API returns card details, receipt, and Casper deploy hash.
 
 `mockUSDC` via CEP-18 is a bonus after the CSPR path works. Do not block the
-MVP on finding an official Casper testnet USDC faucet.
+MVP on finding an official Casper mainnet USDC path.
 
 ## Architecture Direction
 
@@ -60,7 +60,7 @@ For native CSPR MVP payments:
 - Payment instructions must include chain name, recipient public key, exact
   amount, transfer id, expiration time, and verification endpoint.
 - Verify the finalized deploy before fulfillment:
-  - chain is Casper testnet
+  - chain is Casper mainnet
   - execution succeeded
   - deploy hash matches the submitted payment
   - sender is the expected payer when known
@@ -73,7 +73,7 @@ For native CSPR MVP payments:
 
 For `mockUSDC`:
 
-- Use CEP-18 on testnet or local devnet.
+- Use CEP-18 on mainnet or local devnet.
 - Name it clearly as mock/test token in API responses and UI.
 - Verify contract hash/package, entry point, sender, recipient, amount, and
   order correlation.
@@ -87,10 +87,10 @@ Recommended Casper variables:
 
 ```bash
 PAYMENT_PROVIDER=casper
-CASPER_NETWORK=testnet
-CASPER_CHAIN_NAME=casper-test
-CASPER_NODE_RPC_URL=https://node.testnet.casper.network/rpc
-CASPER_EVENT_STREAM_URL=https://node.testnet.casper.network/events
+CASPER_NETWORK=mainnet
+CASPER_CHAIN_NAME=casper
+CASPER_NODE_RPC_URL=https://casper-mainnet.gateway.tatum.io/rpc
+CASPER_EVENT_STREAM_URL=https://node.cspr.cloud/events/main
 CASPER_TREASURY_PUBLIC_KEY=
 CASPER_TREASURY_PRIVATE_KEY_PATH=
 CSPR_USD_RATE=0.01
@@ -166,8 +166,8 @@ exact command, error, and fix.
 Use precise hackathon language:
 
 - Say "simulated virtual card" for this MVP.
-- Say "Casper testnet CSPR" for native testnet payment.
-- Say "mockUSDC CEP-18" unless an official, verified Casper testnet USDC path is
+- Say "Casper mainnet CSPR" for native payment.
+- Say "mockUSDC CEP-18" unless an official, verified Casper mainnet USDC path is
   implemented.
 - Do not say "real Visa", "production card", "mainnet payment", or "real USDC"
   unless that capability has been implemented and verified.

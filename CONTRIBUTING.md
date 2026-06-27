@@ -43,7 +43,7 @@ npm run dev               # starts on :5000
 | All workspaces             | `npm test` (from repo root) | ~1,209 |
 
 Tests should be fast (whole backend suite ~1.5s, in-memory SQLite) and
-never hit real Casper testnet funds. End-to-end "real testnet CSPR, real
+never hit real Casper mainnet funds. End-to-end "real mainnet CSPR, real
 scraper" tests are run manually for release validation, never in CI.
 
 ## Style

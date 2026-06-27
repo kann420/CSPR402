@@ -56,7 +56,7 @@ Storage is SQLite in WAL mode via `better-sqlite3`; migrations run automatically
 - **Native CSPR** — the order quote carries a monotonic `transfer_id` and an `amount_motes` figure. 1 CSPR = 1e9 motes. USD → motes is derived from `CSPR_USD_RATE`; the minimum transfer defaults to 2.5 CSPR (`CASPER_MIN_TRANSFER_MOTES`).
 - **mockUSDC (CEP-18)** — the quote is a `transfer(...)` call to a configured CEP-18 package hash (`MOCK_USDC_CONTRACT_PACKAGE_HASH`), enabled only when `MOCK_USDC_ENABLED=true`. Decimals default to 6.
 
-Verification checks the chain (`casper-test`), sender, recipient (account-hash / main purse), amount, and — for native CSPR — the `transfer_id`. A deploy hash can only be claimed once.
+Verification checks the chain (`casper`), sender, recipient (account-hash / main purse), amount, and — for native CSPR — the `transfer_id`. A deploy hash can only be claimed once.
 
 ---
 
@@ -67,7 +67,7 @@ Agent-facing TypeScript client library, CLI, and MCP server. Published to npm as
 CLI commands:
 
 - `cspr402 onboard` — redeem a claim code for an API key and configure the local wallet.
-- `cspr402 purchase` — create an order, pay on Casper testnet, verify the deploy, and return the virtual card.
+- `cspr402 purchase` — create an order, pay on Casper mainnet, verify the deploy, and return the virtual card.
 - `cspr402 wallet` — inspect / manage the local Casper wallet.
 - `cspr402 mcp` — run the Model Context Protocol server so an AI agent can drive cards through tools.
 
@@ -101,7 +101,7 @@ npm run build
    ```bash
    npx -y cspr402@latest onboard --claim <code>
    ```
-3. **Fund the Casper wallet** with CSPR (or mockUSDC if the backend has it enabled) on `casper-test`.
+3. **Fund the Casper wallet** with CSPR (or mockUSDC if the backend has it enabled) on `casper`.
 4. **Purchase** — create an order, pay, verify, and receive the virtual card:
    ```bash
    npx -y cspr402@latest purchase --amount 10

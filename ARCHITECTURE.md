@@ -2,9 +2,9 @@
 
 ## Overview
 
-CSPR402 is an agentic virtual-card service running on the Casper testnet. An AI
+CSPR402 is an agentic virtual-card service running on the Casper mainnet. An AI
 agent pays CSPR (native) or mockUSDC (a CEP-18 token) to a treasury account on
-the `casper-test` chain; the backend verifies the on-chain deploy directly
+the `casper` chain; the backend verifies the on-chain deploy directly
 against a Casper node JSON-RPC endpoint and, on success, issues a mock virtual
 card (PAN/CVV/expiry) to the agent.
 
@@ -115,7 +115,7 @@ CasperCard402/
    `verifyCasperDeployPayment` / `verifyCasperCep18Payment` fetch
    `info_get_transaction` then fall back to `info_get_deploy` from
    `CASPER_NODE_RPC_URL`. They verify: deploy-hash match, `chain_name ==
-'casper-test'`, sender (if bound), execution success, and:
+'casper'`, sender (if bound), execution success, and:
    - native CSPR: recipient (account-hash, or main purse resolved via
      `getAccountInfo` / `getLatestEntity` when the execution record only carries
      a purse URef), `transfer_id`, `amount_motes >= expected`.
@@ -377,7 +377,7 @@ CSPR.click wallet integration lives in `web/app/lib/csprclick-client.ts`:
 
 - Loads the CSPR.click runtime from CDN (`https://cdn.cspr.click/ui/v<version>/csprclick-client-<version>.js`,
   default version `2.1.0`).
-- Connects Casper Wallet, signs messages, and sends deploys on `casper-test`.
+- Connects Casper Wallet, signs messages, and sends deploys on `casper`.
 - Public config is fetched from `/api/public-config` (`csprclick_app_id`,
   `csprclick_cdn_version`, `csprclick_providers`, `casper_node_rpc_url`,
   `casper_chain_name`); the app id is resolved per domain and asserted against
@@ -408,8 +408,8 @@ variables:
 | `PAYMENT_PROVIDER`                 | `casper` for the active MVP path.                                                                           |
 | `MOCK_CARD_MODE`                   | `true` — mock card fulfillment.                                                                             |
 | `VIRTUAL_CARD_PROVIDER`            | `mock`.                                                                                                     |
-| `CASPER_NETWORK`                   | `testnet`.                                                                                                  |
-| `CASPER_CHAIN_NAME`                | `casper-test` (verified against the deploy's `chain_name`).                                                 |
+| `CASPER_NETWORK`                   | `mainnet`.                                                                                                  |
+| `CASPER_CHAIN_NAME`                | `casper` (verified against the deploy's `chain_name`).                                                      |
 | `CASPER_NODE_RPC_URL`              | Casper node JSON-RPC endpoint used by `verifyCasperDeployPayment` / `verifyCasperCep18Payment`.             |
 | `CASPER_EVENT_STREAM_URL`          | Casper node event stream URL (configured for completeness; the active path is pull-based, no watcher runs). |
 | `CSPR_USD_RATE`                    | USD-per-CSPR rate used by `usdToMotes` (ceil-division).                                                     |

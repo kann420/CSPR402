@@ -82,7 +82,7 @@ passed `--casper-public-key` — a fresh agent had no Casper key, so
 the stepper had nothing to advance on. Fixed across three layers:
 
 - **SDK `onboard` auto-keygen (zero new deps):** `onboard --claim
-<code>` now generates an Ed25519 Casper testnet keypair via Node's
+<code>` now generates an Ed25519 Casper mainnet keypair via Node's
   built-in `crypto`, writes a PKCS8 PEM (0600) at
   `~/.cspr402/keys/<agent>_secret_key.pem`, and reports
   `awaiting_funding` + the derived public key. Idempotent — re-running
@@ -115,7 +115,7 @@ the stepper had nothing to advance on. Fixed across three layers:
 - **SDK `wallet balance` RPC fix (discovered):** was sending legacy
   `[{name,value}]` array params rejected by node 2.0.0 with `-32602`.
   Switched to struct params; verified live against
-  `node.testnet.casper.network/rpc` (funded validator returns real
+  `https://casper-mainnet.gateway.tatum.io/rpc` (funded validator returns real
   CSPR; fresh key returns "account not funded yet / cspr: 0").
 
 `purchase` external-signing behavior unchanged (out of scope; no
@@ -181,7 +181,7 @@ Stellar cases now explicitly `PAYMENT_PROVIDER=stellar`).
 - **Go SDK.** For infrastructure agents and backend integrators.
 - **Rust SDK.** Same, plus natively aligns with Casper contract tooling.
 - **`cspr402 dev` local emulator.** A local server that mimics the API so
-  agent developers can test without burning real testnet CSPR. Fake cards,
+  agent developers can test without burning real mainnet CSPR. Fake cards,
   fake Casper deploys, fast iteration.
 - **Time-travel debugging in the CLI.** `cspr402 orders inspect <id>` shows a
   full timeline of the order with every internal state transition, webhook,

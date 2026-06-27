@@ -76,7 +76,7 @@ export function CardScene() {
             ✓ DEPLOY VERIFIED
           </div>
           <div style={{ fontSize: 12, color: COLORS.fgMuted, marginTop: 4, fontFamily: FONT.mono }}>
-            casper-test · 7f3c…b2c
+            casper · 7f3c…b2c
           </div>
         </div>
       </div>

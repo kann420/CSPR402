@@ -11,13 +11,13 @@ export const TERMINAL_DURATION = 180;
 
 const LINES: TermLine[] = [
   { text: 'cspr402 purchase --amount 10', kind: 'cmd' },
-  { text: 'Creating order on Casper testnet…', tone: 'dim' },
+  { text: 'Creating order on Casper mainnet…', tone: 'dim' },
   { text: 'Payment instruction:', tone: 'normal' },
   { text: '  recipient   0203…a91f', tone: 'dim' },
   { text: '  2.5 CSPR (2_500_000_000 motes)', tone: 'dim' },
   { text: '  transfer_id  42', tone: 'dim' },
   { text: 'Submitting native transfer on Casper…', tone: 'dim' },
-  { text: 'Deploy 7f3c…b2c accepted (casper-test)', tone: 'blue', kind: 'check' },
+  { text: 'Deploy 7f3c…b2c accepted (casper)', tone: 'blue', kind: 'check' },
   { text: 'Verified recipient · amount · transfer_id', tone: 'blue', kind: 'check' },
   { text: 'Card delivered — **** 4242 · 12/29', tone: 'green', kind: 'check' },
 ];
@@ -86,7 +86,7 @@ export function TerminalScene() {
               >
                 ✓ Deploy verified
               </div>
-              <Row label="chain" value="casper-test" />
+              <Row label="chain" value="casper" />
               <Row label="recipient" value="0203…a91f" />
               <Row label="amount" value="2.5 CSPR" />
               <Row label="transfer_id" value="42" />

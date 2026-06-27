@@ -1,6 +1,6 @@
 # CSPR402 Agent Examples
 
-Casper testnet integrations for the CSPR402 MVP. The Node example can
+Casper mainnet integrations for the CSPR402 MVP. The Node example can
 create an order, send native CSPR or mockUSDC CEP-18 with the Casper JS SDK,
 verify the deploy, then receive a simulated virtual card.
 
@@ -8,7 +8,7 @@ verify the deploy, then receive a simulated virtual card.
 
 1. Start the backend with `PAYMENT_PROVIDER=casper`.
 2. Create or copy a local API key from the backend/dev database.
-3. Fund a Casper testnet sender key with faucet CSPR.
+3. Fund a Casper mainnet sender key — buy CSPR on an exchange and send via https://cspr.live/transfer (mainnet has no faucet).
 4. Copy `node-agent/.env.example` to `node-agent/.env.local` and fill local values.
 5. Keep all API keys, RPC URLs, and key paths in ignored `.env.local` files.
 
@@ -43,7 +43,7 @@ official USDC.
 
 ### `python-agent/` - Python + REST API
 
-Uses the REST API directly via `httpx`. A Casper testnet payment step is
+Uses the REST API directly via `httpx`. A Casper mainnet payment step is
 needed before it is a full CSPR402 demo.
 
 ```bash

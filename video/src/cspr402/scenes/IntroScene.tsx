@@ -53,7 +53,7 @@ export function IntroScene() {
         <div style={{ opacity: eyebrowP }}>
           <Eyebrow>
             <PulseDot />
-            Casper testnet · verified card payments
+            Casper mainnet · verified card payments
           </Eyebrow>
         </div>
         <h1

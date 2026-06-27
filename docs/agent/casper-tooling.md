@@ -114,7 +114,7 @@ command above.
 
 ## Current priority
 
-Build the MVP on Casper testnet with native CSPR first. Treat mockUSDC CEP-18
+Build the MVP on Casper mainnet with native CSPR first. Treat mockUSDC CEP-18
 and custom contracts as follow-up work after the backend can verify a native
 CSPR payment and fulfill exactly one virtual card per order.
 

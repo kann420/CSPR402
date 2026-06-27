@@ -4,7 +4,7 @@ All notable changes to CSPR402 (backend, SDK, web, contract) are recorded
 here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 > **Note:** CSPR402 is a Casper-first product. The active payment path is
-> native CSPR (and optional mockUSDC CEP-18) on Casper testnet, verified by
+> native CSPR (and optional mockUSDC CEP-18) on Casper mainnet, verified by
 > deploy hash. Entries below the rebrand note use CSPR402 / Casper terminology
 > (`casper.js`, `casper_deploy_hash`, CSPR). Earlier entries are preserved as
 > pre-rebrand Cards402 / Stellar history and reflect the legacy Stellar /
@@ -16,7 +16,7 @@ here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Rebrand — CSPR402 (Casper-first)
 
 - The project is rebranded to **CSPR402**. The active payment path is Casper
-  testnet native CSPR with deploy-hash verification, plus optional mockUSDC
+  mainnet native CSPR with deploy-hash verification, plus optional mockUSDC
   CEP-18 test-token payments. Domain: `cspr402.xyz`.
 - CLI: `npx cspr402 onboard` / `npx cspr402 purchase`; config at
   `~/.cspr402/config.json`. SDK import `cspr402`.

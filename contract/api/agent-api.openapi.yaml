@@ -7,7 +7,7 @@ info:
 
     Flow:
     1. Create an order.
-    2. Receive Casper testnet CSPR or mockUSDC CEP-18 payment instructions.
+    2. Receive Casper mainnet CSPR or mockUSDC CEP-18 payment instructions.
     3. Submit the requested transfer from the client wallet or agent.
     4. Call the verify endpoint with the resulting deploy hash.
     5. Receive a simulated virtual card and Casper receipt.
@@ -37,7 +37,7 @@ paths:
       operationId: createOrder
       summary: Create a new card order
       description: |
-        Creates a pending order and returns Casper testnet native CSPR
+        Creates a pending order and returns Casper mainnet native CSPR
         payment instructions by default. Set `payment_asset: mock_usdc_cep18`
         with `payer_public_key` to use the mockUSDC CEP-18 test-token rail.
 
@@ -196,7 +196,7 @@ paths:
   /orders/{orderId}/verify-payment:
     post:
       operationId: verifyCasperPayment
-      summary: Verify a Casper testnet payment
+      summary: Verify a Casper mainnet payment
       description: |
         Verifies the submitted deploy hash against the order's quoted
         recipient, amount, chain, and correlation data. CSPR orders verify
@@ -345,10 +345,10 @@ components:
           enum: [casper_cspr_transfer]
         network:
           type: string
-          enum: [testnet]
+          enum: [mainnet]
         chain_name:
           type: string
-          enum: [casper-test]
+          enum: [casper]
         recipient:
           type: string
           description: Casper treasury public key hex
@@ -396,10 +396,10 @@ components:
           enum: [6]
         network:
           type: string
-          enum: [testnet]
+          enum: [mainnet]
         chain_name:
           type: string
-          enum: [casper-test]
+          enum: [casper]
         contract_package_hash:
           type: string
           description: CEP-18 package hash verified by the backend

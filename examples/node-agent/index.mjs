@@ -4,7 +4,7 @@
  *
  * Flow:
  *   1. Create an order through the CardCasper402 API.
- *   2. Send the exact Casper testnet CSPR transfer requested by the order.
+ *   2. Send the exact Casper mainnet CSPR transfer requested by the order.
  *   3. Submit the deploy hash back to the API for verification.
  *   4. Print the simulated virtual card receipt returned by the backend.
  *

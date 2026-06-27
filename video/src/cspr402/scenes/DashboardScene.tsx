@@ -115,7 +115,7 @@ export function DashboardScene() {
                 <div>
                   <Eyebrow>
                     <PulseDot />
-                    Casper testnet · live
+                    Casper mainnet · live
                   </Eyebrow>
                   <h1
                     style={{

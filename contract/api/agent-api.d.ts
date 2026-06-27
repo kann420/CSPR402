@@ -16,7 +16,7 @@ export interface paths {
         put?: never;
         /**
          * Create a new card order
-         * @description Creates a pending order and returns Casper testnet native CSPR
+         * @description Creates a pending order and returns Casper mainnet native CSPR
          *     payment instructions by default. Set `payment_asset: mock_usdc_cep18`
          *     with `payer_public_key` to use the mockUSDC CEP-18 test-token rail.
          *
@@ -84,7 +84,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Verify a Casper testnet payment
+         * Verify a Casper mainnet payment
          * @description Verifies the submitted deploy hash against the order's quoted
          *     recipient, amount, chain, and correlation data. CSPR orders verify
          *     native transfer ID; mockUSDC CEP-18 orders verify sender, package hash,
@@ -158,9 +158,9 @@ export interface components {
             /** @enum {string} */
             type: "casper_cspr_transfer";
             /** @enum {string} */
-            network: "testnet";
+            network: "mainnet";
             /** @enum {string} */
-            chain_name: "casper-test";
+            chain_name: "casper";
             /** @description Casper treasury public key hex */
             recipient: string;
             /** Format: uuid */
@@ -180,9 +180,9 @@ export interface components {
             /** @enum {integer} */
             decimals: 6;
             /** @enum {string} */
-            network: "testnet";
+            network: "mainnet";
             /** @enum {string} */
-            chain_name: "casper-test";
+            chain_name: "casper";
             /** @description CEP-18 package hash verified by the backend */
             contract_package_hash: string;
             contract_hash?: string | null;

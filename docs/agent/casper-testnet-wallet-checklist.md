@@ -1,10 +1,10 @@
-# Casper Testnet Wallet Checklist
+# Casper Mainnet Wallet Checklist
 
 Last checked: 2026-06-24.
 
 This checklist is for the current Day 2 flow:
 
-- backend receives a Casper testnet CSPR payment
+- backend receives a Casper mainnet CSPR payment
 - backend verifies the deploy
 - Node agent signs with a local PEM key file
 
@@ -16,13 +16,13 @@ wallet export.
 
 - Casper docs: https://docs.casper.network/1.5.X/concepts/accounts-and-keys
 - Casper SDK client usage: https://docs.casper.network/developers/dapps/sdk/client-library-usage
-- Casper testnet faucet: https://docs.casper.network/users/testnet-faucet
+- Buy CSPR on an exchange and send via https://cspr.live/transfer (mainnet has no faucet)
 
 ## What you need
 
 - 1 treasury wallet for the backend to receive payments
 - 1 agent wallet for the demo script to send payments
-- testnet funds in the agent wallet
+- mainnet funds in the agent wallet
 - the treasury public key in `backend/.env.local`
 - the agent API key and PEM path in `examples/node-agent/.env.local`
 
@@ -33,7 +33,7 @@ Use Ed25519 keys for both wallets.
 Why:
 
 - our placeholder config already expects `ED25519`
-- the public key format is standard for Casper testnet
+- the public key format is standard for Casper mainnet
 - the agent script already loads PEM keys from disk
 
 ## Option A: Generate keys with `casper-client` if you have it
@@ -106,18 +106,17 @@ Save the output values. They should look like:
 - Ed25519: starts with `01`
 - Secp256k1: starts with `02`
 
-## Fund the agent wallet on testnet
+## Fund the agent wallet on mainnet
 
 Official doc:
 
-- https://docs.casper.network/users/testnet-faucet
+- Buy CSPR on an exchange and send via https://cspr.live/transfer (mainnet has no faucet)
 
 Recommended path:
 
-1. Open [testnet.cspr.live/tools/faucet](https://testnet.cspr.live/tools/faucet)
-2. Connect or paste the agent wallet public key
-3. Request testnet tokens
-4. Wait for funds to land
+1. Buy CSPR on an exchange that lists Casper (e.g. a supported exchange)
+2. Withdraw CSPR to the agent wallet public key via https://cspr.live/transfer
+3. Wait for funds to land
 
 Notes:
 
