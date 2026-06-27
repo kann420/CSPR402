@@ -240,9 +240,15 @@ router.get('/', (req, res) => {
     spend_limit_usdc: d.spend_limit_usdc,
     frozen: d.frozen === 1,
     created_at: d.created_at,
+    // The web dashboard keys its network label off `info.network === 'casper'`
+    // (mainnet) / `'casper-test'` (testnet), so this field must always report
+    // the chain name. Derive it from CASPER_CHAIN_NAME, falling back to the
+    // CASPER_NETWORK value when only the network is configured (env.js
+    // enforces the two stay consistent when both are set).
     network:
       process.env.PAYMENT_PROVIDER === 'casper'
-        ? process.env.CASPER_CHAIN_NAME || process.env.CASPER_NETWORK || 'casper-test'
+        ? process.env.CASPER_CHAIN_NAME ||
+          (process.env.CASPER_NETWORK === 'mainnet' ? 'casper' : 'casper-test')
         : process.env.STELLAR_NETWORK || 'mainnet',
     payment_provider: process.env.PAYMENT_PROVIDER || 'casper',
     mock_card_mode: process.env.MOCK_CARD_MODE !== 'false',

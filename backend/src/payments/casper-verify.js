@@ -9,6 +9,7 @@ const {
   PublicKey,
   RpcClient,
 } = require('casper-js-sdk');
+const { casperRpcHeaders, casperRpcAuth } = require('./casper-rpc-headers');
 
 const DEPLOY_HASH_RE = /^[0-9a-fA-F]{64}$/;
 const CASPER_PUBLIC_KEY_RE = /^(01[0-9a-fA-F]{64}|02[0-9a-fA-F]{66})$/;
@@ -301,7 +302,14 @@ function getRpcClient() {
       503,
     );
   }
-  return new RpcClient(new HttpHandler(url, 'fetch'));
+  return new RpcClient(applyRpcAuth(new HttpHandler(url, 'fetch')));
+}
+// Apply the optional Authorization header (CASPER_NODE_RPC_AUTH) to the SDK
+// HttpHandler — needed for authenticated RPC providers like CSPR.cloud.
+function applyRpcAuth(handler) {
+  const auth = casperRpcAuth();
+  if (auth) handler.setCustomHeaders({ Authorization: auth });
+  return handler;
 }
 
 /**
@@ -321,7 +329,7 @@ async function casperRpc(method, params) {
   try {
     res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: casperRpcHeaders(),
       body: JSON.stringify({ jsonrpc: '2.0', id: '1', method, params }),
       signal: AbortSignal.timeout(15000),
     });

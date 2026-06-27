@@ -119,6 +119,54 @@ describe('payment provider env mode', () => {
     assert.ok(issueFor(r, 'MOCK_USDC_DECIMALS'));
   });
 
+  it('rejects an unknown CASPER_NETWORK (not mainnet/testnet)', () => {
+    const r = _EnvSchema.safeParse({ ...baseEnv(), CASPER_NETWORK: 'devnet' });
+    assert.equal(r.success, false);
+    assert.ok(issueFor(r, 'CASPER_NETWORK'));
+  });
+});
+
+describe('Casper mainnet env support', () => {
+  it('accepts mainnet with chain_name=casper', () => {
+    const r = _EnvSchema.safeParse({
+      ...baseEnv(),
+      CASPER_NETWORK: 'mainnet',
+      CASPER_CHAIN_NAME: 'casper',
+      CASPER_NODE_RPC_URL: 'https://node.mainnet.casper.network/rpc',
+    });
+    assert.equal(r.success, true, JSON.stringify(r.success ? null : r.error.issues));
+  });
+
+  it('rejects mainnet paired with the testnet chain name', () => {
+    const r = _EnvSchema.safeParse({
+      ...baseEnv(),
+      CASPER_NETWORK: 'mainnet',
+      CASPER_CHAIN_NAME: 'casper-test',
+      CASPER_NODE_RPC_URL: 'https://node.mainnet.casper.network/rpc',
+    });
+    assert.equal(r.success, false);
+    const issue = issueFor(r, 'CASPER_CHAIN_NAME');
+    assert.ok(issue, 'expected a chain/network mismatch issue on CASPER_CHAIN_NAME');
+    assert.match(issue.message, /must be 'casper' when CASPER_NETWORK='mainnet'/);
+  });
+
+  it('rejects testnet paired with the mainnet chain name', () => {
+    const r = _EnvSchema.safeParse({
+      ...baseEnv(),
+      CASPER_NETWORK: 'testnet',
+      CASPER_CHAIN_NAME: 'casper',
+    });
+    assert.equal(r.success, false);
+    assert.ok(issueFor(r, 'CASPER_CHAIN_NAME'));
+  });
+
+  it('still accepts the testnet default pairing', () => {
+    const r = _EnvSchema.safeParse(baseEnv());
+    assert.equal(r.success, true, JSON.stringify(r.success ? null : r.error.issues));
+  });
+});
+
+describe('MPP env requirements', () => {
   it('requires Stellar vars when MPP is enabled', () => {
     const e = { ...baseEnv(), MPP_ENABLED: 'true' };
     delete e.STELLAR_XLM_SECRET;

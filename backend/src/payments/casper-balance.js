@@ -21,6 +21,7 @@
 // balance), so unfunded is detected via `state_get_account_info`.
 
 const { MOTES_PER_CSPR } = require('./casper');
+const { casperRpcHeaders } = require('./casper-rpc-headers');
 
 const ACCOUNT_NOT_FOUND_CODE = -32009;
 const RPC_TIMEOUT_MS = 15000;
@@ -51,7 +52,7 @@ async function casperBalanceRpc(method, params, opts = {}) {
   try {
     res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: casperRpcHeaders(),
       body: JSON.stringify({ jsonrpc: '2.0', id: '1', method, params }),
       signal: AbortSignal.timeout(RPC_TIMEOUT_MS),
     });

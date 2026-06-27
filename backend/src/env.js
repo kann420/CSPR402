@@ -188,10 +188,20 @@ const EnvSchema = z
     // setting PAYMENT_PROVIDER=stellar.
     PAYMENT_PROVIDER: z.enum(['casper', 'stellar']).optional().default('casper'),
 
-    // Casper testnet CSPR payment instructions.
-    CASPER_NETWORK: z.enum(['testnet']).optional(),
-    CASPER_CHAIN_NAME: z.enum(['casper-test']).optional(),
+    // Casper CSPR payment instructions. Defaults to testnet; mainnet is
+    // supported by setting CASPER_NETWORK=mainnet + CASPER_CHAIN_NAME=casper
+    // + a mainnet CASPER_NODE_RPC_URL. The RPC contract is identical across
+    // networks; verification checks the deploy's chain_name, so the chain
+    // name must match the network the deploy was made on.
+    CASPER_NETWORK: z.enum(['mainnet', 'testnet']).optional(),
+    CASPER_CHAIN_NAME: z.enum(['casper', 'casper-test']).optional(),
     CASPER_NODE_RPC_URL: httpUrl('CASPER_NODE_RPC_URL').optional(),
+    // Optional Authorization header value for an authenticated RPC provider
+    // (e.g. CSPR.cloud `node.cspr.cloud` requires a raw access token, no
+    // "Bearer " prefix). Free no-auth endpoints (Tatum, public testnet) leave
+    // this unset. Sent verbatim as the Authorization header on every Casper
+    // RPC call (verify + funding poller).
+    CASPER_NODE_RPC_AUTH: z.string().optional(),
     CASPER_TREASURY_PUBLIC_KEY: casperPublicKey('CASPER_TREASURY_PUBLIC_KEY').optional(),
     CSPR_USD_RATE: positiveDecimal('CSPR_USD_RATE').optional(),
     CASPER_MIN_TRANSFER_MOTES: z
@@ -338,6 +348,20 @@ const EnvSchema = z
           code: z.ZodIssueCode.custom,
           message: `${field} is required when PAYMENT_PROVIDER=casper`,
           path: [field],
+        });
+      }
+    }
+    // Network/chain pairing: a mainnet deploy carries chain_name 'casper',
+    // a testnet deploy 'casper-test'. Verification compares the deploy's
+    // chain_name to this value, so a mismatch would silently reject every
+    // payment. Fail fast at boot instead.
+    if (val.CASPER_NETWORK && val.CASPER_CHAIN_NAME) {
+      const expectedChain = val.CASPER_NETWORK === 'mainnet' ? 'casper' : 'casper-test';
+      if (val.CASPER_CHAIN_NAME !== expectedChain) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `CASPER_CHAIN_NAME must be '${expectedChain}' when CASPER_NETWORK='${val.CASPER_NETWORK}'`,
+          path: ['CASPER_CHAIN_NAME'],
         });
       }
     }
