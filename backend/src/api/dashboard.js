@@ -1377,8 +1377,8 @@ router.get('/platform-wallet', requirePlatformOwner, (req, res) => {
     }
     res.json({
       public_key: publicKey,
-      network: process.env.CASPER_NETWORK || 'testnet',
-      chain_name: process.env.CASPER_CHAIN_NAME || 'casper-test',
+      network: process.env.CASPER_NETWORK || 'mainnet',
+      chain_name: process.env.CASPER_CHAIN_NAME || 'casper',
       payment_provider: process.env.PAYMENT_PROVIDER || 'casper',
     });
   } catch (err) {

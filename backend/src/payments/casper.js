@@ -139,8 +139,8 @@ function buildCasperPayment(opts) {
 
   return {
     type: 'casper_cspr_transfer',
-    network: process.env.CASPER_NETWORK || 'testnet',
-    chain_name: process.env.CASPER_CHAIN_NAME || 'casper-test',
+    network: process.env.CASPER_NETWORK || 'mainnet',
+    chain_name: process.env.CASPER_CHAIN_NAME || 'casper',
     recipient,
     sender_public_key: opts.senderPublicKey || null,
     order_id: opts.orderId,

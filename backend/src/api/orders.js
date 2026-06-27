@@ -1034,8 +1034,8 @@ function paymentReceipt({ order, payment, verification, deployHash, verifiedAt =
 
   const common = {
     order_id: order.id,
-    network: payment?.network || process.env.CASPER_NETWORK || 'testnet',
-    chain_name: payment?.chain_name || process.env.CASPER_CHAIN_NAME || 'casper-test',
+    network: payment?.network || process.env.CASPER_NETWORK || 'mainnet',
+    chain_name: payment?.chain_name || process.env.CASPER_CHAIN_NAME || 'casper',
     deploy_hash: deployHash,
     sender_public_key: verification?.senderPublicKey || order.casper_sender_public_key || null,
     verified_at: verifiedAt || order.casper_paid_at || null,

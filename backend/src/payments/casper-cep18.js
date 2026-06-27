@@ -66,8 +66,8 @@ function buildMockUsdcPayment(opts) {
     type: 'casper_cep18_transfer',
     asset: 'mockUSDC',
     decimals,
-    network: process.env.CASPER_NETWORK || 'testnet',
-    chain_name: process.env.CASPER_CHAIN_NAME || 'casper-test',
+    network: process.env.CASPER_NETWORK || 'mainnet',
+    chain_name: process.env.CASPER_CHAIN_NAME || 'casper',
     contract_package_hash: normalizeCasperHash(packageHash),
     contract_hash: process.env.MOCK_USDC_CONTRACT_HASH
       ? normalizeCasperHash(process.env.MOCK_USDC_CONTRACT_HASH)

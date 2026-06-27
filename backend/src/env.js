@@ -183,14 +183,15 @@ const EnvSchema = z
     // Database
     DB_PATH: z.string().default('./cards402.db'),
 
-    // Payment provider. CardCasper402 defaults to Casper testnet; the
+    // Payment provider. CSPR402 defaults to Casper mainnet; the
     // original Stellar/Soroban path remains available by explicitly
     // setting PAYMENT_PROVIDER=stellar.
     PAYMENT_PROVIDER: z.enum(['casper', 'stellar']).optional().default('casper'),
 
-    // Casper CSPR payment instructions. Defaults to testnet; mainnet is
-    // supported by setting CASPER_NETWORK=mainnet + CASPER_CHAIN_NAME=casper
-    // + a mainnet CASPER_NODE_RPC_URL. The RPC contract is identical across
+    // Casper CSPR payment instructions. Defaults to mainnet (CASPER_NETWORK
+    // =mainnet + CASPER_CHAIN_NAME=casper); testnet is supported by setting
+    // CASPER_NETWORK=testnet + CASPER_CHAIN_NAME=casper-test
+    // + a testnet CASPER_NODE_RPC_URL. The RPC contract is identical across
     // networks; verification checks the deploy's chain_name, so the chain
     // name must match the network the deploy was made on.
     CASPER_NETWORK: z.enum(['mainnet', 'testnet']).optional(),
