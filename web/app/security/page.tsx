@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: 'Security',
   description:
     'How CSPR402 secures API keys, payment verification, and infrastructure. Non-custodial by design, hashed keys, signed webhooks, and a responsible-disclosure policy.',
-  alternates: { canonical: 'https://cards402.com/security' },
+  alternates: { canonical: 'https://cspr402.xyz/security' },
   openGraph: ogForPage({
     title: 'Security - CSPR402',
     description: 'Non-custodial by design. Hashed keys. Signed webhooks. Responsible disclosure.',
@@ -37,11 +37,11 @@ const PILLARS = [
   {
     eyebrow: 'Webhooks',
     title: 'HMAC signed, replay protected.',
-    body: 'Outgoing webhooks carry X-Cards402-Signature (HMAC-SHA256 over timestamp + body) and X-Cards402-Timestamp. Those historical header names are preserved for compatibility, but the verification model is the same: signed payloads, replay limits, and secret rotation on key revocation.',
+    body: 'Outgoing webhooks are HMAC-signed and replay-protected. CSPR402 signs each payload with HMAC-SHA256 over timestamp + body and sends it under the retained X-Cards402-Signature header, with the request timestamp under the retained X-Cards402-Timestamp header. Those header names are kept as fixed wire identifiers so existing consumers keep parsing them unchanged; the verification model is signed payloads, replay limits, and secret rotation on key revocation.',
   },
   {
     eyebrow: 'Circuit breaker',
-    title: 'Fail-closed on the upstream.',
+    title: 'Fail-closed on the fulfilment pipe.',
     body: 'The fulfilment pipeline has a three-strike circuit breaker. After repeated failures we freeze new orders and return 503 until an operator manually unfreezes. This stops cascading failures from draining agent wallets against a broken pipe.',
   },
   {
@@ -180,14 +180,14 @@ export default function SecurityPage() {
           <p className="type-body" style={{ fontSize: '0.98rem', marginBottom: '1.5rem' }}>
             CSPR402 operates a responsible-disclosure programme. If you find a vulnerability, email{' '}
             <a
-              href="mailto:security@cards402.com"
+              href="mailto:security@cspr402.xyz"
               style={{
                 color: 'var(--fg)',
                 borderBottom: '1px solid var(--green-border)',
                 textDecoration: 'none',
               }}
             >
-              security@cards402.com
+              security@cspr402.xyz
             </a>{' '}
             with reproduction steps. We acknowledge within 24 hours, triage within 72, and publish a
             postmortem once the fix is live.

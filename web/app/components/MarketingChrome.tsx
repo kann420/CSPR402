@@ -4,11 +4,23 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { NavLinks } from './NavLinks';
 import { Wordmark } from './Wordmark';
+import { useEffect, useState } from 'react';
 import type { MouseEvent, ReactNode } from 'react';
 
 export function MarketingChrome({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const hideChrome = pathname.startsWith('/dashboard');
+  const [scrolled, setScrolled] = useState(false);
+
+  // Toggle a deeper-glass state once the page is scrolled past a few
+  // pixels — gives the frozen header a perceptible "settle" effect.
+  useEffect(() => {
+    if (hideChrome) return;
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [hideChrome]);
 
   if (hideChrome) {
     return <>{children}</>;
@@ -20,16 +32,11 @@ export function MarketingChrome({ children }: { children: ReactNode }) {
         Skip to main content
       </a>
       <div className="grain" aria-hidden />
-      <nav
-        className="marketing-nav marketing-surface"
-        style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 50,
-        }}
-      >
+      <nav className={`marketing-nav marketing-surface${scrolled ? ' is-scrolled' : ''}`}>
         <div
           style={{
+            position: 'relative',
+            zIndex: 2,
             maxWidth: 1180,
             margin: '0 auto',
             padding: '0 1.35rem',

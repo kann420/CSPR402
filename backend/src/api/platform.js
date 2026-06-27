@@ -60,7 +60,13 @@ async function fetchTreasuryBalance() {
   const { Keypair } = require('@stellar/stellar-sdk');
   const secret = process.env.STELLAR_XLM_SECRET;
   if (!secret)
-    return { public_key: null, xlm: null, usdc: null, error: 'STELLAR_XLM_SECRET not set' };
+    return {
+      public_key: null,
+      xlm: null,
+      cspr: null,
+      usdc: null,
+      error: 'STELLAR_XLM_SECRET not set',
+    };
   const publicKey = Keypair.fromSecret(secret).publicKey();
   const horizon =
     (process.env.STELLAR_NETWORK || 'mainnet') === 'mainnet'
@@ -71,12 +77,19 @@ async function fetchTreasuryBalance() {
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) {
-      return { public_key: publicKey, xlm: null, usdc: null, error: `horizon http ${res.status}` };
+      return {
+        public_key: publicKey,
+        xlm: null,
+        cspr: null,
+        usdc: null,
+        error: `horizon http ${res.status}`,
+      };
     }
     if (isHorizonBodyTooBig(res)) {
       return {
         public_key: publicKey,
         xlm: null,
+        cspr: null,
         usdc: null,
         error: 'horizon response too large',
       };
@@ -87,11 +100,12 @@ async function fetchTreasuryBalance() {
     const usdc =
       balances.find((b) => b.asset_type === 'credit_alphanum4' && b.asset_code === 'USDC')
         ?.balance ?? '0';
-    return { public_key: publicKey, xlm, usdc, error: null };
+    return { public_key: publicKey, xlm, cspr: null, usdc, error: null };
   } catch (err) {
     return {
       public_key: publicKey,
       xlm: null,
+      cspr: null,
       usdc: null,
       error: /** @type {any} */ (err)?.message || 'horizon_fetch_failed',
     };

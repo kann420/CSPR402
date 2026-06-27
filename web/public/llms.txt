@@ -17,12 +17,12 @@ integration, cash access, or a mainnet stablecoin rail.
 
 ## Docs
 
-- [API reference](https://cards402.com/docs): Full HTTP reference with every endpoint, field, and error code.
-- [Quickstart](https://cards402.com/docs/quickstart): Local integration walkthrough for the Casper MVP path.
-- [Skill file](https://cards402.com/skill.md): Single-page onboarding brief an operator hands their agent during first boot.
-- [Pricing](https://cards402.com/pricing): Demo economics, MVP boundaries, and the FAQ.
-- [Security](https://cards402.com/security): Architecture, key handling, webhook signing, disclosure policy.
-- [Status](https://cards402.com/status): Live operational health of the current local build.
+- [API reference](https://cspr402.xyz/docs): Full HTTP reference with every endpoint, field, and error code.
+- [Quickstart](https://cspr402.xyz/docs/quickstart): Local integration walkthrough for the Casper MVP path.
+- [Skill file](https://cspr402.xyz/skill.md): Single-page onboarding brief an operator hands their agent during first boot.
+- [Pricing](https://cspr402.xyz/pricing): Demo economics, MVP boundaries, and the FAQ.
+- [Security](https://cspr402.xyz/security): Architecture, key handling, webhook signing, disclosure policy.
+- [Status](https://cspr402.xyz/status): Live operational health of the current local build.
 
 ## How an agent uses CSPR402
 
@@ -40,11 +40,11 @@ that fulfilment happens only after the deploy is verified against the order.
 
 ## Legal
 
-- [Privacy policy](https://cards402.com/privacy): What we collect, processors, retention.
-- [Mock-card disclosure](https://cards402.com/legal/cardholder-agreement): What the simulated card payload means in this MVP, and what it does not mean.
+- [Privacy policy](https://cspr402.xyz/privacy): What we collect, processors, retention.
+- [Mock-card disclosure](https://cspr402.xyz/legal/cardholder-agreement): What the simulated card payload means in this MVP, and what it does not mean.
 
 ## Optional
 
-- [Company](https://cards402.com/company): Mission, principles, roadmap.
-- [Careers](https://cards402.com/careers): Open roles with published salary bands.
-- [Press](https://cards402.com/press): Media contact, press kit, quick facts.
+- [Company](https://cspr402.xyz/company): Mission, principles, roadmap.
+- [Careers](https://cspr402.xyz/careers): Open roles with published salary bands.
+- [Press](https://cspr402.xyz/press): Media contact, press kit, quick facts.

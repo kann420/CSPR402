@@ -40,6 +40,23 @@ const nextConfig: NextConfig = {
     root: path.resolve(__dirname, '..'),
   },
   allowedDevOrigins: ['127.0.0.1'],
+  async redirects() {
+    // Permanent (308) redirects for blog posts renamed during the
+    // CSPR402 rebrand. Keeps external backlinks and indexed URLs
+    // resolving instead of 404'ing.
+    return [
+      {
+        source: '/blog/anatomy-of-a-cards402-order',
+        destination: '/blog/anatomy-of-a-cspr402-order',
+        permanent: true,
+      },
+      {
+        source: '/blog/non-custodial-card-issuance-on-soroban',
+        destination: '/blog/non-custodial-card-issuance-on-casper',
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

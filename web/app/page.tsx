@@ -175,6 +175,32 @@ export default function HomePage() {
         </div>
       </section>
 
+      <section style={{ padding: '4.5rem 1.35rem 2rem' }}>
+        <div style={{ maxWidth: 1080, margin: '0 auto' }}>
+          <div
+            style={{
+              borderRadius: 16,
+              border: '1px solid var(--border)',
+              overflow: 'hidden',
+              background: '#000',
+              boxShadow: '0 30px 80px -40px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.02)',
+            }}
+          >
+            <video
+              src="/cspr402-release.mp4"
+              controls
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              aria-label="CSPR402 30-second product demo"
+              style={{ display: 'block', width: '100%', height: 'auto' }}
+            />
+          </div>
+        </div>
+      </section>
+
       <section style={{ padding: '5rem 1.35rem' }}>
         <div style={{ maxWidth: 1180, margin: '0 auto' }}>
           <div className="type-eyebrow" style={{ color: 'var(--green)', marginBottom: '1rem' }}>

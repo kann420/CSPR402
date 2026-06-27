@@ -66,6 +66,7 @@ export function GlobalSearch() {
       if (
         o.id.toLowerCase().includes(q) ||
         (o.api_key_label || '').toLowerCase().includes(q) ||
+        (o.casper_deploy_hash || '').toLowerCase().includes(q) ||
         (o.stellar_txid || '').toLowerCase().includes(q)
       ) {
         out.push({

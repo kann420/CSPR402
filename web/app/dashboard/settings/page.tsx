@@ -15,8 +15,8 @@ import { applyTheme, loadTheme, saveTheme, type Theme } from '../_ui/theme';
 import { timeAgo } from '../_lib/format';
 import { fetchPlatformWallet } from '../_lib/api';
 
-const NOTIF_PREF_KEY = 'cards402.notifications';
-const DENSITY_KEY = 'cards402.density';
+const NOTIF_PREF_KEY = 'cspr402.notifications';
+const DENSITY_KEY = 'cspr402.density';
 
 type NotifPrefs = {
   browserOnAuthDead: boolean;
@@ -111,7 +111,7 @@ export default function SettingsPage() {
       theme: loadTheme(),
       density: window.localStorage.getItem(DENSITY_KEY),
       notifications: window.localStorage.getItem(NOTIF_PREF_KEY),
-      agentGroups: window.localStorage.getItem('cards402.agent_groups'),
+      agentGroups: window.localStorage.getItem('cspr402.agent_groups'),
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -127,10 +127,10 @@ export default function SettingsPage() {
     if (!confirm('Remove all local preferences and group assignments? This cannot be undone.')) {
       return;
     }
-    window.localStorage.removeItem('cards402.agent_groups');
+    window.localStorage.removeItem('cspr402.agent_groups');
     window.localStorage.removeItem(NOTIF_PREF_KEY);
     window.localStorage.removeItem(DENSITY_KEY);
-    window.localStorage.removeItem('cards402.theme');
+    window.localStorage.removeItem('cspr402.theme');
     toast.push('Local data cleared', 'success');
     setTimeout(() => window.location.reload(), 400);
   }
@@ -306,9 +306,9 @@ export default function SettingsPage() {
 }
 
 // Platform-owner-only treasury card. CSPR402 Day 2 only needs to
-// surface the configured treasury identity. We deliberately avoid stale
-// Stellar/Horizon balance widgets here because this fork now verifies
-// Casper testnet transfers instead.
+// surface the configured treasury identity. We deliberately avoid
+// speculative balance widgets here because CSPR402 verifies Casper
+// testnet transfers against the configured treasury public key.
 function PlatformTreasuryCard() {
   const toast = useToast();
   const [wallet, setWallet] = useState<{

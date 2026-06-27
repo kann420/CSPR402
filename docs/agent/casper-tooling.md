@@ -4,9 +4,7 @@ Last checked: 2026-06-23.
 
 ## What was set up
 
-- Cloned `https://github.com/CTX-com/Cards402.git` into `D:\CasperCard402`.
-- Confirmed this repo is now a git checkout. It was clean after clone before
-  the CSPR402 foundation files were added.
+- The CSPR402 repo is initialized at `D:\CasperCard402` as a git checkout.
 - Added this CSPR402 agent foundation in `AGENTS.md`.
 - Added Casper env template in `backend/.env.casper.example`.
 - Installed local npm dependencies for the root workspaces and backend. The
@@ -156,9 +154,10 @@ Result:
 
 - `web` tests passed: 57 tests.
 - `sdk` default tests passed: 84 tests.
-- The SDK root export is now API/client-first, so importing `cards402` no
+- The SDK root export is now API/client-first, so importing `cspr402` no
   longer loads the legacy Stellar OWS native package on Windows.
-- Legacy Stellar/OWS files remain in the repo for reference and future cleanup.
+- Legacy Stellar/OWS files remain in the repo but are slated for removal;
+  they are not part of the active Casper MVP path.
 
 NPM audit notes:
 

@@ -289,7 +289,7 @@ function OrderDrawer({
         )}
         {order.receipt && <ReceiptDetails receipt={order.receipt} />}
         {order.stellar_txid && (
-          <Row label="Legacy Stellar txid">
+          <Row label="Legacy payment txid">
             <a
               href={`https://stellar.expert/explorer/public/tx/${order.stellar_txid}`}
               target="_blank"

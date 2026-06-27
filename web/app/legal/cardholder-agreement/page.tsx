@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   title: 'Mock card disclosure',
   description:
     'What the simulated card payload means in the CSPR402 MVP, and what it does not mean.',
-  alternates: { canonical: 'https://cards402.com/legal/cardholder-agreement' },
+  alternates: { canonical: 'https://cspr402.xyz/legal/cardholder-agreement' },
 };
 
 const breadcrumbJsonLd = {
@@ -102,20 +102,7 @@ export default function CardholderAgreementPage() {
             ),
           },
           {
-            heading: '5. Legacy references',
-            body: (
-              <>
-                <p>
-                  Some routes, changelog entries, and old docs in this repo still refer to a
-                  cardholder agreement because they were inherited from the upstream Cards402
-                  project. For the current CSPR402 MVP, those references should be read as legacy
-                  context only.
-                </p>
-              </>
-            ),
-          },
-          {
-            heading: 'Disclaimer',
+            heading: '5. Disclaimer',
             body: (
               <>
                 <p>

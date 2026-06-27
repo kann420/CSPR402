@@ -1,13 +1,12 @@
 # CSPR402 Agent Guide
 
-This repo is a hackathon fork of `CTX-com/Cards402`. The target product is
-CSPR402: an x402-inspired API where an AI agent or user pays on Casper
-testnet, the backend verifies the payment, then returns a simulated virtual
-card and receipt.
+CSPR402 is an x402-inspired API where an AI agent or user pays on Casper
+testnet, the backend verifies the Casper deploy, then returns a simulated
+virtual card and receipt.
 
-The original repo is Stellar/Soroban-oriented. Do not assume original Stellar
-payment code is still the right behavior. Treat Stellar files as reference
-material until the Casper adapter replaces them.
+The active payment path is Casper-only. Remaining Stellar/Soroban files in
+the repo are legacy and slated for removal; do not assume their payment
+behavior is current.
 
 ## Non-negotiable Rules
 
@@ -41,15 +40,13 @@ MVP on finding an official Casper testnet USDC faucet.
 
 ## Architecture Direction
 
-- `backend/`: keep the Express API and SQLite order state machine, but replace
-  Stellar/Soroban verification with Casper verification.
-- `sdk/`: replace Stellar payment helpers with Casper payment helpers and an
-  agent-friendly client.
-- `web/`: keep the dashboard/demo surface, but rename product copy and remove
-  production Visa/Stellar claims.
-- `contract/`: original Soroban contract remains as reference. Add Casper
-  contract work only if the MVP needs it; native CSPR transfer with
-  `transfer_id` is preferred for day-one speed.
+- `backend/`: Express API and SQLite order state machine with Casper deploy
+  verification (native CSPR + CEP-18 mockUSDC).
+- `sdk/`: Casper payment helpers and an agent-friendly client.
+- `web/`: dashboard/demo surface with Casper-native product copy.
+- `contract/`: legacy reference only. The active CSPR402 path has no on-chain
+  contract; native CSPR transfer with `transfer_id` is preferred for
+  day-one speed.
 - `examples/`: keep one Node agent demo and one simple HTTP/curl flow working.
 
 ## Casper Payment Design

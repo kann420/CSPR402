@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: 'Careers',
   description:
     'Join CSPR402. Remote-first, flexible hours, published salaries. Building Casper-first payment infrastructure for the autonomous agent economy.',
-  alternates: { canonical: 'https://cards402.com/careers' },
+  alternates: { canonical: 'https://cspr402.xyz/careers' },
   openGraph: ogForPage({
     title: 'Careers - CSPR402',
     description:
@@ -152,8 +152,8 @@ function buildJobJsonLd(job: (typeof JOBS)[number]) {
     hiringOrganization: {
       '@type': 'Organization',
       name: 'CSPR402',
-      sameAs: 'https://cards402.com',
-      logo: 'https://cards402.com/icon.png',
+      sameAs: 'https://cspr402.xyz',
+      logo: 'https://cspr402.xyz/icon.png',
     },
     jobLocationType: 'TELECOMMUTE',
     applicantLocationRequirements: {
@@ -163,7 +163,7 @@ function buildJobJsonLd(job: (typeof JOBS)[number]) {
     directApply: false,
     applicationContact: {
       '@type': 'ContactPoint',
-      email: 'careers@cards402.com',
+      email: 'careers@cspr402.xyz',
     },
   };
 }
@@ -369,7 +369,7 @@ export default function CareersPage() {
                 }}
               >
                 <a
-                  href="mailto:careers@cards402.com"
+                  href="mailto:careers@cspr402.xyz"
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',

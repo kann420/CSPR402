@@ -1,4 +1,4 @@
-# Cards402 feature backlog
+# CSPR402 feature backlog
 
 Unprioritised brain-dump of ideas that would be worth considering. Written after
 the phase 1–3 site build on 2026-04-14. Tagged by surface area so we can slice
@@ -9,8 +9,8 @@ this into a real roadmap later.
 Items that have since shipped during the audit loops:
 
 - ✅ `/blog` pipeline — 4 real posts published, drafts pipeline emptied:
-  - How we built non-custodial card issuance on Soroban (10 min)
-  - Anatomy of a Cards402 order (8 min)
+  - How we built non-custodial mock card issuance on Casper (10 min)
+  - Anatomy of a CSPR402 order (8 min)
   - Why SSE beats polling for agent-facing APIs (6 min)
   - Claim codes: credentials that never touch the transcript (7 min)
 - ✅ `/changelog` with tagged entries + RSS + auto-discovery
@@ -100,16 +100,17 @@ interface + §security model`.
 
 ### Payments
 
-- **Lightning Network rail.** Alongside Stellar, support LN invoices for
-  low-value orders. Faster UX for sub-$20 spend.
-- **EVM chains.** USDC on Base/Arbitrum/Polygon as an alternative rail. Some
-  agent frameworks have their wallet story pinned to EVM already.
+- **Additional Casper assets.** Beyond native CSPR and mockUSDC CEP-18,
+  support other CEP-18 test tokens or a CEP-78 NFT-gated payment rail for
+  gated order flows.
+- **Other chains.** EVM (Base/Arbitrum/Polygon) or Lightning as alternative
+  rails for agents whose wallet story is pinned elsewhere.
 - **Multi-currency cards.** Issue cards denominated in EUR or GBP directly
   instead of USD, so agents in the EU avoid the $2 + 2% conversion on every
   purchase.
-- **Native stablecoin settlement.** Let merchants that hold USDC natively
-  receive settlement directly in stablecoin, bypassing the card network
-  entirely. Much cheaper and no FX fee.
+- **Native stablecoin settlement.** Let merchants that hold a stablecoin
+  natively receive settlement directly in stablecoin, bypassing the card
+  network entirely. Much cheaper and no FX fee.
 
 ### Fulfillment
 
@@ -129,11 +130,11 @@ interface + §security model`.
 - **Python SDK.** Node.js SDK exists; a lot of agent frameworks (CrewAI,
   LangGraph, autogen) run on Python. High-leverage.
 - **Go SDK.** For infrastructure agents and backend integrators.
-- **Rust SDK.** Same, plus natively aligns with Soroban contract tooling.
-- **`cards402 dev` local emulator.** A local server that mimics the API so
-  agent developers can test without burning real USDC. Fake cards, fake
-  Stellar, fast iteration.
-- **Time-travel debugging in the CLI.** `cards402 orders inspect <id>` shows a
+- **Rust SDK.** Same, plus natively aligns with Casper contract tooling.
+- **`cspr402 dev` local emulator.** A local server that mimics the API so
+  agent developers can test without burning real testnet CSPR. Fake cards,
+  fake Casper deploys, fast iteration.
+- **Time-travel debugging in the CLI.** `cspr402 orders inspect <id>` shows a
   full timeline of the order with every internal state transition, webhook,
   on-chain event, and scrape attempt. Very useful for "why did this fail".
 
@@ -213,13 +214,13 @@ interface + §security model`.
   adoption. 4–6 months of engagement with a firm like Vanta.
 - **Penetration test** by an independent firm. Published summary on the
   Security page.
-- **Status page.** `status.cards402.com` is referenced in the Terms already —
+- **Status page.** `status.cspr402.xyz` is referenced in the Terms already —
   actually build it. Self-hosted Status.io clone or Instatus.
 - **Public postmortems.** When something goes wrong, publish a short writeup
   on `/changelog` within 72 hours. Builds trust more than any marketing copy.
-- **Proof-of-reserves / on-chain transparency.** Publish a public Stellar
+- **Proof-of-reserves / on-chain transparency.** Publish a public Casper
   account address holding the operational float, so anyone can verify
-  Cards402 is solvent in real time. Strongest possible signal for a
+  CSPR402 is solvent in real time. Strongest possible signal for a
   non-custodial platform.
 - **Bug bounty on HackerOne or Intigriti.** Current security page says we
   pay bounties — make it a real, public program.
@@ -227,7 +228,7 @@ interface + §security model`.
 ## Growth & distribution
 
 - **MCP marketplace / directory presence.** As the MCP ecosystem consolidates
-  into directories, make sure Cards402 is listed in every major one with
+  into directories, make sure CSPR402 is listed in every major one with
   working tool definitions.
 - **Agent framework integrations.** Write first-party adapters for LangChain,
   LlamaIndex, CrewAI, autogen, and Claude Agent SDK. One file each. Open PRs
@@ -237,8 +238,8 @@ interface + §security model`.
 - **Referenceable customers.** Three early adopters willing to be on the
   record. Huge for the Company / press pages.
 - **Developer-focused content series.** Weekly technical post:
-  "How we built non-custodial card issuance on Soroban",
-  "Anatomy of a Cards402 order",
+  "How we built non-custodial mock card issuance on Casper",
+  "Anatomy of a CSPR402 order",
   "Why SSE is better than polling for agent-facing APIs",
   etc.
 - **Changelog RSS.** So registered developers can follow changes in their
@@ -249,7 +250,7 @@ interface + §security model`.
 
 - **Interactive pricing calculator.** "Enter your expected monthly volume,
   see your total cost including foreign txn and inactivity fees."
-- **Comparison page.** "Cards402 vs Ramp vs Lithic for agent workloads."
+- **Comparison page.** "CSPR402 vs Ramp vs Lithic for agent workloads."
   Honest table — where we win, where we lose.
 - **Public live counter.** "12,843 cards issued · $417k moved through".
   Real-time ticker on the homepage pulled from the backend.
@@ -412,7 +413,7 @@ doing:
 - **Table of contents** inside long blog posts using the same
   sticky-toc pattern as the legal pages. Only needed > ~1200
   words, the anatomy post borderline.
-- **Author / team page.** The anatomy post is bylined "Cards402
+- **Author / team page.** The anatomy post is bylined "CSPR402
   engineering". When real contributors land, wire them to
   `/team/<handle>` with individual author pages.
 
@@ -468,7 +469,7 @@ doing:
   `/compare/privacy-com`. Honest tables of where we win / lose
   per use case.
 - **Integration gallery.** `/built-with` showcasing agents built on
-  Cards402 with real screenshots and code snippets.
+  CSPR402 with real screenshots and code snippets.
 - **A real blog post.** Ship one under /blog to validate the pipeline
   end-to-end before accumulating drafts.
 
@@ -476,7 +477,7 @@ doing:
 
 - **Announcement banner.** Component with dismissible state (saved
   to localStorage) for launches and incidents. Uses a top-of-nav slot.
-- **"Powered by Cards402" badge** that third-party integrators can
+- **"Powered by CSPR402" badge** that third-party integrators can
   drop into their own UIs, with a UTM-tagged backlink.
 - **Changelog email digest.** Weekly summary to a mailing list of
   subscribed operators — opt-in via the dashboard.
@@ -500,7 +501,7 @@ doing:
   moved" pulled from the backend in real time. Strong credibility
   signal.
 - **Proof-of-reserves dashboard.** Surface the on-chain treasury
-  balance publicly so anyone can verify Cards402 is solvent. Pairs
+  balance publicly so anyone can verify CSPR402 is solvent. Pairs
   with the non-custodial architecture story.
 - **Per-page OG images** using `opengraph-image.tsx` at each segment,
   with the page title rendered in a base64-embedded Fraunces so the
@@ -508,7 +509,7 @@ doing:
 
 ## Speculative / far-future
 
-- **Programmable card lifecycle via Soroban contract.** Let an operator
+- **Programmable card lifecycle via Casper contract.** Let an operator
   deploy their own contract that gates card issuance on arbitrary on-chain
   state. ("Mint a card only if this NFT is held by the sender.")
 - **Cards for agent-to-agent payments.** A card issued to agent A that only
@@ -516,9 +517,9 @@ doing:
   on card rails.
 - **Card-backed credit line.** Agents with a proven history get a small
   pre-funded credit line that they can draw down without needing to settle
-  the Stellar payment first. High-trust, limited blast radius.
+  the Casper payment first. High-trust, limited blast radius.
 - **Zero-knowledge privacy for agent identity.** Issue a card where the
-  agent's identity is provable to Cards402 but not disclosed to the
+  agent's identity is provable to CSPR402 but not disclosed to the
   merchant, beyond the Pathward BIN. Privacy-preserving agent commerce.
 - **Merchant-side acceptance SDK.** The mirror of our current SDK — a drop-in
   that merchants embed to gate content/services behind an agent card
@@ -561,7 +562,7 @@ doing:
 ### Content
 
 - **Case study format.** One-page interview with an operator who
-  shipped a real agent on Cards402 — problem, solution, metrics. Lives
+  shipped a real agent on CSPR402 — problem, solution, metrics. Lives
   under `/case-studies/<slug>` and gets an Article JSON-LD with the
   operator's logo as the `publisher.logo`.
 - **Calculator: "how much does this card cost me?"** Interactive
@@ -569,8 +570,8 @@ doing:
   and months until spend, then tells you the true out-the-door
   cost including Pathward's $2 + 2% FX and $2.50/month inactivity.
   Saves every operator the same mental arithmetic.
-- **Glossary of agent payment terms.** `/docs/glossary` — SSE, OWS,
-  PAN, CVV, trustline, Soroban, Stellar memo, non-custodial, PSP,
+- **Glossary of agent payment terms.** `/docs/glossary` — SSE,
+  PAN, CVV, CEP-18, Casper deploy hash, non-custodial, PSP,
   BIN, claim code, webhook signature. Hashed anchor per term so docs
   can link inline.
 

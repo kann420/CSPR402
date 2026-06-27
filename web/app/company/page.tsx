@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: 'Company',
   description:
     "CSPR402 is a small team building a Casper-first payment demo for AI agents. Here's who we are and where we're going.",
-  alternates: { canonical: 'https://cards402.com/company' },
+  alternates: { canonical: 'https://cspr402.xyz/company' },
   openGraph: ogForPage({
     title: 'Company - CSPR402',
     description:
@@ -41,8 +41,8 @@ const PRINCIPLES = [
 const MILESTONES = [
   {
     date: 'Q1 2026',
-    title: 'Hackathon fork and scope reset',
-    body: 'Forked the upstream project, cut the Stellar-first product story, and narrowed the MVP to Casper testnet verification plus mock fulfilment.',
+    title: 'Casper-native MVP founded',
+    body: 'Scoped CSPR402 as a Casper-native payment-verification demo from day one: a single Casper testnet payment, backend deploy verification, and clearly-labeled mock fulfilment.',
     status: 'Shipped',
   },
   {
@@ -302,10 +302,10 @@ export default function CompanyPage() {
             }}
           >
             {[
-              ['General', 'hello@cards402.com'],
-              ['Careers', 'careers@cards402.com'],
-              ['Press', 'press@cards402.com'],
-              ['Partnerships', 'partners@cards402.com'],
+              ['General', 'hello@cspr402.xyz'],
+              ['Careers', 'careers@cspr402.xyz'],
+              ['Press', 'press@cspr402.xyz'],
+              ['Partnerships', 'partners@cspr402.xyz'],
             ].map(([label, email]) => (
               <div key={label}>
                 <div

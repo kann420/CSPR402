@@ -9,7 +9,7 @@ const DESCRIPTION =
 export const metadata: Metadata = {
   title: 'Pricing',
   description: DESCRIPTION,
-  alternates: { canonical: 'https://cards402.com/pricing' },
+  alternates: { canonical: 'https://cspr402.xyz/pricing' },
   openGraph: ogForPage({
     title: 'Pricing - CSPR402',
     description: 'Casper testnet demo economics. Wallet-paid network fees. Mock fulfilment only.',
@@ -49,11 +49,6 @@ const FEE_ROWS = [
     label: 'Expired unpaid order',
     value: '$0.00',
     note: 'If the payment window expires before verification, the order simply times out. No funds are taken by the backend.',
-  },
-  {
-    label: 'Compatibility overhead',
-    value: 'Legacy',
-    note: 'Some public surfaces still preserve historical names like cards402.com or X-Cards402-* for compatibility while the user-facing copy moves Casper-first.',
   },
 ];
 
@@ -117,7 +112,7 @@ const productJsonLd = {
   brand: { '@type': 'Brand', name: 'CSPR402' },
   offers: {
     '@type': 'Offer',
-    url: 'https://cards402.com/pricing',
+    url: 'https://cspr402.xyz/pricing',
     priceCurrency: 'USD',
     price: '0.00',
     priceValidUntil: '2099-12-31',

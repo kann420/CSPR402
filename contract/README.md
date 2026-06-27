@@ -1,4 +1,10 @@
-# Cards402 Receiver Contract
+# CSPR402 Receiver Contract
+
+> **LEGACY — upstream Stellar/Soroban reference contract, not used by the
+> CSPR402 Casper MVP.** The active CSPR402 payment path is native CSPR (and
+> optional mockUSDC CEP-18) on Casper testnet, verified by deploy hash; it
+> has no on-chain contract. The Soroban content below is retained as
+> reference only and is slated for removal.
 
 Soroban smart contract that receives USDC payments from AI agents and emits `payment` events containing the order ID. The backend polls these events to route and fulfil orders — no memo or destination matching required.
 

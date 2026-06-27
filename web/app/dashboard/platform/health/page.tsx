@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDashboard } from '../../_lib/DashboardProvider';
 import { PageContainer } from '../../_ui/PageContainer';
@@ -26,7 +26,7 @@ export default function PlatformHealthPage() {
     if (user && !user.is_platform_owner) router.replace('/dashboard/overview');
   }, [user, router]);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const result = await fetchPlatformHealth();
       setData(result);
@@ -34,14 +34,17 @@ export default function PlatformHealthPage() {
     } catch (err) {
       setError((err as Error).message);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (!user?.is_platform_owner) return;
-    void load();
-    const t = setInterval(load, 10_000);
-    return () => clearInterval(t);
-  }, [user?.is_platform_owner]);
+    const initial = setTimeout(() => void load(), 0);
+    const t = setInterval(() => void load(), 10_000);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(t);
+    };
+  }, [load, user?.is_platform_owner]);
 
   async function handleUnfreeze() {
     const reason = prompt(
@@ -67,11 +70,11 @@ export default function PlatformHealthPage() {
   if (!user?.is_platform_owner) return null;
 
   const monitorLabel =
-    data?.watcher.age_seconds === null
+    data?.watcher?.age_seconds === null || data?.watcher?.age_seconds === undefined
       ? 'Casper mode'
-      : data?.watcher.healthy
-        ? 'Legacy watcher healthy'
-        : 'Legacy watcher degraded';
+      : data?.watcher?.healthy
+        ? 'Payment monitor healthy'
+        : 'Payment monitor degraded';
 
   return (
     <PageContainer>
@@ -93,8 +96,8 @@ export default function PlatformHealthPage() {
               label="Payment monitor"
               value={monitorLabel}
               hint={
-                data.watcher.age_seconds === null
-                  ? 'Stellar watcher is unused in Casper mode'
+                data?.watcher?.age_seconds === null || data?.watcher?.age_seconds === undefined
+                  ? 'Casper mode: pull-based RPC verification, no on-chain watcher'
                   : `${data.watcher.age_seconds}s since cursor advance`
               }
             />
@@ -168,7 +171,7 @@ export default function PlatformHealthPage() {
               <div>
                 <Pill
                   tone={
-                    data.watcher.age_seconds === null
+                    data?.watcher?.age_seconds === null || data?.watcher?.age_seconds === undefined
                       ? 'blue'
                       : data.watcher.healthy
                         ? 'green'
@@ -180,12 +183,12 @@ export default function PlatformHealthPage() {
               </div>
               <div style={{ color: 'var(--fg-dim)' }}>Last cursor</div>
               <div style={{ fontFamily: 'var(--font-mono)' }}>
-                {data.watcher.last_ledger ?? 'n/a'}
+                {data?.watcher?.last_ledger ?? 'n/a'}
               </div>
               <div style={{ color: 'var(--fg-dim)' }}>Last advance</div>
               <div style={{ fontFamily: 'var(--font-mono)' }}>
-                {data.watcher.last_ledger_at
-                  ? `${timeAgo(data.watcher.last_ledger_at)} (${data.watcher.age_seconds}s)`
+                {data?.watcher?.last_ledger_at
+                  ? `${timeAgo(data.watcher.last_ledger_at)} (${data?.watcher?.age_seconds ?? 0}s)`
                   : 'Not applicable in Casper mode'}
               </div>
             </div>

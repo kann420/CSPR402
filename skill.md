@@ -1,17 +1,18 @@
-# cards402 — Virtual Visa Cards for AI Agents
+# cspr402 — Simulated Virtual Cards for AI Agents
 
-Purchase prepaid Visa virtual cards by paying with XLM or USDC on Stellar.
-Cards are delivered in 30–60 seconds.
+Get a simulated virtual card and receipt by paying with CSPR (or mockUSDC) on
+Casper testnet. The backend verifies the Casper deploy, then returns a mock
+card receipt after the deploy is confirmed.
 
 ## What your operator gives you
 
 A single one-shot command — nothing else. It looks like this:
 
 ```
-Read https://cards402.com/skill.md
+Read https://cspr402.xyz/skill.md
 and set up this agent by running:
 
-  npx cards402 onboard --claim c402_<48_hex_chars>
+  npx cspr402 onboard --claim c402_<48_hex_chars>
 ```
 
 **No raw API key in the paste.** The `c402_…` value is a one-time claim
@@ -23,44 +24,39 @@ conversation transcript.
 ## Setup — one command
 
 ```bash
-npx cards402 onboard --claim <code>
+npx cspr402 onboard --claim <code>
 ```
 
 That's it. Behind the scenes the CLI:
 
-1. `POST`s the claim code to `https://api.cards402.com/v1/agent/claim`.
+1. `POST`s the claim code to `https://api.cspr402.xyz/v1/agent/claim`.
    The backend validates it, marks it used, and returns the real API
    key + api_url.
-2. Writes `~/.cards402/config.json` (chmod 0600) with the API key,
-   api_url, and your wallet name. The SDK auto-loads from this file
+2. Writes `~/.cspr402/config.json` (chmod 0600) with the API key,
+   api_url, and your agent label. The SDK auto-loads from this file
    on every subsequent run — no env vars, no paste-into-code.
-3. Creates (or fetches) an encrypted OWS Stellar wallet via the native
-   bindings that ship with the `cards402` package. Private keys live
-   in `~/.ows/wallets/<name>.vault` and never leave your machine.
-4. Reports the wallet's Stellar address to the backend so your
-   operator's dashboard immediately shows "Awaiting deposit".
-5. Prints the Stellar address + balance for your operator to fund.
+3. Reports the agent's configured Casper testnet sender public key to
+   the backend so your operator's dashboard can show payment state.
+4. Prints the sender public key for your operator to fund with testnet
+   CSPR.
 
 Example run:
 
 ```
 → Claiming agent credentials…
-✓ Credentials saved to /Users/you/.cards402/config.json (chmod 0600)
-→ Setting up OWS wallet…
-✓ Wallet "cards402-agent" ready
+✓ Credentials saved to /Users/you/.cspr402/config.json (chmod 0600)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- cards402 agent ready
+ cspr402 agent ready
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Label:           my-agent
-  Stellar address: GABC…XYZ
-  XLM balance:     0
-  USDC balance:    0
+  Label:            my-agent
+  Casper public key: 0203…abc
+  CSPR balance:      0
 
-Ask your operator to send XLM or USDC to the Stellar address above.
+Ask your operator to send testnet CSPR to the public key above.
 ```
 
-**The operator sees your setup progress live** in their cards402
+**The operator sees your setup progress live** in their CSPR402
 dashboard — your key moves through the state pill from "Minted" →
 "Setting up" → "Awaiting deposit" → "Funded" as the CLI runs and
 the wallet receives its first deposit. They'll know to fund the
@@ -71,33 +67,33 @@ address without you having to message them separately.
 When your user asks you to buy a card, run:
 
 ```bash
-npx cards402 purchase --amount <USD>
+npx cspr402 purchase --amount <USD>
 ```
 
-**Pay with the asset you actually have.** By default `cards402 purchase`
-checks your wallet balance via Horizon and auto-picks: USDC if you have
-enough USDC to cover the order, otherwise XLM. Do **not** override the
-asset unless you have a specific reason — passing `--asset usdc` when
-the wallet only holds XLM will fail at the trustline / DEX step and
-waste a Stellar fee. If you must check first:
+**Pay with the asset you actually have.** By default `cspr402 purchase`
+checks your Casper testnet balance and auto-picks: mockUSDC (CEP-18) if
+you have enough to cover the order, otherwise native CSPR. Do **not**
+override the asset unless you have a specific reason. If you must check
+first:
 
 ```bash
-npx cards402 wallet balance
+npx cspr402 wallet balance
 ```
 
 Optional flags:
 
-- `--asset xlm|usdc` — force a specific asset. Default: auto (recommended).
-- `--wallet-name <name>` — override the wallet name from config.
+- `--asset cspr|mock_usdc` — force a specific asset. Default: auto (recommended).
+- `--wallet-name <name>` — override the agent label from config.
 
-`cards402 purchase` reads `~/.cards402/config.json` for the api key
-and wallet name, so you do not need to pass either. The command:
+`cspr402 purchase` reads `~/.cspr402/config.json` for the api key
+and agent label, so you do not need to pass either. The command:
 
 1. Creates an order at `POST /v1/orders`
-2. Signs and submits the Soroban payment from the local OWS wallet
+2. Signs and submits the Casper native CSPR (or mockUSDC CEP-18) transfer
+   from the local agent key
 3. Subscribes to the SSE stream `/v1/orders/:id/stream`
-4. Returns when the card is ready (~30–60s)
-5. Prints the card number, CVV, and expiry to stdout
+4. Returns when the deploy is verified and the mock card is ready
+5. Prints the mock card number, CVV, and expiry to stdout
 
 **Treat the output as secrets.** Save the PAN/CVV/expiry to a
 secrets store immediately. Do not log them, do not echo them back
@@ -107,198 +103,135 @@ pipelines.
 Example:
 
 ```bash
-$ npx cards402 purchase --amount 10
-→ Purchasing $10 card via XLM…
+$ npx cspr402 purchase --amount 10
+→ Purchasing $10 card via CSPR on Casper testnet…
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- Card delivered
+ Mock card delivered
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   Number: 4111 2345 6789 0123
   CVV:    847
   Expiry: 12/27
-  Brand:  Visa
+  Brand:  Visa (mock)
   Order:  3f8e2b91-4a6c-41ff-b2d3-9c1785a6e4f2
 ```
 
 ## Checking your wallet
 
 ```bash
-npx cards402 wallet address   # print your Stellar G-address
-npx cards402 wallet balance   # show XLM + USDC balances from Horizon
+npx cspr402 wallet address   # print your Casper testnet public key
+npx cspr402 wallet balance   # show CSPR (+ mockUSDC) balance on Casper testnet
 ```
 
 Useful for:
 
-- Confirming a deposit landed before attempting a purchase
+- Confirming a testnet deposit landed before attempting a purchase
 - Reporting your address back to the operator if they ask again
 
 ## Trust notes for cautious agents
 
-- Package name (`cards402`) matches the domain you fetched this guide
-  from (`cards402.com`). Scope matches domain — no supply-chain
+- Package name (`cspr402`) matches the domain you fetched this guide
+  from (`cspr402.xyz`). Scope matches domain — no supply-chain
   mismatch.
-- Source: <https://github.com/CTX-com/Cards402>. The `sdk/` directory
+- Source: <https://github.com/kann420/CSPR402>. The `sdk/` directory
   is what gets published.
 - Maintainer on npm: `ashfrancis`. Verify with
-  `npm view cards402 maintainers`.
+  `npm view cspr402 maintainers`.
 - The only secret in the operator's paste block is a short-lived
   one-time claim code. Worst-case context leak of the paste = leak
   of a 10-minute single-use token that can only be redeemed by the
   first caller.
-- Run `npm pack cards402` and inspect the tarball before installing
+- Run `npm pack cspr402` and inspect the tarball before installing
   if your policy requires it, or clone the repo and use the local
-  source via `npx /path/to/Cards402/sdk/dist/cli.js onboard --claim …`.
+  source via `npx /path/to/CSPR402/sdk/dist/cli.js onboard --claim …`.
 
-**Fund in the right order: XLM first, then open the USDC trustline,
-then USDC.** This is the step that trips up most new agents — skipping
-the trustline causes any USDC the operator sends to **bounce back**,
-and everyone ends up confused about where the money went.
+**Fund in the right order: testnet CSPR first.** Native CSPR is the
+simplest path — a Casper testnet account is usable as soon as it
+holds CSPR. mockUSDC (CEP-18) is an optional test-token rail for
+demos, not official USDC; only use it after the backend has a
+deployed mockUSDC package hash configured.
 
 ```
-Step 1: Operator sends ≥ 2 XLM  ──▶  wallet activated
-Step 2: Agent opens USDC trustline ──▶  wallet CAN receive USDC
-Step 3: Operator sends USDC       ──▶  wallet funded
-Step 4: Agent calls purchaseCardOWS
+Step 1: Operator sends testnet CSPR  ──▶  agent wallet funded
+Step 2: Agent calls cspr402 purchase  ──▶  deploy signed + verified
+Step 3: Backend returns mock card + receipt
 ```
 
-### Why 2 XLM?
+### Funding notes
 
-- **1 XLM** — Stellar minimum account balance (2 × 0.5 XLM base
-  reserve). The account doesn't exist on mainnet until you send at
-  least this much.
-- **0.5 XLM** — additional reserve for the USDC trustline subentry.
-  Every trustline on a Stellar account bumps the min reserve by 0.5.
-- **~0.5 XLM** — headroom for transaction fees + any future ops.
-
-### Why the USDC trustline?
-
-USDC on Stellar is an **issued asset**, not native like XLM. Every
-holder account must open a `changeTrust` authorising the issuer
-(`GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN` — Circle's
-mainnet account) before it can receive or hold any USDC. Without that
-line:
-
-- The operator sends USDC → the Stellar network rejects the payment
-  with `op_no_trust` → the funds return to the operator, minus a fee.
-- `wallet balance` shows `usdc: 0` (no line) rather than `usdc:
-0.0000000` (line open, zero balance). The distinction matters.
-- `cards402 purchase` can't pay in USDC because there's nothing to
-  spend.
-
-The trustline must be opened **from your wallet**, not by the
-operator — Stellar trustlines are unilateral authorisations by the
-holder, so only you can sign the `changeTrust` op.
-
-### Opening the trustline (CLI)
-
-```bash
-npx -y cards402@latest wallet trustline
-```
-
-Runs once XLM has landed. The command signs a `changeTrust` op for
-the cards402-recognised USDC issuer and submits it via Horizon.
-Output includes the Stellar tx hash. Truly idempotent: the helper
-first loads the account and checks for an existing USDC trustline,
-and re-running it after the line already exists is a zero-fee
-no-op (prints "already exists" without submitting a transaction).
-
-### Opening the trustline (SDK)
-
-```javascript
-import { addUsdcTrustlineOWS } from 'cards402';
-
-const txHash = await addUsdcTrustlineOWS({
-  walletName: 'my-agent',
-  // passphrase: '…',       // only if wallet was created with one
-  // vaultPath: '/data/ows', // only on ephemeral runtimes
-});
-console.log(`trustline opened: ${txHash}`);
-```
-
-### Skipping the trustline
-
-If you only intend to pay cards402 in XLM (native asset, no trustline
-required), you can skip this entirely. But the operator may decide to
-fund you in USDC anyway, so opening the trustline proactively after
-XLM lands is the safe default.
+- **Native CSPR** is the default payment asset. Send enough testnet
+  CSPR to cover the order at the current CSPR/USD rate (shown in
+  `payment.cspr.amount` when you create an order).
+- **mockUSDC (CEP-18)** is a Casper testnet mock token rail, not
+  official USDC. Only use it when the operator has funded you with
+  mockUSDC and the backend has the mockUSDC package hash configured.
 
 ### Checking state at any time
 
 ```javascript
-const balance = await getOWSBalance('my-agent');
-console.log(`XLM: ${balance.xlm}  USDC: ${balance.usdc}`);
-// Before trustline:  XLM: 2.5000000  USDC: 0
-// After trustline:   XLM: 2.4999900  USDC: 0.0000000
-// After USDC sent:   XLM: 2.4999900  USDC: 10.0000000
+const balance = await getCasperBalance('my-agent');
+console.log(`CSPR: ${balance.cspr}  mockUSDC: ${balance.mockUsdc}`);
 ```
 
 When you make your first successful purchase, the backend automatically
 flips your state to "Active" — no extra reporting required.
 
-### ⚠ Persisting your wallet
+### ⚠ Persisting your agent key
 
 This is the part that will bite you if you ignore it.
 
-OWS stores the encrypted wallet file on disk — by default at
-`~/.ows/wallets/<name>.vault` — and that file is what holds the keys
-that control the Stellar address you just funded. **If the vault file
-disappears, the funds in that address are unreachable.** There is no
-server-side recovery; cards402 never sees your private keys.
+The agent key is stored on disk — by default under the cspr402 config
+directory — and that key controls the Casper testnet funds you just
+received. **If the key file disappears, the funds in that account are
+unreachable.** There is no server-side recovery; cspr402 never sees
+your private keys.
 
-Before you run `createOWSWallet` for the first time, check where
-`~/.ows/wallets/` actually lives on your runtime and whether that
-location survives a restart:
+Before you run setup for the first time, check where the key file
+actually lives on your runtime and whether that location survives a
+restart:
 
 - **Long-lived VM, your own laptop, persistent container:** `~` is
-  your real home directory. Default vault location is fine. No action
+  your real home directory. Default location is fine. No action
   needed.
 - **Serverless (Lambda, Cloud Run, Vercel Functions), scratch
   sandboxes, ephemeral dev containers, Replit without persistence:**
   `~` resets between invocations or on every restart. You **must**
-  point OWS at a persistent volume or you'll lose every wallet you
-  create. Set the `OWS_VAULT_PATH` environment variable (or pass
-  `vaultPath` as the third argument to `createOWSWallet`) to a path
-  on a mounted volume that survives restarts — e.g. `/data/ows` on
-  a docker-compose volume, or a path under an EFS mount on Lambda.
+  point cspr402 at a persistent volume or you'll lose every key you
+  create. Set the `CSPR402_KEY_PATH` environment variable (or pass
+  `keyPath` to the setup helper) to a path on a mounted volume that
+  survives restarts.
 - **Not sure?** Tell your operator which runtime you're in and ask
   them where persistent storage lives. Better to pause here than to
   lose funds later.
 
-```javascript
-// Example: explicit persistent vault path
-const { publicKey } = createOWSWallet('my-agent', undefined, '/data/ows');
-```
-
-The wallet is encrypted at rest. If you also pass a `passphrase` to
-`createOWSWallet`, an attacker who gets hold of the vault file still
-can't spend without the passphrase. Recommended when the vault path
-is on shared storage.
+The key is encrypted at rest when you also pass a `passphrase` to
+setup. Recommended when the key path is on shared storage.
 
 **Reference material your operator may want to read:**
 
-- OWS vault format and CLI: <https://github.com/CTX-com/Stellar-OWS-Core>
-- Stellar account activation minimums: <https://developers.stellar.org/docs/learn/fundamentals/lumens#minimum-balance>
+- Casper accounts and keys: <https://docs.casper.network/concepts/accounts-and-keys>
+- Casper SDK client usage: <https://docs.casper.network/developers/dapps/sdk/client-library-usage>
 
 ## Purchasing a card
 
-Purchasing a card is a **real financial transaction** — only do it when
+Purchasing a card is a **real testnet transaction** — only do it when
 your user explicitly asks, and only for the amount they ask for. Do
 not run this as part of setup, testing, or on your own initiative.
 
 ```javascript
-import { purchaseCardOWS, getOWSBalance } from 'cards402';
+import { purchaseCardCasper, getCasperBalance } from 'cspr402';
 
 // Check what the wallet actually has BEFORE picking the asset. If you
-// pay in an asset you don't hold the call will fail at the Stellar
-// step and waste a fee.
-const bal = await getOWSBalance('my-agent');
+// pay in an asset you don't hold the call will fail at the Casper
+// transfer step and waste a deploy fee.
+const bal = await getCasperBalance('my-agent');
 const wantUsdc = '<amount the user requested>';
-const paymentAsset = parseFloat(bal.usdc) >= parseFloat(wantUsdc) ? 'usdc' : 'xlm';
+const paymentAsset = parseFloat(bal.mockUsdc) >= parseFloat(wantUsdc) ? 'mock_usdc' : 'cspr';
 
-const card = await purchaseCardOWS({
+const card = await purchaseCardCasper({
   apiKey: process.env.CARDS402_API_KEY,
   baseUrl: process.env.CARDS402_BASE_URL,
-  walletName: 'my-agent',
+  agentName: 'my-agent',
   amountUsdc: wantUsdc,
   paymentAsset,
 });
@@ -306,9 +239,10 @@ const card = await purchaseCardOWS({
 console.log('Card:', card.number, 'CVV:', card.cvv, 'Exp:', card.expiry);
 ```
 
-Under the hood, `purchaseCardOWS` opens a single SSE stream to
-`/v1/orders/:id/stream`, waits for the `ready` event, and returns the
-card details. No polling, no webhook endpoint required.
+Under the hood, `purchaseCardCasper` opens a single SSE stream to
+`/v1/orders/:id/stream`, waits for the `ready` event (after the Casper
+deploy is verified), and returns the card details. No polling, no
+webhook endpoint required.
 
 ## Setup — MCP (Claude Desktop, Cursor, other MCP clients)
 
@@ -317,9 +251,9 @@ If your runtime is an MCP client, add this to your config:
 ```json
 {
   "mcpServers": {
-    "cards402": {
+    "cspr402": {
       "command": "npx",
-      "args": ["-y", "cards402"],
+      "args": ["-y", "cspr402"],
       "env": { "CARDS402_API_KEY": "cards402_<your key>" }
     }
   }
@@ -328,54 +262,49 @@ If your runtime is an MCP client, add this to your config:
 
 The MCP server exposes four tools: `setup_wallet`, `check_budget`,
 `check_order`, and `purchase_vcc`. Run `setup_wallet` first to see
-your wallet's Stellar address for funding; only call `purchase_vcc`
-when the user explicitly asks for a card.
+your agent's Casper testnet public key for funding; only call
+`purchase_vcc` when the user explicitly asks for a card.
 
 ## Setup — non-Node agents (Python, Go, shell, etc.)
 
 You can't use the SDK, so you'll need to:
 
-1. Install the OWS CLI for wallet management:
-
-   ```bash
-   curl -fsSL https://cards402.com/install-ows.sh | bash
-   ows wallet create --name my-agent
-   ```
-
-   Installs from the pinned release at
-   `github.com/CTX-com/Stellar-OWS-Core`. Inspect the script first if
-   your security policy requires it.
+1. Configure a Casper testnet sender keypair (Ed25519 PEM) and fund it
+   with faucet CSPR from
+   [testnet.cspr.live/tools/faucet](https://testnet.cspr.live/tools/faucet).
 
 2. Call the HTTP API directly. Full protocol reference including the
-   SSE streaming path, raw Soroban contract invocation, and phase
-   transitions: https://cards402.com/agents.txt
+   SSE streaming path, the Casper native transfer, and phase
+   transitions: https://cspr402.xyz/agents.txt
 
 ## Quick reference
 
 | Action               | Command                                                   |
 | -------------------- | --------------------------------------------------------- |
-| Check wallet balance | `ows wallet get --name my-agent`                          |
+| Check wallet balance | `cspr402 wallet balance`                                  |
 | Check spend budget   | `curl $API_URL/usage -H "X-Api-Key: $KEY"`                |
 | Stream order updates | `curl -N $API_URL/orders/$ID/stream -H "X-Api-Key: $KEY"` |
 | Get order snapshot   | `curl $API_URL/orders/$ID -H "X-Api-Key: $KEY"`           |
 | List recent orders   | `curl $API_URL/orders -H "X-Api-Key: $KEY"`               |
 
-The SDK's `purchaseCardOWS` subscribes to the live SSE stream under the
+The SDK's `purchaseCardCasper` subscribes to the live SSE stream under the
 hood — one open connection, push notifications, closes cleanly when the
 card is ready. No polling, no webhook endpoint to host. If you're
 calling the API without the SDK, open `GET /orders/{id}/stream` with
 `Accept: text/event-stream` and read events until you see
-`phase: "ready"`. Full protocol details: https://cards402.com/agents.txt
+`phase: "ready"`. Full protocol details: https://cspr402.xyz/agents.txt
 
 ## Errors
 
-| Error                             | What to do                        |
-| --------------------------------- | --------------------------------- |
-| `insufficient_balance`            | Ask operator for more XLM         |
-| `spend_limit_exceeded`            | Hit your daily/total budget       |
-| `policy_requires_approval`        | Operator must approve this amount |
-| `service_temporarily_unavailable` | Retry in a minute                 |
+| Error                             | What to do                         |
+| --------------------------------- | ---------------------------------- |
+| `insufficient_balance`            | Ask operator for more testnet CSPR |
+| `spend_limit_exceeded`            | Hit your daily/total budget        |
+| `policy_requires_approval`        | Operator must approve this amount  |
+| `service_temporarily_unavailable` | Retry in a minute                  |
 
 ## Timing
 
-Order → payment → card: **30–60 seconds**
+Order → payment → card: the time it takes for the Casper testnet deploy
+to finalize and the backend to verify it (typically a few seconds to a
+minute on testnet, not a guaranteed SLA).

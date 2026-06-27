@@ -111,10 +111,14 @@ export default function PlatformOverviewPage() {
         />
         <KpiTile label="24h success" value={`${successPct}%`} />
         <KpiTile
-          label="Treasury XLM"
-          value={data.treasury.xlm !== null ? parseFloat(data.treasury.xlm).toFixed(2) : '—'}
+          label="Treasury CSPR"
+          value={
+            data.treasury.cspr !== null && data.treasury.cspr !== undefined
+              ? parseFloat(data.treasury.cspr).toFixed(2)
+              : '—'
+          }
           hint={
-            data.treasury.usdc !== null
+            data.treasury.usdc !== null && data.treasury.usdc !== undefined
               ? `${parseFloat(data.treasury.usdc).toFixed(2)} USDC`
               : undefined
           }
@@ -258,9 +262,11 @@ export default function PlatformOverviewPage() {
           <div style={{ fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>
             {data.treasury.public_key || '—'}
           </div>
-          <div style={{ color: 'var(--fg-dim)' }}>XLM</div>
+          <div style={{ color: 'var(--fg-dim)' }}>CSPR</div>
           <div style={{ fontFamily: 'var(--font-mono)' }}>
-            {data.treasury.xlm !== null ? parseFloat(data.treasury.xlm).toFixed(7) : '—'}
+            {data.treasury.cspr !== null && data.treasury.cspr !== undefined
+              ? parseFloat(data.treasury.cspr).toFixed(7)
+              : '—'}
           </div>
           <div style={{ color: 'var(--fg-dim)' }}>USDC</div>
           <div style={{ fontFamily: 'var(--font-mono)' }}>

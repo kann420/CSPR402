@@ -1,6 +1,6 @@
 # CSPR402 Agent Examples
 
-Small hackathon integrations for the Casper testnet MVP. The Node example can
+Casper testnet integrations for the CSPR402 MVP. The Node example can
 create an order, send native CSPR or mockUSDC CEP-18 with the Casper JS SDK,
 verify the deploy, then receive a simulated virtual card.
 
@@ -43,8 +43,8 @@ official USDC.
 
 ### `python-agent/` - Python + REST API
 
-Uses the REST API directly via `httpx`. This legacy example still needs a
-Casper payment step before it is a full CSPR402 demo.
+Uses the REST API directly via `httpx`. A Casper testnet payment step is
+needed before it is a full CSPR402 demo.
 
 ```bash
 cd python-agent
@@ -54,19 +54,18 @@ CARDS402_API_KEY=cards402_... CARDS402_BASE_URL=http://localhost:4000/v1 python 
 
 ### `langchain-tool/` - LangChain Custom Tools
 
-Three LangChain `BaseTool` subclasses from the upstream repo:
+Three LangChain `BaseTool` subclasses:
 
-- `Cards402OrderTool` - create a card order
-- `Cards402CheckOrderTool` - poll order status / get card details
-- `Cards402BudgetTool` - check spend vs limit
+- `CSPR402OrderTool` - create a card order
+- `CSPR402CheckOrderTool` - poll order status / get card details
+- `CSPR402BudgetTool` - check spend vs limit
 
-These are useful reference material, but the payment wording still needs to be
-converted from Stellar to Casper before public demo use.
+These are useful reference material for the Casper demo path.
 
 ## Legacy Notes
 
-The upstream repo still contains Stellar/OWS examples and MCP code. They are
-reference material for this fork, not the Casper demo path.
+The repo may still contain legacy Stellar/OWS examples and MCP code. They are
+slated for removal, not the Casper demo path.
 
 ## API Reference
 

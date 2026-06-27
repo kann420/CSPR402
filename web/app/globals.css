@@ -1,6 +1,6 @@
 @import 'tailwindcss';
 
-/* Cards402 design system
+/* CSPR402 design system
    ----------------------------------------------------------------------
    Dark theme — default. Light theme is an opt-in override via
    <html data-theme="light">. System theme is resolved in JS at mount
@@ -141,6 +141,71 @@ html[data-theme='light'] {
   --green-muted: var(--brand-muted);
   --green-border: var(--brand-border);
   --green-glow: var(--brand-glow);
+}
+
+/* ── Marketing header: frozen + liquid-glass ──────────────────────────
+   The nav is position: sticky (set inline in MarketingChrome) so it
+   freezes to the top while the page scrolls. The glass treatment below
+   gives it a translucent, blurred, lightly-tinted plate so content
+   scrolling underneath reads as moving behind glass — and a subtle red
+   brand edge glow that deepens once the user starts scrolling. */
+.marketing-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(10, 10, 11, 0.1);
+  -webkit-backdrop-filter: blur(2px) saturate(125%);
+  backdrop-filter: blur(2px) saturate(125%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 -1px 0 rgba(255, 42, 35, 0.05);
+  transition:
+    background 0.45s var(--ease-out),
+    border-color 0.45s var(--ease-out),
+    box-shadow 0.45s var(--ease-out),
+    -webkit-backdrop-filter 0.45s var(--ease-out),
+    backdrop-filter 0.45s var(--ease-out);
+}
+/* Slightly more frosted once scrolled — still light, just enough to
+   keep text readable as content passes behind the glass. */
+.marketing-nav.is-scrolled {
+  background: rgba(8, 8, 9, 0.16);
+  -webkit-backdrop-filter: blur(3px) saturate(130%);
+  backdrop-filter: blur(3px) saturate(130%);
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 4px 16px -18px rgba(0, 0, 0, 0.4),
+    inset 0 -1px 0 rgba(255, 42, 35, 0.07);
+}
+/* Liquid sheen across the top edge — a faint moving highlight that
+   reads as light catching a glass surface. */
+.marketing-nav::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 38%);
+  opacity: 0.9;
+}
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+  /* No backdrop-filter support → fall back to an opaque bar so the
+     frozen header is still readable over scrolling content. */
+  .marketing-nav {
+    background: rgba(8, 8, 9, 0.92);
+  }
+  .marketing-nav.is-scrolled {
+    background: rgba(6, 6, 7, 0.96);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .marketing-nav {
+    transition:
+      background 0.01s,
+      border-color 0.01s,
+      box-shadow 0.01s;
+  }
 }
 
 @theme inline {
@@ -641,10 +706,23 @@ tbody tr:hover td:first-child::before {
   }
 }
 
-/* Prevent horizontal scroll from any rogue overflowing element */
-html,
-body {
-  overflow-x: hidden;
+/* Prevent horizontal scroll from any rogue overflowing element.
+   Use `clip` (not `hidden`): per CSS spec, setting overflow-x: hidden
+   while overflow-y is visible forces overflow-y to compute to auto,
+   which turns body into a scroll container and BREAKS the sticky
+   marketing header. `clip` clips the x-axis without that side effect,
+   so position: sticky on the nav keeps sticking to the viewport. */
+@supports (overflow-x: clip) {
+  html,
+  body {
+    overflow-x: clip;
+  }
+}
+@supports not (overflow-x: clip) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
 }
 
 /* ── Table primitives (dashboard) ──────────────────────────────────── */

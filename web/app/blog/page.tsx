@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   title: 'Blog',
   description:
     'Engineering-honest writing from the CSPR402 team. Architecture, incidents, and what we learned adapting legacy payment rails into a Casper-first MVP for AI agents.',
-  alternates: { canonical: 'https://cards402.com/blog' },
+  alternates: { canonical: 'https://cspr402.xyz/blog' },
   openGraph: ogForPage({
     title: 'Blog - CSPR402',
     description:
@@ -42,31 +42,31 @@ const PUBLISHED: Post[] = [
     slug: 'claim-codes-credentials-that-never-touch-the-transcript',
     title: 'Claim codes: credentials that never touch the transcript',
     excerpt:
-      "Raw API keys aren't insecure - they're insecure when the operator is going to paste them into an LLM chat. Why Cards402 onboards agents with single-use claim codes, the threat model, and the exchange flow that avoids every credential-in-prompt failure we could think of.",
+      "Raw API keys aren't insecure - they're insecure when the operator is going to paste them into an LLM chat. Why CSPR402 onboards agents with single-use claim codes, the threat model, and the exchange flow that avoids every credential-in-prompt failure we could think of.",
     tags: ['security', 'onboarding'],
   },
   {
     date: '2026-04-14',
-    slug: 'non-custodial-card-issuance-on-soroban',
-    title: 'How we built non-custodial card issuance on Soroban',
+    slug: 'non-custodial-card-issuance-on-casper',
+    title: 'How we built non-custodial card issuance on Casper',
     excerpt:
-      'Legacy upstream architecture note: why the original Cards402 agents paid a receiver contract on Stellar, and what that design taught us before the Casper-first fork.',
-    tags: ['architecture', 'legacy'],
+      'Architecture note: why CSPR402 agents pay a receiver contract directly on Casper, and how the backend watches on-chain events instead of touching customer funds.',
+    tags: ['architecture'],
   },
   {
     date: '2026-04-14',
-    slug: 'anatomy-of-a-cards402-order',
-    title: 'Anatomy of a Cards402 order',
+    slug: 'anatomy-of-a-cspr402-order',
+    title: 'Anatomy of a CSPR402 order',
     excerpt:
-      'Legacy upstream walk-through of the old order pipeline. Useful as reference material, but not the current Casper-first MVP path.',
-    tags: ['engineering', 'legacy'],
+      "Walk-through of the CSPR402 order pipeline. Every millisecond from the agent's first API call to a usable PAN, with the median timings we see in production.",
+    tags: ['engineering'],
   },
   {
     date: '2026-04-14',
     slug: 'sse-beats-polling-for-agent-apis',
     title: 'Why SSE beats polling for agent-facing APIs',
     excerpt:
-      'Server-Sent Events are still a useful primitive for long-lived order tracking with autonomous agents. This post remains relevant even though the repo moved away from the original production story.',
+      'Server-Sent Events are still a useful primitive for long-lived order tracking with autonomous agents. This post remains relevant to the current CSPR402 production story.',
     tags: ['api', 'engineering'],
   },
 ];
@@ -80,7 +80,7 @@ export default function BlogIndexPage() {
         eyebrow="Blog"
         title="Honest writing directly from our engineering"
         accent="team"
-        intro="We don't do content marketing. Some of the posts below document the old upstream Cards402/Stellar architecture; newer ones explain what changed as this repo became a Casper-first MVP. Every post cross-posts to the changelog RSS."
+        intro="We don't do content marketing. The posts below document CSPR402's Casper-native architecture, the failure modes we found, and what we learned building payment infrastructure for AI agents. Every post cross-posts to the changelog RSS."
       />
 
       <PageSection eyebrow="Published" title="Posts.">

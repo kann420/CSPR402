@@ -2,25 +2,23 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ogForPage, twitterForPage } from '@/app/lib/seo';
 
-const POST_URL =
-  'https://cards402.com/blog/claim-codes-credentials-that-never-touch-the-transcript';
+const POST_URL = 'https://cspr402.xyz/blog/claim-codes-credentials-that-never-touch-the-transcript';
 const POST_DATE = '2026-04-14';
 
 export const metadata: Metadata = {
   title: 'Claim codes: credentials that never touch the transcript',
   description:
-    'Why Cards402 onboards agents with single-use claim codes instead of raw API keys, and how the exchange flow avoids credential-in-prompt failure.',
+    'Why CSPR402 onboards agents with single-use claim codes instead of raw API keys, and how the exchange flow avoids credential-in-prompt failure.',
   alternates: { canonical: POST_URL },
   openGraph: ogForPage({
-    title: 'Claim codes: credentials that never touch the transcript — Cards402',
+    title: 'Claim codes: credentials that never touch the transcript — CSPR402',
     description:
       'Single-use claim codes instead of raw API keys for agent onboarding. The threat model, the exchange, and why it matters when the operator is talking to an LLM.',
     path: '/blog/claim-codes-credentials-that-never-touch-the-transcript',
   }),
   twitter: twitterForPage({
     title: 'Claim codes: credentials that never touch the transcript',
-    description:
-      'Why Cards402 onboards agents with single-use claim codes instead of raw API keys.',
+    description: 'Why CSPR402 onboards agents with single-use claim codes instead of raw API keys.',
   }),
 };
 
@@ -30,16 +28,16 @@ const blogJsonLd = {
   '@id': POST_URL,
   mainEntityOfPage: POST_URL,
   headline: 'Claim codes: credentials that never touch the transcript',
-  description: 'Why Cards402 onboards agents with single-use claim codes instead of raw API keys.',
+  description: 'Why CSPR402 onboards agents with single-use claim codes instead of raw API keys.',
   datePublished: POST_DATE,
   dateModified: POST_DATE,
-  author: { '@type': 'Organization', name: 'Cards402', url: 'https://cards402.com' },
+  author: { '@type': 'Organization', name: 'CSPR402', url: 'https://cspr402.xyz' },
   publisher: {
     '@type': 'Organization',
-    name: 'Cards402',
-    logo: { '@type': 'ImageObject', url: 'https://cards402.com/icon.png' },
+    name: 'CSPR402',
+    logo: { '@type': 'ImageObject', url: 'https://cspr402.xyz/icon.png' },
   },
-  image: 'https://cards402.com/opengraph-image',
+  image: 'https://cspr402.xyz/opengraph-image',
   keywords:
     'claim code, onboarding, security, threat model, llm transcript, credential, one-time code',
 };
@@ -48,7 +46,7 @@ const breadcrumbJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'BreadcrumbList',
   itemListElement: [
-    { '@type': 'ListItem', position: 1, name: 'Blog', item: 'https://cards402.com/blog' },
+    { '@type': 'ListItem', position: 1, name: 'Blog', item: 'https://cspr402.xyz/blog' },
     {
       '@type': 'ListItem',
       position: 2,
@@ -127,13 +125,13 @@ export default function BlogPost() {
             <span>·</span>
             <span>7 min read</span>
             <span>·</span>
-            <span>by Cards402 engineering</span>
+            <span>by CSPR402 engineering</span>
           </div>
         </header>
 
         <div className="post-body">
           <p className="lede">
-            The first version of Cards402 onboarded agents the same way every API has onboarded
+            The first version of CSPR402 onboarded agents the same way every API has onboarded
             developers since the early 2000s: an operator copies a raw API key out of the dashboard
             and pastes it into the agent. When the agent in question is an LLM, this turns out to be
             a terrible idea for reasons that aren&apos;t obvious until you&apos;ve watched an
@@ -144,7 +142,7 @@ export default function BlogPost() {
           <h2>The failure mode</h2>
 
           <p>
-            Picture an operator using a Claude Desktop or Cursor agent to set up a new Cards402
+            Picture an operator using a Claude Desktop or Cursor agent to set up a new CSPR402
             integration. They mint an API key in the dashboard, copy it to their clipboard, and
             paste it into the conversation with the assistant. The assistant stores it, builds the
             integration, and does something correct with it.
@@ -188,7 +186,7 @@ export default function BlogPost() {
           <p>
             <strong>OAuth.</strong> Agents initiate a device-code flow, operator approves it in a
             browser, no credential ever leaves our server. This is the right answer for long-lived
-            web apps. It was the wrong answer for Cards402 because the agent doesn&apos;t have a
+            web apps. It was the wrong answer for CSPR402 because the agent doesn&apos;t have a
             browser — it runs in an MCP server or a headless script — and because device-code flows
             add a multi- minute human-in-the-loop step to what should be a one-command setup.
           </p>
@@ -233,11 +231,11 @@ export default function BlogPost() {
           </ol>
 
           <p>
-            The operator runs <code>cards402 onboard --claim c402_...</code> exactly once, inside
-            the agent&apos;s runtime. The CLI trades the claim for the real API key over HTTPS,
-            writes the key to <code>~/.cards402/config.json</code> with 0600 permissions, and asks
-            the agent to confirm its setup before the flow is complete. The operator never sees the
-            real API key — it doesn&apos;t leave the backend until it&apos;s written to disk on the
+            The operator runs <code>cspr402 onboard --claim c402_...</code> exactly once, inside the
+            agent&apos;s runtime. The CLI trades the claim for the real API key over HTTPS, writes
+            the key to <code>~/.cspr402/config.json</code> with 0600 permissions, and asks the agent
+            to confirm its setup before the flow is complete. The operator never sees the real API
+            key — it doesn&apos;t leave the backend until it&apos;s written to disk on the
             agent&apos;s machine.
           </p>
 
@@ -305,7 +303,7 @@ export default function BlogPost() {
             </li>
             <li>
               <strong>Operator who copy-pastes the config file.</strong> If an operator opens{' '}
-              <code>~/.cards402/config.json</code> and pastes the contents into the LLM chat,
+              <code>~/.cspr402/config.json</code> and pastes the contents into the LLM chat,
               we&apos;re back to the original failure mode. We can&apos;t structurally prevent this,
               only make it obviously silly.
             </li>
@@ -328,18 +326,18 @@ export default function BlogPost() {
           </p>
 
           <p>
-            Cards402 is the result of auditing each of those assumptions one at a time and fixing
+            CSPR402 is the result of auditing each of those assumptions one at a time and fixing
             them structurally. Claim codes fix the onboarding one. The other two we&apos;ve covered
             in <Link href="/blog/sse-beats-polling-for-agent-apis">why SSE beats polling</Link> and{' '}
-            <Link href="/blog/non-custodial-card-issuance-on-soroban">
-              non-custodial card issuance on Soroban
+            <Link href="/blog/non-custodial-card-issuance-on-casper">
+              non-custodial card issuance on Casper
             </Link>
             .
           </p>
 
           <p>
             If you&apos;re thinking about agent onboarding and would like to compare notes, email{' '}
-            <a href="mailto:security@cards402.com">security@cards402.com</a>. We read every one.
+            <a href="mailto:security@cspr402.xyz">security@cspr402.xyz</a>. We read every one.
           </p>
         </div>
 

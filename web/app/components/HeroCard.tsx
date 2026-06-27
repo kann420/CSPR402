@@ -17,10 +17,10 @@
 // listeners; it's a no-op if neither component ever mounts.
 //
 // The visual language (layered gradients, chip, sheen, grid texture,
-// noise, orbs) is a faithful port of the standalone prototype at
-// ~/code/cards402animation/index.html with three deltas:
+// noise, orbs) is an original composition with three notable deltas
+// from earlier explorations:
 //   - Idle drift dialled back from ±8/±6 to ±2.5/±1.8 per pass.
-//   - The brand mark is replaced with a Cards402 wordmark rendered
+//   - The brand mark is replaced with a CSPR402 wordmark rendered
 //     via mask-image so it inherits the card's cream ink.
 //   - The bottomline shows 'YOUR AGENT' instead of 'ASH / PRIMARY'.
 

@@ -1,15 +1,15 @@
 # Contributing
 
-Thanks for wanting to improve cards402. This repo has four main pieces:
+Thanks for wanting to improve CSPR402. This repo has four main pieces:
 
-| Path        | Language                           | What it does                               |
-| ----------- | ---------------------------------- | ------------------------------------------ |
-| `backend/`  | Node.js + Express + better-sqlite3 | The 402-payment API that agents talk to    |
-| `sdk/`      | TypeScript                         | `cards402` npm package + MCP server        |
-| `web/`      | Next.js + TypeScript               | Owner dashboard (admin + per-agent views)  |
-| `contract/` | Rust / Soroban                     | On-chain receiver contract agents pay into |
+| Path        | Language                           | What it does                                          |
+| ----------- | ---------------------------------- | ----------------------------------------------------- |
+| `backend/`  | Node.js + Express + better-sqlite3 | The 402-payment API that agents talk to               |
+| `sdk/`      | TypeScript                         | `cspr402` npm package + MCP server                    |
+| `web/`      | Next.js + TypeScript               | Owner dashboard (admin + per-agent views)             |
+| `contract/` | Rust / Soroban                     | Legacy reference contract, not used by the Casper MVP |
 
-And one sibling repo at `../vcc` which does the fulfillment (CTX + scraper).
+And one sibling repo at `../vcc` which does the fulfillment (mock card issuer + scraper).
 
 ## Dev setup
 
@@ -43,7 +43,7 @@ npm run dev               # starts on :5000
 | All workspaces             | `npm test` (from repo root) | ~1,209 |
 
 Tests should be fast (whole backend suite ~1.5s, in-memory SQLite) and
-never hit real Stellar / CTX. End-to-end "real money, real Stellar, real
+never hit real Casper testnet funds. End-to-end "real testnet CSPR, real
 scraper" tests are run manually for release validation, never in CI.
 
 ## Style

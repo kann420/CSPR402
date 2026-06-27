@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: 'Privacy policy',
   description:
     "What CSPR402 collects, what it doesn't, who processes it, and how long we keep it. Written in plain English.",
-  alternates: { canonical: 'https://cards402.com/privacy' },
+  alternates: { canonical: 'https://cspr402.xyz/privacy' },
 };
 
 export default function PrivacyPage() {
@@ -172,7 +172,7 @@ export default function PrivacyPage() {
                   <li>Object to processing or request restriction</li>
                 </ul>
                 <p>
-                  Email <a href="mailto:privacy@cards402.com">privacy@cards402.com</a> with any of
+                  Email <a href="mailto:privacy@cspr402.xyz">privacy@cspr402.xyz</a> with any of
                   these requests. We respond within 30 days, usually within 48 hours.
                 </p>
               </>
@@ -202,7 +202,7 @@ export default function PrivacyPage() {
                 </p>
                 <p>
                   Questions about this policy:{' '}
-                  <a href="mailto:privacy@cards402.com">privacy@cards402.com</a>
+                  <a href="mailto:privacy@cspr402.xyz">privacy@cspr402.xyz</a>
                 </p>
               </>
             ),

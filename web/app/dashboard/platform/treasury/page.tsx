@@ -122,9 +122,9 @@ export default function PlatformTreasuryPage() {
 
           <Card title="Telemetry roadmap">
             <div style={{ fontSize: '0.8rem', color: 'var(--fg-muted)', lineHeight: 1.6 }}>
-              Live CSPR balances and recent incoming deploys are intentionally hidden for now
-              because the old Stellar/Horizon widgets are no longer accurate for this fork. We'll
-              add Casper-native treasury telemetry in the next pass.
+              Live CSPR balances and recent incoming deploys are intentionally hidden for now — the
+              legacy on-chain widgets aren't accurate for the current Casper deployment. We'll add
+              Casper-native treasury telemetry in the next pass.
             </div>
           </Card>
         </>

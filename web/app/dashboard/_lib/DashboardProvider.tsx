@@ -179,7 +179,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     setWalletBalances((prev) => {
       const next: Record<string, WalletBalance> = {};
       for (const agent of agents) {
-        next[agent.id] = prev[agent.id] || { xlm: '0', usdc: '0' };
+        next[agent.id] = prev[agent.id] || { cspr: '0', usdc: '0' };
       }
       return next;
     });

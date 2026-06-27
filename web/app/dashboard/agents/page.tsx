@@ -200,7 +200,7 @@ export default function AgentsPage() {
                   key={a.id}
                   agent={a}
                   group={groups[a.id] || null}
-                  balanceXlm={walletBalances[a.id]?.xlm || '0'}
+                  balanceCspr={walletBalances[a.id]?.cspr || '0'}
                   balanceUsdc={walletBalances[a.id]?.usdc || '0'}
                   spent7d={spend7d.get(a.id) || 0}
                 />
@@ -218,13 +218,13 @@ export default function AgentsPage() {
 function AgentRow({
   agent,
   group,
-  balanceXlm,
+  balanceCspr,
   balanceUsdc,
   spent7d,
 }: {
   agent: ApiKey;
   group: string | null;
-  balanceXlm: string;
+  balanceCspr: string;
   balanceUsdc: string;
   spent7d: number;
 }) {
@@ -280,7 +280,7 @@ function AgentRow({
       <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
         <div style={{ fontSize: '0.75rem' }}>{parseFloat(balanceUsdc).toFixed(2)} USDC</div>
         <div style={{ fontSize: '0.68rem', color: 'var(--fg-dim)' }}>
-          {parseFloat(balanceXlm).toFixed(2)} XLM
+          {parseFloat(balanceCspr).toFixed(2)} CSPR
         </div>
       </td>
       <td

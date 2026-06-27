@@ -86,9 +86,10 @@ export default function AgentDetailPage({ params }: PageProps) {
   // defined below don't need to deal with the widened type.
   const liveAgent = agent;
   const state = (liveAgent.agent?.state ?? 'minted') as AgentStateName;
-  const balXlm = walletBalances[liveAgent.id]?.xlm || '0';
+  const balCspr = walletBalances[liveAgent.id]?.cspr || '0';
   const balUsdc = walletBalances[liveAgent.id]?.usdc || '0';
-  const comboUsd = parseFloat(balUsdc) + parseFloat(balXlm) * 0.2; /* rough XLM/USD heuristic */
+  const comboUsd =
+    parseFloat(balUsdc) + parseFloat(balCspr) * 0.2; /* rough CSPR/USD heuristic (mock) */
 
   async function patch(body: Parameters<typeof updateAgent>[1]) {
     try {
@@ -197,7 +198,7 @@ export default function AgentDetailPage({ params }: PageProps) {
           <KpiTile
             label="Balance"
             value={formatUsd(comboUsd)}
-            hint={`${parseFloat(balXlm).toFixed(2)} XLM · ${parseFloat(balUsdc).toFixed(2)} USDC`}
+            hint={`${parseFloat(balCspr).toFixed(2)} CSPR · ${parseFloat(balUsdc).toFixed(2)} USDC`}
           />
         </KpiRow>
 
@@ -301,7 +302,7 @@ export default function AgentDetailPage({ params }: PageProps) {
             {formatUsd(comboUsd)}
           </div>
           <div style={{ fontSize: '0.7rem', color: 'var(--fg-dim)', marginTop: 2 }}>
-            {parseFloat(balXlm).toFixed(4)} XLM · {parseFloat(balUsdc).toFixed(2)} USDC
+            {parseFloat(balCspr).toFixed(4)} CSPR · {parseFloat(balUsdc).toFixed(2)} USDC
           </div>
           <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.75rem' }}>
             <Button size="sm" onClick={() => setTopUpOpen(true)} style={{ flex: 1 }}>
@@ -537,8 +538,8 @@ export default function AgentDetailPage({ params }: PageProps) {
             style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}
           >
             <div style={{ fontSize: '0.78rem', color: 'var(--fg-dim)', textAlign: 'center' }}>
-              Send XLM or USDC to this address to fund the agent. Funds show up on the dashboard
-              within ~30 seconds.
+              Send CSPR (or mockUSDC) on Casper testnet to this address to fund the agent. Funds
+              show up on the dashboard within ~30 seconds.
             </div>
             <QrCode text={agent.wallet_public_key} size={240} />
             <div

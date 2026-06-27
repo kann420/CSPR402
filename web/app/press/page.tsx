@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: 'Press',
   description:
     'Press, media, and podcast inquiries for CSPR402. Contact, press kit, quick facts, and expert quotes on agent payments.',
-  alternates: { canonical: 'https://cards402.com/press' },
+  alternates: { canonical: 'https://cspr402.xyz/press' },
   openGraph: ogForPage({
     title: 'Press - CSPR402',
     description: 'Press kit, media contact, and expert quotes on autonomous agent payments.',
@@ -79,7 +79,7 @@ export default function PressPage() {
                 lineHeight: 1.05,
               }}
             >
-              press@cards402.com
+              press@cspr402.xyz
             </h2>
             <p
               className="type-body"

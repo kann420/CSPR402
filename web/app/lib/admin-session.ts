@@ -1,4 +1,4 @@
-// Server-only helpers for the cards402 admin dashboard session.
+// Server-only helpers for the CSPR402 admin dashboard session.
 //
 // The admin UI never holds a backend Bearer token in JavaScript. Instead, on
 // successful OTP verification the Next.js route handler wraps the token in an
@@ -15,7 +15,7 @@
 
 import crypto from 'crypto';
 
-export const ADMIN_SESSION_COOKIE = 'cards402_admin_session';
+export const ADMIN_SESSION_COOKIE = 'cspr402_admin_session';
 export const PORTAL_API_KEY_COOKIE = 'cspr402_portal_api_key';
 export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -119,10 +119,11 @@ export function openSealedSecret(cookieValue: string | undefined | null): string
 }
 
 /**
- * Resolve the upstream cards402 backend URL from env. Prefers
- * `CARDS402_BACKEND_URL` (server-only) and falls back to
- * `NEXT_PUBLIC_API_BASE_URL` so existing deployments keep working without a
- * new env var. Throws on missing in production.
+ * Resolve the upstream CSPR402 backend URL from env. The primary var is kept
+ * under its historical name `CARDS402_BACKEND_URL` (server-only) so existing
+ * Railway deployments keep working without a new env var; it falls back to
+ * `NEXT_PUBLIC_API_BASE_URL`. Renaming the env var is a deferred,
+ * backend-coupled change. Throws on missing in production.
  */
 export function getBackendBaseUrl(): string {
   const url = process.env.CARDS402_BACKEND_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL;

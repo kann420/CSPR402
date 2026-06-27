@@ -1,5 +1,5 @@
 // POST /api/auth/login — server-side proxy for the backend's OTP send step.
-// Accepts { email } and forwards to the cards402 backend. Does not touch cookies.
+// Accepts { email } and forwards to the CSPR402 backend. Does not touch cookies.
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getBackendBaseUrl } from '@/app/lib/admin-session';

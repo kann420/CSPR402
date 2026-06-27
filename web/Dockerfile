@@ -1,5 +1,5 @@
-# cards402-web — Next.js 16, npm-workspaces monorepo (root manages `web` + `sdk`).
-# Built from /opt/apps/cards402 with --workspace=web so the ROOT lockfile resolves.
+# cspr402-web — Next.js 16, npm-workspaces monorepo (root manages `web` + `sdk`).
+# Built from /opt/apps/cspr402 with --workspace=web so the ROOT lockfile resolves.
 
 # ---- builder ----
 FROM node:20-bookworm-slim AS builder

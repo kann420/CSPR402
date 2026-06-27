@@ -19,12 +19,12 @@ const ROUTES: Array<{
   { path: '/status', changeFrequency: 'hourly', priority: 0.75 },
   { path: '/blog', changeFrequency: 'weekly', priority: 0.75 },
   {
-    path: '/blog/anatomy-of-a-cards402-order',
+    path: '/blog/anatomy-of-a-cspr402-order',
     changeFrequency: 'monthly',
     priority: 0.7,
   },
   {
-    path: '/blog/non-custodial-card-issuance-on-soroban',
+    path: '/blog/non-custodial-card-issuance-on-casper',
     changeFrequency: 'monthly',
     priority: 0.7,
   },

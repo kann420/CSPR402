@@ -2,11 +2,11 @@
 
 CSPR402 is built by a small distributed team focused on Casper-first payment
 infrastructure for autonomous agents. We publish every salary and we write
-everything down. Come work with us: https://cards402.com/careers
+everything down. Come work with us: https://cspr402.xyz/careers
 
-Contact: hello@cards402.com
-Press:   press@cards402.com
-Security: security@cards402.com
+Contact: hello@cspr402.xyz
+Press:   press@cspr402.xyz
+Security: security@cspr402.xyz
 Location: Remote-first · London HQ
 
 /* THANKS */

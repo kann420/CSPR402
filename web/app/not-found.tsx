@@ -83,14 +83,14 @@ export default function NotFound() {
           The URL you hit doesn&apos;t resolve to a CSPR402 page. If you landed here from a link on
           our site, please email{' '}
           <a
-            href="mailto:support@cards402.com"
+            href="mailto:support@cspr402.xyz"
             style={{
               color: 'var(--fg)',
               textDecoration: 'none',
               borderBottom: '1px solid var(--green-border)',
             }}
           >
-            support@cards402.com
+            support@cspr402.xyz
           </a>{' '}
           so we can fix it.
         </p>

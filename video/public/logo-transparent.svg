@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1036" height="604" viewBox="250 210 1036 604" role="img" aria-labelledby="title desc">
+  <title id="title">CSPR402 Logo</title>
+  <desc id="desc">Clean vector redraw of the CSPR402 neon payment-card logo — transparent (no background plate), tight-cropped to the mark so it fills inline wordmark boxes without a black box.</desc>
+  <defs>
+    <radialGradient id="redHalo" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#ff160d" stop-opacity="0.56"/>
+      <stop offset="0.32" stop-color="#ff160d" stop-opacity="0.30"/>
+      <stop offset="0.72" stop-color="#ff160d" stop-opacity="0.075"/>
+      <stop offset="1" stop-color="#ff160d" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="blueHalo" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#02cfff" stop-opacity="0.48"/>
+      <stop offset="0.48" stop-color="#02a8ff" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#02a8ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="frameRed" x1="372" y1="315" x2="1165" y2="704" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff3422"/>
+      <stop offset="0.22" stop-color="#ff1510"/>
+      <stop offset="0.62" stop-color="#f40600"/>
+      <stop offset="1" stop-color="#d20800"/>
+    </linearGradient>
+    <linearGradient id="frameGloss" x1="392" y1="319" x2="1148" y2="698" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff7043" stop-opacity="0.58"/>
+      <stop offset="0.08" stop-color="#fff0cc" stop-opacity="0.45"/>
+      <stop offset="0.19" stop-color="#ff5b36" stop-opacity="0.36"/>
+      <stop offset="0.45" stop-color="#ff1c10" stop-opacity="0.10"/>
+      <stop offset="0.82" stop-color="#ff432a" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="#ff7d43" stop-opacity="0.44"/>
+    </linearGradient>
+    <linearGradient id="redDigit" x1="489" y1="438" x2="848" y2="594" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff321e"/>
+      <stop offset="0.34" stop-color="#ff0b06"/>
+      <stop offset="0.72" stop-color="#e1110b"/>
+      <stop offset="1" stop-color="#ff2616"/>
+    </linearGradient>
+    <linearGradient id="zeroDigit" x1="675" y1="438" x2="848" y2="594" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff3c24"/>
+      <stop offset="0.55" stop-color="#ff1508"/>
+      <stop offset="1" stop-color="#da201d"/>
+    </linearGradient>
+    <linearGradient id="blueDigit" x1="867" y1="438" x2="1038" y2="594" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#06b7fb"/>
+      <stop offset="0.40" stop-color="#09d8ff"/>
+      <stop offset="1" stop-color="#028ee5"/>
+    </linearGradient>
+    <linearGradient id="digitShineRed" x1="489" y1="432" x2="848" y2="594" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffd0a6" stop-opacity="0.65"/>
+      <stop offset="0.18" stop-color="#ffffff" stop-opacity="0.30"/>
+      <stop offset="0.50" stop-color="#ff7b57" stop-opacity="0.17"/>
+      <stop offset="1" stop-color="#fff1d6" stop-opacity="0.26"/>
+    </linearGradient>
+    <linearGradient id="digitShineBlue" x1="867" y1="434" x2="1038" y2="594" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d2fbff" stop-opacity="0.70"/>
+      <stop offset="0.42" stop-color="#ffffff" stop-opacity="0.24"/>
+      <stop offset="1" stop-color="#88eaff" stop-opacity="0.45"/>
+    </linearGradient>
+    <filter id="frameGlow" x="-42%" y="-70%" width="184%" height="240%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="15" result="blur1"/>
+      <feFlood flood-color="#ff1309" flood-opacity="0.76" result="red"/>
+      <feComposite in="red" in2="blur1" operator="in" result="glow1"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="40" result="blur2"/>
+      <feFlood flood-color="#ff1a0a" flood-opacity="0.35" result="red2"/>
+      <feComposite in="red2" in2="blur2" operator="in" result="glow2"/>
+      <feMerge>
+        <feMergeNode in="glow2"/>
+        <feMergeNode in="glow1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="redTextGlow" x="-45%" y="-90%" width="190%" height="280%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="8" result="b1"/>
+      <feFlood flood-color="#ff150a" flood-opacity="0.82" result="c1"/>
+      <feComposite in="c1" in2="b1" operator="in" result="g1"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="18" result="b2"/>
+      <feFlood flood-color="#ff1209" flood-opacity="0.30" result="c2"/>
+      <feComposite in="c2" in2="b2" operator="in" result="g2"/>
+      <feMerge>
+        <feMergeNode in="g2"/>
+        <feMergeNode in="g1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="blueTextGlow" x="-60%" y="-100%" width="220%" height="300%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="8" result="b1"/>
+      <feFlood flood-color="#07cfff" flood-opacity="0.90" result="c1"/>
+      <feComposite in="c1" in2="b1" operator="in" result="g1"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="24" result="b2"/>
+      <feFlood flood-color="#008eff" flood-opacity="0.34" result="c2"/>
+      <feComposite in="c2" in2="b2" operator="in" result="g2"/>
+      <feMerge>
+        <feMergeNode in="g2"/>
+        <feMergeNode in="g1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <ellipse cx="768" cy="513" rx="486" ry="308" fill="url(#redHalo)" opacity="0.82"/>
+  <ellipse cx="959" cy="520" rx="248" ry="176" fill="url(#blueHalo)" opacity="0.72"/>
+
+  <g id="cspr402-card-frame" filter="url(#frameGlow)">
+    <path d="M 720 357 L 472 357 C 421 357 405 407 405 512 C 405 617 421 667 472 667 L 720 667" fill="none" stroke="#8d0603" stroke-width="82" stroke-linecap="round" stroke-linejoin="round" opacity="0.52"/>
+    <path d="M 816 357 L 1064 357 C 1115 357 1131 407 1131 512 C 1131 617 1115 667 1064 667 L 816 667" fill="none" stroke="#8d0603" stroke-width="82" stroke-linecap="round" stroke-linejoin="round" opacity="0.52"/>
+    <path d="M 720 357 L 472 357 C 421 357 405 407 405 512 C 405 617 421 667 472 667 L 720 667" fill="none" stroke="url(#frameRed)" stroke-width="70" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M 816 357 L 1064 357 C 1115 357 1131 407 1131 512 C 1131 617 1115 667 1064 667 L 816 667" fill="none" stroke="url(#frameRed)" stroke-width="70" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M 720 391 L 491 391 C 453 391 443 434 443 512 C 443 590 453 633 491 633 L 720 633" fill="none" stroke="#240302" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity="0.78"/>
+    <path d="M 816 391 L 1045 391 C 1083 391 1093 434 1093 512 C 1093 590 1083 633 1045 633 L 816 633" fill="none" stroke="#240302" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity="0.78"/>
+    <path d="M 720 357 L 472 357 C 421 357 405 407 405 512 C 405 617 421 667 472 667 L 720 667" fill="none" stroke="url(#frameGloss)" stroke-width="48" stroke-linecap="round" stroke-linejoin="round" opacity="0.42"/>
+    <path d="M 816 357 L 1064 357 C 1115 357 1131 407 1131 512 C 1131 617 1115 667 1064 667 L 816 667" fill="none" stroke="url(#frameGloss)" stroke-width="48" stroke-linecap="round" stroke-linejoin="round" opacity="0.42"/>
+    <path d="M 720 357 L 472 357 C 421 357 405 407 405 512 C 405 617 421 667 472 667 L 720 667" fill="none" stroke="#ff7041" stroke-width="3.7" stroke-linecap="round" stroke-linejoin="round" opacity="0.72"/>
+    <path d="M 816 357 L 1064 357 C 1115 357 1131 407 1131 512 C 1131 617 1115 667 1064 667 L 816 667" fill="none" stroke="#ff7041" stroke-width="3.7" stroke-linecap="round" stroke-linejoin="round" opacity="0.72"/>
+  </g>
+
+  <g id="digits-402" fill-rule="nonzero">
+    <path id="digit-4" d="M 597.225 533.607 L 597.225 486.533 Q 597.225 482.820 597.611 478.630 Q 597.996 474.441 598.767 469.842 L 534.034 533.607 L 597.225 533.607 Z M 660.080 533.607 L 660.080 550.604 Q 660.080 553.023 657.864 554.726 Q 655.649 556.395 651.603 556.395 L 634.216 556.395 L 634.216 594.000 L 597.225 594.000 L 597.225 556.395 L 504.894 556.395 Q 500.897 556.395 497.573 554.658 Q 494.250 552.921 493.479 550.059 L 489.000 535.038 L 593.806 435.746 L 634.216 435.746 L 634.216 533.607 L 660.080 533.607 Z" fill="url(#redDigit)" stroke="#140302" stroke-width="5.3" paint-order="stroke fill" filter="url(#redTextGlow)"/>
+    <path id="digit-0" d="M 847.962 514.873 Q 847.962 535.583 841.345 550.843 Q 834.727 566.103 823.059 576.083 Q 811.440 586.029 795.478 590.900 Q 779.565 595.737 761.178 595.737 Q 742.740 595.737 726.879 590.900 Q 711.067 586.029 699.550 576.083 Q 688.083 566.103 681.516 550.843 Q 675.000 535.583 675.000 514.873 Q 675.000 494.163 681.516 478.971 Q 688.083 463.745 699.550 453.765 Q 711.067 443.784 726.879 438.947 Q 742.740 434.111 761.178 434.111 Q 779.565 434.111 795.478 438.947 Q 811.440 443.784 823.059 453.765 Q 834.727 463.745 841.345 478.971 Q 847.962 494.163 847.962 514.873 Z M 801.893 514.873 Q 801.893 498.080 798.407 487.180 Q 794.922 476.280 789.264 469.978 Q 783.607 463.643 776.231 461.156 Q 768.907 458.636 761.178 458.636 Q 753.399 458.636 746.175 461.156 Q 739.002 463.643 733.395 469.978 Q 727.838 476.280 724.454 487.180 Q 721.069 498.080 721.069 514.873 Q 721.069 531.768 724.454 542.668 Q 727.838 553.568 733.395 559.903 Q 739.002 566.205 746.175 568.726 Q 753.399 571.212 761.178 571.212 Q 768.907 571.212 776.231 568.726 Q 783.607 566.205 789.264 559.903 Q 794.922 553.568 798.407 542.668 Q 801.893 531.768 801.893 514.873 Z" fill="url(#zeroDigit)" stroke="#140302" stroke-width="5.3" paint-order="stroke fill" filter="url(#redTextGlow)"/>
+    <path id="digit-2" d="M 1020.844 566.409 Q 1028.451 566.409 1032.731 569.134 Q 1037.063 571.859 1037.063 576.356 L 1037.063 594.000 L 867.000 594.000 L 867.000 584.190 Q 867.000 581.363 868.849 578.059 Q 870.698 574.721 875.083 571.996 L 947.779 524.989 Q 957.077 518.994 964.156 513.510 Q 971.288 507.992 975.990 502.712 Q 980.745 497.433 983.122 491.983 Q 985.500 486.533 985.500 480.538 Q 985.500 469.944 977.047 464.460 Q 968.594 458.942 953.220 458.942 Q 946.458 458.942 940.752 460.202 Q 935.099 461.463 930.608 463.643 Q 926.171 465.823 922.948 468.786 Q 919.725 471.716 918.193 475.190 Q 915.182 480.640 910.004 482.445 Q 904.880 484.251 895.370 483.263 L 870.698 480.436 Q 873.393 468.854 880.842 460.134 Q 888.291 451.414 899.438 445.658 Q 910.586 439.867 924.956 437.006 Q 939.326 434.111 955.914 434.111 Q 973.349 434.111 987.613 437.449 Q 1001.877 440.753 1012.021 446.714 Q 1022.164 452.641 1027.765 461.020 Q 1033.365 469.399 1033.365 479.550 Q 1033.365 488.270 1029.455 495.696 Q 1025.546 503.087 1018.889 509.798 Q 1012.232 516.508 1003.409 522.843 Q 994.640 529.145 984.813 535.583 L 932.775 569.918 Q 941.386 568.283 949.839 567.363 Q 958.292 566.409 965.741 566.409 L 1020.844 566.409 Z" fill="url(#blueDigit)" stroke="#061014" stroke-width="5.3" paint-order="stroke fill" filter="url(#blueTextGlow)"/>
+    <path id="digit-4-shine" d="M 597.225 533.607 L 597.225 486.533 Q 597.225 482.820 597.611 478.630 Q 597.996 474.441 598.767 469.842 L 534.034 533.607 L 597.225 533.607 Z M 660.080 533.607 L 660.080 550.604 Q 660.080 553.023 657.864 554.726 Q 655.649 556.395 651.603 556.395 L 634.216 556.395 L 634.216 594.000 L 597.225 594.000 L 597.225 556.395 L 504.894 556.395 Q 500.897 556.395 497.573 554.658 Q 494.250 552.921 493.479 550.059 L 489.000 535.038 L 593.806 435.746 L 634.216 435.746 L 634.216 533.607 L 660.080 533.607 Z" fill="none" stroke="url(#digitShineRed)" stroke-width="2.2" opacity="0.80"/>
+    <path id="digit-0-shine" d="M 847.962 514.873 Q 847.962 535.583 841.345 550.843 Q 834.727 566.103 823.059 576.083 Q 811.440 586.029 795.478 590.900 Q 779.565 595.737 761.178 595.737 Q 742.740 595.737 726.879 590.900 Q 711.067 586.029 699.550 576.083 Q 688.083 566.103 681.516 550.843 Q 675.000 535.583 675.000 514.873 Q 675.000 494.163 681.516 478.971 Q 688.083 463.745 699.550 453.765 Q 711.067 443.784 726.879 438.947 Q 742.740 434.111 761.178 434.111 Q 779.565 434.111 795.478 438.947 Q 811.440 443.784 823.059 453.765 Q 834.727 463.745 841.345 478.971 Q 847.962 494.163 847.962 514.873 Z M 801.893 514.873 Q 801.893 498.080 798.407 487.180 Q 794.922 476.280 789.264 469.978 Q 783.607 463.643 776.231 461.156 Q 768.907 458.636 761.178 458.636 Q 753.399 458.636 746.175 461.156 Q 739.002 463.643 733.395 469.978 Q 727.838 476.280 724.454 487.180 Q 721.069 498.080 721.069 514.873 Q 721.069 531.768 724.454 542.668 Q 727.838 553.568 733.395 559.903 Q 739.002 566.205 746.175 568.726 Q 753.399 571.212 761.178 571.212 Q 768.907 571.212 776.231 568.726 Q 783.607 566.205 789.264 559.903 Q 794.922 553.568 798.407 542.668 Q 801.893 531.768 801.893 514.873 Z" fill="none" stroke="url(#digitShineRed)" stroke-width="2.2" opacity="0.62"/>
+    <path id="digit-2-shine" d="M 1020.844 566.409 Q 1028.451 566.409 1032.731 569.134 Q 1037.063 571.859 1037.063 576.356 L 1037.063 594.000 L 867.000 594.000 L 867.000 584.190 Q 867.000 581.363 868.849 578.059 Q 870.698 574.721 875.083 571.996 L 947.779 524.989 Q 957.077 518.994 964.156 513.510 Q 971.288 507.992 975.990 502.712 Q 980.745 497.433 983.122 491.983 Q 985.500 486.533 985.500 480.538 Q 985.500 469.944 977.047 464.460 Q 968.594 458.942 953.220 458.942 Q 946.458 458.942 940.752 460.202 Q 935.099 461.463 930.608 463.643 Q 926.171 465.823 922.948 468.786 Q 919.725 471.716 918.193 475.190 Q 915.182 480.640 910.004 482.445 Q 904.880 484.251 895.370 483.263 L 870.698 480.436 Q 873.393 468.854 880.842 460.134 Q 888.291 451.414 899.438 445.658 Q 910.586 439.867 924.956 437.006 Q 939.326 434.111 955.914 434.111 Q 973.349 434.111 987.613 437.449 Q 1001.877 440.753 1012.021 446.714 Q 1022.164 452.641 1027.765 461.020 Q 1033.365 469.399 1033.365 479.550 Q 1033.365 488.270 1029.455 495.696 Q 1025.546 503.087 1018.889 509.798 Q 1012.232 516.508 1003.409 522.843 Q 994.640 529.145 984.813 535.583 L 932.775 569.918 Q 941.386 568.283 949.839 567.363 Q 958.292 566.409 965.741 566.409 L 1020.844 566.409 Z" fill="none" stroke="url(#digitShineBlue)" stroke-width="2.2" opacity="0.84"/>
+  </g>
+</svg>

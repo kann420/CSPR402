@@ -1,0 +1,25 @@
+{
+  "name": "video",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "remotion studio",
+    "render": "remotion render src/index.ts CSPR402Release out/cspr402-release.mp4",
+    "render:square": "remotion render src/index.ts CSPR402Release out/cspr402-release-square.mp4 --width=1080 --height=1080",
+    "still": "remotion still src/index.ts CSPR402Release out/poster.png",
+    "upgrade": "remotion upgrade"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.484",
+    "@remotion/google-fonts": "^4.0.484",
+    "@remotion/shapes": "^4.0.484",
+    "react": "19.2.5",
+    "react-dom": "19.2.5",
+    "remotion": "^4.0.484"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "typescript": "6.0.3"
+  }
+}

@@ -1,6 +1,7 @@
 # Buy VCC
 
-Purchase a prepaid Visa virtual card via cards402.com.
+Purchase a simulated virtual card via cspr402.xyz by paying with CSPR (or
+mockUSDC) on Casper testnet.
 
 ## Usage
 
@@ -10,22 +11,22 @@ Purchase a prepaid Visa virtual card via cards402.com.
 
 When invoked:
 
-1. Check if `CARDS402_API_KEY` and `OWS_WALLET_NAME` are set. If not, explain:
-   - `CARDS402_API_KEY` — get one at cards402.com
-   - `OWS_WALLET_NAME` — the OWS wallet identifier; run `setup_wallet` (MCP) or:
+1. Check if `CARDS402_API_KEY` and `CSPR402_AGENT_NAME` are set. If not, explain:
+   - `CARDS402_API_KEY` — get one at cspr402.xyz
+   - `CSPR402_AGENT_NAME` — the agent label; run `setup_wallet` (MCP) or:
      ```typescript
-     import { createOWSWallet } from 'cards402';
-     const { publicKey } = createOWSWallet(process.env.OWS_WALLET_NAME!);
-     // Fund publicKey with XLM and USDC, then come back
+     import { setupCasperAgent } from 'cspr402';
+     const address = setupCasperAgent(process.env.CSPR402_AGENT_NAME!);
+     // Fund address with testnet CSPR, then come back
      ```
 
-2. Ask what amount they want (default $10 if not specified) and whether to pay with USDC or XLM.
+2. Ask what amount they want (default $10 if not specified) and whether to pay with native CSPR or mockUSDC (CEP-18).
 
 3. Before purchasing, check the budget:
 
    ```typescript
-   import { Cards402Client } from 'cards402';
-   const client = new Cards402Client({ apiKey: process.env.CARDS402_API_KEY! });
+   import { CSPR402Client } from 'cspr402';
+   const client = new CSPR402Client({ apiKey: process.env.CARDS402_API_KEY! });
    const usage = await client.getUsage();
    ```
 
@@ -34,27 +35,27 @@ When invoked:
 4. Purchase the card:
 
    ```typescript
-   import { purchaseCardOWS } from 'cards402';
+   import { purchaseCardCasper } from 'cspr402';
 
-   const card = await purchaseCardOWS({
+   const card = await purchaseCardCasper({
      apiKey: process.env.CARDS402_API_KEY!,
-     walletName: process.env.OWS_WALLET_NAME!,
-     passphrase: process.env.OWS_WALLET_PASSPHRASE,
-     vaultPath: process.env.OWS_VAULT_PATH,
+     agentName: process.env.CSPR402_AGENT_NAME!,
+     passphrase: process.env.CSPR402_AGENT_PASSPHRASE,
+     keyPath: process.env.CSPR402_KEY_PATH,
      amountUsdc: '10.00', // or whatever the user requested
-     paymentAsset: 'usdc', // or 'xlm'
+     paymentAsset: 'cspr', // or 'mock_usdc'
    });
    ```
 
 5. Display the card details:
 
    ```
-   ✅ Virtual Visa Card Ready
+   ✅ Mock Virtual Card Ready
 
    Number: XXXX XXXX XXXX XXXX
    CVV:    XXX
    Expiry: XX/XX
-   Brand:  Visa
+   Brand:  Visa (mock)
 
    Order: <order_id>
    ```
@@ -73,11 +74,11 @@ When invoked:
 
    If there is no limit, say "no limit set".
 
-7. Remind the user this is a one-time use virtual card.
+7. Remind the user this is a one-time use mock virtual card for the Casper testnet demo.
 
 ## Environment variables needed
 
-- `CARDS402_API_KEY` — your cards402 API key (get one at cards402.com)
-- `OWS_WALLET_NAME` — OWS wallet identifier (must be funded with USDC or XLM)
-- `OWS_WALLET_PASSPHRASE` — wallet encryption passphrase (optional)
-- `OWS_VAULT_PATH` — vault file path (optional, default: `~/.ows/vault`)
+- `CARDS402_API_KEY` — your CSPR402 API key (get one at cspr402.xyz)
+- `CSPR402_AGENT_NAME` — agent label (must be funded with testnet CSPR or mockUSDC)
+- `CSPR402_AGENT_PASSPHRASE` — agent key encryption passphrase (optional)
+- `CSPR402_KEY_PATH` — agent key file path (optional, default: cspr402 config dir)

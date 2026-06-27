@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ogForPage, twitterForPage } from '@/app/lib/seo';
 
-const POST_URL = 'https://cards402.com/blog/what-we-found-auditing-our-own-code';
+const POST_URL = 'https://cspr402.xyz/blog/what-we-found-auditing-our-own-code';
 const POST_DATE = '2026-04-16';
 
 export const metadata: Metadata = {
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     '~95 commits in two days: treasury-loss races, silent auth bypasses, circuit breaker defeats, and 550 new tests. A walkthrough of the worst bugs and the patterns they share.',
   alternates: { canonical: POST_URL },
   openGraph: ogForPage({
-    title: 'What we found auditing our own code — Cards402',
+    title: 'What we found auditing our own code — CSPR402',
     description:
       '~95 commits in two days: treasury-loss races, auth bypasses, circuit breaker defeats, and 550 new tests.',
     path: '/blog/what-we-found-auditing-our-own-code',
@@ -35,23 +35,23 @@ const blogJsonLd = {
   dateModified: POST_DATE,
   author: {
     '@type': 'Organization',
-    name: 'Cards402',
-    url: 'https://cards402.com',
+    name: 'CSPR402',
+    url: 'https://cspr402.xyz',
   },
   publisher: {
     '@type': 'Organization',
-    name: 'Cards402',
-    logo: { '@type': 'ImageObject', url: 'https://cards402.com/icon.png' },
+    name: 'CSPR402',
+    logo: { '@type': 'ImageObject', url: 'https://cspr402.xyz/icon.png' },
   },
-  image: 'https://cards402.com/opengraph-image',
-  keywords: 'security audit, sqlite, stellar, soroban, defense in depth',
+  image: 'https://cspr402.xyz/opengraph-image',
+  keywords: 'security audit, sqlite, casper, cspr, defense in depth',
 };
 
 const breadcrumbJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'BreadcrumbList',
   itemListElement: [
-    { '@type': 'ListItem', position: 1, name: 'Blog', item: 'https://cards402.com/blog' },
+    { '@type': 'ListItem', position: 1, name: 'Blog', item: 'https://cspr402.xyz/blog' },
     {
       '@type': 'ListItem',
       position: 2,
@@ -139,13 +139,13 @@ export default function BlogPost() {
             <span>·</span>
             <span>12 min read</span>
             <span>·</span>
-            <span>by Cards402 engineering</span>
+            <span>by CSPR402 engineering</span>
           </div>
         </header>
 
         <div className="post-body">
           <p className="lede">
-            We ran a systematic adversarial audit of the entire Cards402 codebase over two days.
+            We ran a systematic adversarial audit of the entire CSPR402 codebase over two days.
             Every source file in the backend, every security-critical module in the SDK, the web
             frontend. ~95 commits. The backend test suite went from 488 to 1,038. Here is what we
             found, why it was there, and the three patterns that kept recurring.
@@ -190,7 +190,7 @@ export default function BlogPost() {
             in <code>order.excess_usdc</code>. But the refund path sent only{' '}
             <code>order.amount_usdc</code> &mdash; the quoted amount. Every failed overpaid order
             silently kept the excess. The fix sums both columns in BigInt stroop precision
-            (Stellar&rsquo;s native 7-decimal representation) and refunds the total.
+            (Casper&rsquo;s native 7-decimal representation) and refunds the total.
           </p>
 
           <h3 style={s.h3}>3. API key that never expires</h3>
@@ -204,15 +204,15 @@ export default function BlogPost() {
 
           <h3 style={s.h3}>4. Hardcoded mainnet URLs and issuers</h3>
           <p>
-            The funding-check poller, the Soroban <code>submitSorobanTx</code> Horizon fallback, and
-            the <code>getOWSBalance</code> helper all had the Circle mainnet USDC issuer and Horizon
-            URL hardcoded instead of reading from the environment. Cards402 runs on mainnet in both
-            production and development, so this wasn&rsquo;t causing live failures &mdash; but the
-            code was fragile: if anyone ever deployed against testnet for integration testing, USDC
-            funding detection would silently break and the SDK&rsquo;s Horizon fallback would return
-            false &ldquo;dropped&rdquo; signals. We made all three env-configurable for consistency
-            with the rest of the codebase (which already reads <code>STELLAR_USDC_ISSUER</code> and{' '}
-            <code>STELLAR_NETWORK</code> from env).
+            The funding-check poller, the Casper <code>submitSorobanTx</code> Casper RPC fallback,
+            and the <code>getOWSBalance</code> helper all had the Circle mainnet USDC issuer and
+            Casper RPC URL hardcoded instead of reading from the environment. CSPR402 runs on
+            mainnet in both production and development, so this wasn&rsquo;t causing live failures
+            &mdash; but the code was fragile: if anyone ever deployed against testnet for
+            integration testing, USDC funding detection would silently break and the SDK&rsquo;s
+            Casper RPC fallback would return false &ldquo;dropped&rdquo; signals. We made all three
+            env-configurable for consistency with the rest of the codebase (which already reads{' '}
+            <code>STELLAR_USDC_ISSUER</code> and <code>STELLAR_NETWORK</code> from env).
           </p>
 
           <h2 style={s.h2}>Three recurring patterns</h2>
@@ -297,7 +297,7 @@ export default function BlogPost() {
           <p>
             This was a source-code audit, not a pentest. We didn&rsquo;t test the live deployment
             (infrastructure, TLS termination, Cloudflare rules, DNS), the VCC scraper service
-            (separate codebase), the Soroban receiver contract (needs a specialist cryptographic
+            (separate codebase), the Casper receiver contract (needs a specialist cryptographic
             review), or dependency supply-chain integrity. We also didn&rsquo;t load-test the SQLite
             write path under genuine multi-connection pressure &mdash; we added{' '}
             <code>PRAGMA busy_timeout</code> to close the obvious gap, but the real proof requires

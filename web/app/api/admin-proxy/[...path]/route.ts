@@ -1,4 +1,4 @@
-// /api/admin-proxy/[...path] — forwards admin UI calls to the cards402
+// /api/admin-proxy/[...path] — forwards admin UI calls to the CSPR402
 // backend with the Bearer token injected server-side. The browser never holds
 // the token; it only has an HttpOnly signed cookie that this route verifies.
 //

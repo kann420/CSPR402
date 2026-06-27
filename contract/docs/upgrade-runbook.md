@@ -1,5 +1,10 @@
 # Contract upgrade runbook
 
+> **LEGACY — upstream Stellar/Soroban reference contract, not used by the
+> CSPR402 Casper MVP.** The active CSPR402 payment path has no on-chain
+> contract. This runbook covers the legacy Soroban receiver contract only
+> and is retained as reference material slated for removal.
+
 The Soroban receiver contract at `RECEIVER_CONTRACT_ID` supports admin-gated
 upgrades. This doc covers how to upgrade, and how to burn the admin key to
 make the contract immutable.

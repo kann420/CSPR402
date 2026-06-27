@@ -1,6 +1,6 @@
-# cards402 — Web frontend
+# CSPR402 — Web frontend
 
-Next.js 16 app for [cards402.com](https://cards402.com). Marketing site, API docs, and admin dashboard.
+Next.js 16 app for [cspr402.xyz](https://cspr402.xyz). Marketing site, API docs, and admin dashboard.
 
 ## Development
 
@@ -13,9 +13,9 @@ npm run lint              # ESLint (run from monorepo root)
 
 ## Environment variables
 
-| Variable                   | Required        | Description                                           |
-| -------------------------- | --------------- | ----------------------------------------------------- |
-| `NEXT_PUBLIC_API_BASE_URL` | Production only | Backend API base URL, e.g. `https://api.cards402.com` |
+| Variable                   | Required        | Description                                          |
+| -------------------------- | --------------- | ---------------------------------------------------- |
+| `NEXT_PUBLIC_API_BASE_URL` | Production only | Backend API base URL, e.g. `https://api.cspr402.xyz` |
 
 In development the dashboard defaults to `http://localhost:4000` for its API base.
 

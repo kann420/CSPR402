@@ -2,24 +2,24 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ogForPage, twitterForPage } from '@/app/lib/seo';
 
-const POST_URL = 'https://cards402.com/blog/non-custodial-card-issuance-on-soroban';
+const POST_URL = 'https://cspr402.xyz/blog/non-custodial-card-issuance-on-casper';
 const POST_DATE = '2026-04-14';
 
 export const metadata: Metadata = {
-  title: 'How we built non-custodial card issuance on Soroban',
+  title: 'How we built non-custodial card issuance on Casper',
   description:
-    'Why Cards402 agents pay the receiver contract directly on Stellar, and how the backend watches on-chain events instead of touching customer funds.',
+    'Why CSPR402 agents pay the receiver contract directly on Casper, and how the backend watches on-chain events instead of touching customer funds.',
   alternates: { canonical: POST_URL },
   openGraph: ogForPage({
-    title: 'How we built non-custodial card issuance on Soroban — Cards402',
+    title: 'How we built non-custodial card issuance on Casper — CSPR402',
     description:
-      'Agents pay a Soroban receiver contract directly. Cards402 observes on-chain events and brokers fulfilment — funds never pass through our wallets.',
-    path: '/blog/non-custodial-card-issuance-on-soroban',
+      'Agents pay a Casper receiver contract directly. CSPR402 observes on-chain events and brokers fulfilment — funds never pass through our wallets.',
+    path: '/blog/non-custodial-card-issuance-on-casper',
   }),
   twitter: twitterForPage({
-    title: 'How we built non-custodial card issuance on Soroban',
+    title: 'How we built non-custodial card issuance on Casper',
     description:
-      'Agents pay the receiver contract directly. Cards402 watches on-chain events and brokers fulfilment.',
+      'Agents pay the receiver contract directly. CSPR402 watches on-chain events and brokers fulfilment.',
   }),
 };
 
@@ -28,19 +28,19 @@ const blogJsonLd = {
   '@type': 'BlogPosting',
   '@id': POST_URL,
   mainEntityOfPage: POST_URL,
-  headline: 'How we built non-custodial card issuance on Soroban',
+  headline: 'How we built non-custodial card issuance on Casper',
   description:
-    'Why Cards402 agents pay the receiver contract directly on Stellar, and how the backend watches on-chain events instead of touching customer funds.',
+    'Why CSPR402 agents pay the receiver contract directly on Casper, and how the backend watches on-chain events instead of touching customer funds.',
   datePublished: POST_DATE,
   dateModified: POST_DATE,
-  author: { '@type': 'Organization', name: 'Cards402', url: 'https://cards402.com' },
+  author: { '@type': 'Organization', name: 'CSPR402', url: 'https://cspr402.xyz' },
   publisher: {
     '@type': 'Organization',
-    name: 'Cards402',
-    logo: { '@type': 'ImageObject', url: 'https://cards402.com/icon.png' },
+    name: 'CSPR402',
+    logo: { '@type': 'ImageObject', url: 'https://cspr402.xyz/icon.png' },
   },
-  image: 'https://cards402.com/opengraph-image',
-  keywords: 'stellar, soroban, non-custodial, architecture, receiver contract, watcher',
+  image: 'https://cspr402.xyz/opengraph-image',
+  keywords: 'casper, cspr, non-custodial, architecture, receiver contract, watcher',
 };
 
 const breadcrumbJsonLd = {
@@ -51,12 +51,12 @@ const breadcrumbJsonLd = {
       '@type': 'ListItem',
       position: 1,
       name: 'Blog',
-      item: 'https://cards402.com/blog',
+      item: 'https://cspr402.xyz/blog',
     },
     {
       '@type': 'ListItem',
       position: 2,
-      name: 'How we built non-custodial card issuance on Soroban',
+      name: 'How we built non-custodial card issuance on Casper',
       item: POST_URL,
     },
   ],
@@ -98,7 +98,7 @@ export default function BlogPost() {
 
         <header style={{ marginBottom: '3rem' }}>
           <div className="type-eyebrow" style={{ color: 'var(--green)', marginBottom: '1rem' }}>
-            Architecture · Stellar + Soroban
+            Architecture · Casper
           </div>
           <h1
             className="type-display"
@@ -109,7 +109,7 @@ export default function BlogPost() {
               lineHeight: 0.98,
             }}
           >
-            How we built non-custodial card issuance on Soroban.
+            How we built non-custodial card issuance on Casper.
           </h1>
           <div
             style={{
@@ -131,18 +131,18 @@ export default function BlogPost() {
             <span>·</span>
             <span>10 min read</span>
             <span>·</span>
-            <span>by Cards402 engineering</span>
+            <span>by CSPR402 engineering</span>
           </div>
         </header>
 
         <div className="post-body">
           <p className="lede">
-            The first version of Cards402 was custodial. An agent would send USDC to a
-            Cards402-controlled Stellar wallet, the backend would watch the ledger for deposits,
-            match them to an open order, and fulfil the card. Simple, well-understood, and wrong for
-            the use case. This post is the walk-through of how and why we moved to a Soroban
-            receiver contract the agents pay directly — with no intermediate custody at any point in
-            the flow.
+            The first version of CSPR402 was custodial. An agent would send USDC to a
+            CSPR402-controlled Casper wallet, the backend would watch the ledger for deposits, match
+            them to an open order, and fulfil the card. Simple, well-understood, and wrong for the
+            use case. This post is the walk-through of how and why we moved to a Casper receiver
+            contract the agents pay directly — with no intermediate custody at any point in the
+            flow.
           </p>
 
           <h2>The problem with custodial card issuance</h2>
@@ -170,16 +170,16 @@ export default function BlogPost() {
             that&rdquo; is not a security property.
           </p>
 
-          <h2>What Soroban changes</h2>
+          <h2>What Casper changes</h2>
           <p>
-            Soroban is Stellar&apos;s smart-contract layer. The primitives it gives us that standard
-            Stellar payments don&apos;t:
+            Casper&apos;s smart-contract layer gives us primitives that standard CSPR payments
+            don&apos;t:
           </p>
 
           <ul>
             <li>
-              A contract can accept native XLM or any Stellar Asset Contract (SAC) token as part of
-              its invocation parameters.
+              A contract can accept native CSPR or any Casper token standard as part of its
+              invocation parameters.
             </li>
             <li>
               Contract events are emitted on every invocation and are replayable from ledger state.
@@ -188,21 +188,21 @@ export default function BlogPost() {
             </li>
             <li>
               Events carry structured topics. We can tag every deposit with the{' '}
-              <code>order_id</code> so the backend knows exactly which Cards402 order the deposit
+              <code>order_id</code> so the backend knows exactly which CSPR402 order the deposit
               belongs to — no heuristics, no memo field parsing, no timing windows to reconcile.
             </li>
           </ul>
 
           <h2>The receiver contract</h2>
-          <p>The Cards402 receiver contract has two entry points:</p>
+          <p>The CSPR402 receiver contract has two entry points:</p>
 
           <ul>
             <li>
-              <code>pay_usdc(order_id, amount)</code> — accepts USDC via a SAC transfer and emits a{' '}
-              <code>pay_usdc</code> event tagged with the order id.
+              <code>pay_usdc(order_id, amount)</code> — accepts USDC via a token transfer and emits
+              a <code>pay_usdc</code> event tagged with the order id.
             </li>
             <li>
-              <code>pay_xlm(order_id, amount)</code> — same shape, accepts native XLM.
+              <code>pay_cspr(order_id, amount)</code> — same shape, accepts native CSPR.
             </li>
           </ul>
 
@@ -210,14 +210,14 @@ export default function BlogPost() {
             There&apos;s no <code>withdraw</code>. There&apos;s no <code>owner</code>. There&apos;s
             no upgrade path. The contract holds funds only for as long as it takes the backend to
             pull them out into the treasury wallet — and the backend has no special authority over
-            the contract beyond what any Stellar address has. If the backend disappeared tomorrow,
+            the contract beyond what any Casper address has. If the backend disappeared tomorrow,
             the deposits sitting in the contract would remain exactly where they are, attributable
             to their order ids, recoverable via any ledger-reading tool.
           </p>
 
           <p>
             When an agent calls <code>pay_usdc()</code>, three things happen atomically in a single
-            Stellar transaction:
+            Casper transaction:
           </p>
 
           <ol>
@@ -237,14 +237,14 @@ export default function BlogPost() {
           <h2>The watcher</h2>
           <p>
             The watcher is a small Node.js process that streams events from the receiver contract
-            via the Soroban RPC. We&apos;d looked at bridging through Horizon first — classic
-            Stellar payment events — but Soroban contract events are a richer primitive: they carry
+            via the Casper RPC. We&apos;d looked at bridging through a legacy RPC first — classic
+            Casper payment events — but Casper contract events are a richer primitive: they carry
             the structured topics we use for order routing, and they&apos;re replayable from any
             ledger height.
           </p>
 
           <p>
-            For every <code>pay_usdc</code> or <code>pay_xlm</code> event, the watcher:
+            For every <code>pay_usdc</code> or <code>pay_cspr</code> event, the watcher:
           </p>
 
           <ol>
@@ -252,12 +252,12 @@ export default function BlogPost() {
               Parses the order id out of <code>topic[1]</code>.
             </li>
             <li>
-              Looks up the matching Cards402 order row. If the order doesn&apos;t exist, we push the
+              Looks up the matching CSPR402 order row. If the order doesn&apos;t exist, we push the
               event to an <code>unmatched_payments</code> queue for manual review — that queue has
               been used exactly once in production, and it was a test payment.
             </li>
             <li>
-              Compares the deposited amount to the quoted amount. USDC is an exact match; XLM is
+              Compares the deposited amount to the quoted amount. USDC is an exact match; CSPR is
               checked against the quote captured at order creation. Amount mismatches also go to the
               unmatched queue — never auto-credited and never auto-refunded to a wrong address.
             </li>
@@ -271,7 +271,7 @@ export default function BlogPost() {
           <p>
             The critical property is that{' '}
             <strong>the watcher is a decoration, not a trust anchor.</strong> If the watcher crashes
-            for an hour and misses a bunch of events, the Soroban RPC still has them — the watcher
+            for an hour and misses a bunch of events, the Casper RPC still has them — the watcher
             catches up on restart by replaying from the last-processed ledger height. If the watcher
             is replaced tomorrow with a different implementation (say, a Rust rewrite), it
             doesn&apos;t matter: the ledger is the source of truth for every deposit.
@@ -287,11 +287,11 @@ export default function BlogPost() {
 
           <p>
             The answer is that{' '}
-            <strong>refunds are separate outbound Stellar payments, not reversed deposits</strong>.
+            <strong>refunds are separate outbound Casper payments, not reversed deposits</strong>.
             When an order fails, the backend moves it to <code>refund_pending</code>, looks up the
-            agent&apos;s sender address from the original event, and submits a new Stellar payment
-            from the Cards402 treasury wallet back to the agent. The refund transaction hash lands
-            on the order row as <code>refund.stellar_txid</code>, which any integrator can verify
+            agent&apos;s sender address from the original event, and submits a new Casper payment
+            from the CSPR402 treasury wallet back to the agent. The refund transaction hash lands on
+            the order row as <code>refund.cspr_txid</code>, which any integrator can verify
             on-chain.
           </p>
 
@@ -302,7 +302,7 @@ export default function BlogPost() {
             hold, and customers can verify live that we aren&apos;t over-committed. The balance is
             on-chain and public. We&apos;re considering a proof-of-reserves dashboard but
             haven&apos;t shipped it yet; for now, check{' '}
-            <Link href="/status">status.cards402.com</Link> and the security page for the treasury
+            <Link href="/status">status.cspr402.xyz</Link> and the security page for the treasury
             public key.
           </p>
 
@@ -315,9 +315,9 @@ export default function BlogPost() {
               take agent deposits onto our books at any point.
             </li>
             <li>
-              <strong>Ledger-verifiable history.</strong> Every agent interaction is a Stellar
+              <strong>Ledger-verifiable history.</strong> Every agent interaction is a Casper
               transaction. Any integrator can reconcile their own order history against the public
-              ledger without trusting Cards402 data at all.
+              ledger without trusting CSPR402 data at all.
             </li>
             <li>
               <strong>Graceful degradation.</strong> If the backend goes down mid-flight, the
@@ -326,7 +326,7 @@ export default function BlogPost() {
               would be slow.
             </li>
             <li>
-              <strong>Blast radius containment.</strong> A compromise of the Cards402 backend
+              <strong>Blast radius containment.</strong> A compromise of the CSPR402 backend
               can&apos;t drain agent wallets. The worst case is the treasury balance being spent
               against the wrong refund recipients — which is loud, on-chain, and bounded.
             </li>
@@ -337,12 +337,12 @@ export default function BlogPost() {
 
           <ul>
             <li>
-              <strong>Latency on the first ledger.</strong> A Stellar ledger closes every ~5
-              seconds. The custodial model had us batching deposits in seconds anyway, but the
+              <strong>Latency on the first ledger.</strong> A Casper block closes every ~5 seconds.
+              The custodial model had us batching deposits in seconds anyway, but the
               receiver-contract path gives us a hard 5s floor we can&apos;t reduce.
             </li>
             <li>
-              <strong>Gas overhead.</strong> Soroban contract invocations are pricier than native
+              <strong>Gas overhead.</strong> Casper contract invocations are pricier than native
               payments. The marginal cost to an agent is a fraction of a cent, but multiplied by a
               busy agent it adds up.
             </li>
@@ -361,24 +361,24 @@ export default function BlogPost() {
 
           <h2>Further reading</h2>
           <p>
-            If you want the actual on-chain details, the Soroban docs at{' '}
+            If you want the actual on-chain details, the Casper docs at{' '}
             <a
-              href="https://developers.stellar.org/docs/learn/smart-contract-internals/events"
+              href="https://docs.casper.network/concepts/design/standard-library"
               target="_blank"
               rel="noreferrer"
             >
-              developers.stellar.org
+              docs.casper.network
             </a>{' '}
-            cover the event model we rely on. The Cards402-side details are in{' '}
+            cover the event model we rely on. The CSPR402-side details are in{' '}
             <Link href="/docs">the API reference</Link> (specifically the &ldquo;Create order&rdquo;
             and &ldquo;Stream order&rdquo; sections), and the companion blog post{' '}
-            <Link href="/blog/anatomy-of-a-cards402-order">Anatomy of a Cards402 order</Link> walks
+            <Link href="/blog/anatomy-of-a-cspr402-order">Anatomy of a CSPR402 order</Link> walks
             through the full 33-second timeline in the other direction — from the agent&apos;s first
             API call through to the card landing.
           </p>
 
           <p>
-            Questions on this? Email <a href="mailto:api@cards402.com">api@cards402.com</a>. We read
+            Questions on this? Email <a href="mailto:api@cspr402.xyz">api@cspr402.xyz</a>. We read
             every one.
           </p>
         </div>

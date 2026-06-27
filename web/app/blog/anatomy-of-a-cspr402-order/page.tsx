@@ -2,21 +2,21 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ogForPage, twitterForPage } from '@/app/lib/seo';
 
-const POST_URL = 'https://cards402.com/blog/anatomy-of-a-cards402-order';
+const POST_URL = 'https://cspr402.xyz/blog/anatomy-of-a-cspr402-order';
 const POST_DATE = '2026-04-14';
 
 export const metadata: Metadata = {
-  title: 'Anatomy of a Cards402 order',
+  title: 'Anatomy of a CSPR402 order',
   description:
     'Every millisecond of the 33-second path from purchaseCardOWS() to PAN in hand: payment, watcher, Stage 1 + 2 fulfilment, SSE event.',
   alternates: { canonical: POST_URL },
   openGraph: ogForPage({
-    title: 'Anatomy of a Cards402 order — Cards402',
+    title: 'Anatomy of a CSPR402 order — CSPR402',
     description: 'Every millisecond of the 33-second path from purchaseCard() to PAN-in-hand.',
-    path: '/blog/anatomy-of-a-cards402-order',
+    path: '/blog/anatomy-of-a-cspr402-order',
   }),
   twitter: twitterForPage({
-    title: 'Anatomy of a Cards402 order',
+    title: 'Anatomy of a CSPR402 order',
     description: 'Every millisecond of the 33-second path from purchaseCard() to PAN-in-hand.',
   }),
 };
@@ -30,25 +30,25 @@ const blogJsonLd = {
   '@type': 'BlogPosting',
   '@id': POST_URL,
   mainEntityOfPage: POST_URL,
-  headline: 'Anatomy of a Cards402 order',
+  headline: 'Anatomy of a CSPR402 order',
   description: 'Every millisecond of the 33-second path from agent.purchaseCard() to PAN-in-hand.',
   datePublished: POST_DATE,
   dateModified: POST_DATE,
   author: {
     '@type': 'Organization',
-    name: 'Cards402',
-    url: 'https://cards402.com',
+    name: 'CSPR402',
+    url: 'https://cspr402.xyz',
   },
   publisher: {
     '@type': 'Organization',
-    name: 'Cards402',
+    name: 'CSPR402',
     logo: {
       '@type': 'ImageObject',
-      url: 'https://cards402.com/icon.png',
+      url: 'https://cspr402.xyz/icon.png',
     },
   },
-  image: 'https://cards402.com/opengraph-image',
-  keywords: 'stellar, soroban, card issuance, sse, fulfilment pipeline',
+  image: 'https://cspr402.xyz/opengraph-image',
+  keywords: 'casper, cspr, card issuance, sse, fulfilment pipeline',
 };
 
 // Breadcrumb JSON-LD for the post URL.
@@ -60,12 +60,12 @@ const breadcrumbJsonLd = {
       '@type': 'ListItem',
       position: 1,
       name: 'Blog',
-      item: 'https://cards402.com/blog',
+      item: 'https://cspr402.xyz/blog',
     },
     {
       '@type': 'ListItem',
       position: 2,
-      name: 'Anatomy of a Cards402 order',
+      name: 'Anatomy of a CSPR402 order',
       item: POST_URL,
     },
   ],
@@ -82,31 +82,31 @@ const TIMELINE: Array<{ t: string; phase: string; detail: string }> = [
     t: '~80 ms',
     phase: 'Order row inserted',
     detail:
-      'Backend allocates an order_id, persists the intent in SQLite, and returns the Soroban receiver contract + USDC/XLM quote.',
+      'Backend allocates an order_id, persists the intent in SQLite, and returns the Casper receiver contract + USDC/CSPR quote.',
   },
   {
     t: '~200 ms',
     phase: 'Quote fetched',
     detail:
-      'The XLM leg is priced via a live oracle read; USDC is always 1:1. The response is sent back before the watcher even knows the order exists.',
+      'The CSPR leg is priced via a live oracle read; USDC is always 1:1. The response is sent back before the watcher even knows the order exists.',
   },
   {
     t: '~250 ms',
     phase: 'SDK signs the payment',
     detail:
-      'OWS vault decrypts the Stellar secret in-memory, builds the contract invocation (pay_usdc or pay_xlm), and submits via the Soroban RPC.',
+      'Casper wallet vault decrypts the Casper secret in-memory, builds the contract invocation (pay_usdc or pay_cspr), and submits via the Casper RPC.',
   },
   {
     t: '~5 s',
-    phase: 'Stellar ledger commit',
+    phase: 'Casper block commit',
     detail:
-      "Average ledger close time on mainnet. The Stellar RPC returns the txHash as soon as it's committed.",
+      "Average block close time on mainnet. The Casper RPC returns the txHash as soon as it's committed.",
   },
   {
     t: '~5.1 s',
     phase: 'Watcher event',
     detail:
-      'Our Soroban watcher subscribes to the receiver contract and fires on the deposit event. The event carries the order_id as a topic, so we know exactly which order it belongs to.',
+      'Our Casper watcher subscribes to the receiver contract and fires on the deposit event. The event carries the order_id as a topic, so we know exactly which order it belongs to.',
   },
   {
     t: '~5.2 s',
@@ -195,7 +195,7 @@ export default function BlogPost() {
               lineHeight: 0.98,
             }}
           >
-            Anatomy of a Cards402 order.
+            Anatomy of a CSPR402 order.
           </h1>
           <div
             style={{
@@ -217,7 +217,7 @@ export default function BlogPost() {
             <span>·</span>
             <span>8 min read</span>
             <span>·</span>
-            <span>by Cards402 engineering</span>
+            <span>by CSPR402 engineering</span>
           </div>
         </header>
 
@@ -225,7 +225,7 @@ export default function BlogPost() {
         <div className="post-body">
           <p className="lede">
             Every time an agent calls <code>purchaseCardOWS()</code>, it kicks off a ~33-second
-            chain of events that goes through a Stellar RPC, a Soroban smart contract, an event
+            chain of events that goes through a Casper RPC, a Casper smart contract, an event
             watcher, two stages of fulfilment against an upstream card supplier, and a Server-Sent
             Events stream before the PAN comes back. This post walks through every phase of that
             chain with the median timings we see in production today.
@@ -235,7 +235,7 @@ export default function BlogPost() {
             We&apos;re writing this because &ldquo;how does this actually work&rdquo; is the single
             most common question we get on integration calls — and because the chain is genuinely
             interesting. Payment rails don&apos;t usually have a 30-second end-to-end budget, and
-            the fact that Cards402 can hit that reliably is a function of every component in the
+            the fact that CSPR402 can hit that reliably is a function of every component in the
             chain being cooperative about latency.
           </p>
 
@@ -285,13 +285,13 @@ export default function BlogPost() {
             We&apos;ve never lost customer funds to a fulfilment failure. The worst case has always
             been &ldquo;order failed, refund queued, money on-chain again within a few
             minutes&rdquo;. The non-custodial architecture is what makes that possible: the agent
-            never handed us custody of the USDC or XLM in the first place, so a refund is just a
-            regular Stellar payment going the other way.
+            never handed us custody of the USDC or CSPR in the first place, so a refund is just a
+            regular Casper payment going the other way.
           </p>
 
           <h2>Why SSE and not polling</h2>
           <p>
-            When Cards402 launched, <code>GET /v1/orders/:id</code> was the only way to watch order
+            When CSPR402 launched, <code>GET /v1/orders/:id</code> was the only way to watch order
             state. It worked — poll every 3 seconds, eventually see{' '}
             <code>phase: &quot;ready&quot;</code> — but it was a bad fit for agent-facing clients.
             Every poll is a full HTTP round-trip; every round-trip is either too slow (if you back
@@ -331,10 +331,10 @@ export default function BlogPost() {
           </ul>
 
           <p>
-            If you&apos;re building on Cards402 and want to dig deeper, the full HTTP API reference
+            If you&apos;re building on CSPR402 and want to dig deeper, the full HTTP API reference
             is at <Link href="/docs">/docs</Link>, the 5-minute quickstart is at{' '}
             <Link href="/docs/quickstart">/docs/quickstart</Link>, and questions go to{' '}
-            <a href="mailto:api@cards402.com">api@cards402.com</a>.
+            <a href="mailto:api@cspr402.xyz">api@cspr402.xyz</a>.
           </p>
         </div>
 

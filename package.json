@@ -4,7 +4,8 @@
   "type": "module",
   "workspaces": [
     "web",
-    "sdk"
+    "sdk",
+    "video"
   ],
   "scripts": {
     "dev": "npm run dev -w web",

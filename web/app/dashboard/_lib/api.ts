@@ -33,7 +33,7 @@ async function json<T>(res: Response): Promise<T> {
 
 /**
  * Fetch a list endpoint that may return either a bare array or a
- * wrapped object like `{ key: [...] }`. The cards402 backend has
+ * wrapped object like `{ key: [...] }`. The CSPR402 backend has
  * historically used both shapes — `/dashboard/api-keys`,
  * `/dashboard/orders`, and `/dashboard/approval-requests` return bare
  * arrays, while every new Phase 3 endpoint wraps in an object.
@@ -291,10 +291,6 @@ export async function fetchPlatformDashboards(): Promise<PlatformDashboard[]> {
   return json(await fetch(`${PLATFORM_BASE}/dashboards`));
 }
 
-export async function fetchPlatformTreasury(): Promise<PlatformTreasury> {
-  return json(await fetch(`${PLATFORM_BASE}/treasury`));
-}
-
 export async function fetchPlatformWebhooks(): Promise<PlatformWebhooks> {
   return json(await fetch(`${PLATFORM_BASE}/webhooks`));
 }
@@ -413,6 +409,7 @@ export interface PlatformOverview {
   treasury: {
     public_key: string | null;
     xlm: string | null;
+    cspr?: string | null;
     usdc: string | null;
     error: string | null;
   };
@@ -505,24 +502,6 @@ export interface PlatformDashboard {
   order_count: number;
   orders_24h: number;
   delivered_volume_usd: number;
-}
-
-export interface PlatformTreasury {
-  balance: {
-    public_key: string | null;
-    xlm: string | null;
-    usdc: string | null;
-    error: string | null;
-  };
-  outflows: {
-    tx_hash: string;
-    created_at: string;
-    asset_type: string;
-    asset_code: string;
-    amount: string;
-    to: string;
-    type: string;
-  }[];
 }
 
 export interface PlatformWebhooks {

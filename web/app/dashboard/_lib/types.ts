@@ -156,7 +156,7 @@ export interface User {
 }
 
 export interface WalletBalance {
-  xlm: string;
+  cspr: string;
   usdc: string;
 }
 

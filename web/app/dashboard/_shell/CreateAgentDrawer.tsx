@@ -74,7 +74,9 @@ export function CreateAgentDrawer({ open, onClose }: Props) {
     if (!liveAgent) return 'waiting';
     const state = liveAgent.agent?.state ?? 'minted';
     const wallet = liveAgent.agent?.wallet_public_key ?? liveAgent.wallet_public_key ?? null;
-    const hasFunds = balance ? parseFloat(balance.xlm) >= 1 || parseFloat(balance.usdc) > 0 : false;
+    const hasFunds = balance
+      ? parseFloat(balance.cspr) >= 1 || parseFloat(balance.usdc) > 0
+      : false;
     if (state === 'active') return 'active';
     if (hasFunds && wallet) return 'funded';
     if (state === 'awaiting_funding' && wallet) return 'awaiting_deposit';
@@ -279,7 +281,7 @@ export function CreateAgentDrawer({ open, onClose }: Props) {
             <StepRow
               state={stepState(step, 'funded')}
               title="Funded"
-              detail={balance ? `${parseFloat(balance.xlm).toFixed(2)} CSPR testnet` : undefined}
+              detail={balance ? `${parseFloat(balance.cspr).toFixed(2)} CSPR testnet` : undefined}
             />
             <StepRow state={stepState(step, 'active')} title="Active" />
           </div>

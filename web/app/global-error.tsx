@@ -59,14 +59,14 @@ export default function GlobalError({ error }: { error: Error & { digest?: strin
             The page failed before our regular error handler could recover. This is our fault;
             we&apos;ve logged it. Email{' '}
             <a
-              href="mailto:support@cards402.com"
+              href="mailto:support@cspr402.xyz"
               style={{
                 color: '#f4f4f4',
                 textDecoration: 'none',
                 borderBottom: '1px solid rgba(255, 122, 122, 0.4)',
               }}
             >
-              support@cards402.com
+              support@cspr402.xyz
             </a>{' '}
             if it keeps happening
             {error?.digest ? (

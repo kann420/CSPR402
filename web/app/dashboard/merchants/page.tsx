@@ -1,6 +1,6 @@
-// Merchants — card grid of the gift-card products cards402 has
+// Merchants — card grid of the gift-card products CSPR402 has
 // onboarded. Phase 3 exposes exactly the merchants the backend enables;
-// browsing the full upstream catalog is deferred until more merchants
+// browsing the full merchant catalog is deferred until more merchants
 // go live.
 
 'use client';

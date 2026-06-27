@@ -9,7 +9,7 @@
 //      route handlers, which read and verify the HMAC-signed
 //      cookie themselves.
 //
-//   2. status.cards402.com subdomain — everything under this host
+//   2. status.cspr402.xyz subdomain — everything under this host
 //      rewrites to /status so the subdomain is a dedicated health
 //      page regardless of path. Static assets (_next, api) pass
 //      through normally so the rewritten /status page can still
@@ -86,8 +86,8 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Match everything under status.cards402.com except the Next.js
-  // asset pipeline. The main apex host (cards402.com) hits the
+  // Match everything under status.cspr402.xyz except the Next.js
+  // asset pipeline. The main apex host (cspr402.xyz) hits the
   // proxy only via this matcher's `has: host` condition falling
   // through to NextResponse.next() — the cost of one JS call per
   // request on the subdomain, and nothing on the apex. Dev mode

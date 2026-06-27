@@ -1,113 +1,104 @@
-# cards402
+# cspr402
 
-> CardCasper402 hackathon fork note: the default SDK root export is now kept to
-> API/client helpers so Windows CI and demos do not load the legacy Stellar OWS
-> native package. The active MVP path is Casper testnet CSPR order creation and
-> deploy verification, with optional mockUSDC CEP-18 test-token payments. The Stellar/OWS sections below are upstream legacy
-> reference material until they are rewritten or moved.
+> Simulated virtual cards for AI agents — pay with native CSPR (or mockUSDC
+> via CEP-18) on Casper testnet, get a mock card number, CVV, and expiry
+> after the deploy is verified. The active MVP path is Casper testnet CSPR
+> order creation and deploy verification, with optional mockUSDC CEP-18
+> test-token payments.
 
-Virtual Visa cards for AI agents — pay with USDC or XLM on Stellar, get a card number, CVV, and expiry in ~60 seconds.
+CSPR402 is an x402-inspired API: an AI agent pays on Casper testnet, the
+backend verifies the Casper deploy, and returns a simulated virtual card.
+This SDK lets agents create an order, submit a Casper native CSPR transfer,
+and receive mock card details programmatically — all in one call.
 
-[cards402.com](https://cards402.com) issues prepaid Visa virtual cards on demand. This SDK lets AI agents create an order, pay the cards402 Soroban receiver contract on Stellar, and receive card details programmatically — all in one call.
+[cspr402.xyz](https://cspr402.xyz) is the dashboard and docs surface.
 
 ## Install
 
 ```bash
-npm install cards402
+npm install cspr402
 ```
 
-Requires Node.js 18 or newer (the SDK uses native `fetch`, `ReadableStream`, and `WebCrypto`). Supported platforms via the bundled `@ctx.com/stellar-ows-core` native wallet bindings: macOS (arm64 + x64), Linux (arm64 + x64). Windows is not currently supported.
-
-### A note on `npm audit`
-
-You'll see 3 critical advisories on `axios <= 1.14.0` after installing. They come from `@stellar/stellar-sdk`, which hard-pins an older axios version that we can't override from inside this package. The SDK's own HTTP calls only talk to hardcoded Stellar RPC / Horizon endpoints, so neither advisory (NO_PROXY SSRF, header-injection metadata exfil) is reachable through cards402 code — it's noise for our use, but noise you should still silence at your own project root.
-
-Fix in your own `package.json`:
-
-```json
-{
-  "overrides": {
-    "axios": "^1.15.0"
-  }
-}
-```
-
-then `rm -rf node_modules package-lock.json && npm install`. `npm audit` returns clean. Upstream fix tracked at [stellar/js-stellar-sdk#1381](https://github.com/stellar/js-stellar-sdk/pull/1381); this note will be removed as soon as it merges and a new stellar-sdk ships.
+Requires Node.js 18 or newer (the SDK uses native `fetch`, `ReadableStream`, and `WebCrypto`).
 
 ## Quick start
 
 ```typescript
-import { createOWSWallet, getOWSBalance, purchaseCardOWS } from 'cards402';
+import { purchaseCardCasper, getCasperBalance } from 'cspr402';
 
-// 1. Create (or fetch existing) encrypted wallet. Idempotent.
-const { publicKey } = createOWSWallet('my-agent');
-console.log('Fund this Stellar address:', publicKey);
+// 1. Configure or load your Casper testnet agent key. Idempotent.
+const address = setupCasperAgent('my-agent');
+console.log('Fund this Casper testnet public key:', address);
 
-// 2. Pause here until the address has funds. Re-run to check:
-const bal = await getOWSBalance('my-agent');
-console.log(`XLM: ${bal.xlm}  USDC: ${bal.usdc}`);
+// 2. Pause here until the address has testnet CSPR. Re-run to check:
+const bal = await getCasperBalance('my-agent');
+console.log(`CSPR: ${bal.cspr}  mockUSDC: ${bal.mockUsdc}`);
 
 // 3. Purchase a card — only do this when the user explicitly asks.
-const card = await purchaseCardOWS({
+const card = await purchaseCardCasper({
   apiKey: process.env.CARDS402_API_KEY!,
-  walletName: 'my-agent',
+  agentName: 'my-agent',
   amountUsdc: '10.00',
-  paymentAsset: 'xlm', // or 'usdc' (trustline added automatically)
+  paymentAsset: 'cspr', // or 'mock_usdc' (CEP-18 test token)
 });
 
 console.log(card.number, card.cvv, card.expiry);
 ```
 
-`purchaseCardOWS` handles the whole flow:
+`purchaseCardCasper` handles the whole flow:
 
 1. `POST /v1/orders` with the amount
-2. Sign + submit the Soroban payment from your OWS wallet
+2. Sign + submit the Casper native CSPR (or mockUSDC CEP-18) transfer from your agent key
 3. Subscribe to the SSE stream at `/v1/orders/:id/stream`
-4. Return the card details as soon as the `ready` event arrives
+4. Return the mock card details as soon as the `ready` event arrives (deploy verified)
 
 No polling loops, no webhook endpoint required.
 
 ## Funding your wallet
 
-Stellar accounts need a minimum balance to be activated on-chain:
+Casper testnet accounts are usable as soon as they hold CSPR:
 
-- **Pay with XLM:** send ≥ 1 XLM to cover the base reserve, plus whatever XLM the card costs at the current spot rate (shown in `payment.xlm.amount` when you create an order).
-- **Pay with USDC:** send ≥ 2 XLM (1 base reserve + 1 for the USDC trustline entry), plus the USDC card amount. The SDK will add the trustline automatically the first time you purchase with USDC, so you just need the ≥ 2 XLM on-chain before calling `purchaseCardOWS`.
+- **Pay with native CSPR:** send enough testnet CSPR to cover the order at the
+  current CSPR/USD rate (shown in `payment.cspr.amount` when you create an
+  order). Fund from the Casper testnet faucet.
+- **Pay with mockUSDC (CEP-18):** a Casper testnet mock token rail, not
+  official USDC. Only use it once the backend has a deployed mockUSDC CEP-18
+  package hash configured and the operator has funded you with the mock token.
 
 ## Step-by-step API (for more control)
 
 ```typescript
-import { Cards402Client } from 'cards402';
+import { CSPR402Client } from 'cspr402';
 
-const client = new Cards402Client({
+const client = new CSPR402Client({
   apiKey: process.env.CARDS402_API_KEY!,
-  // baseUrl defaults to https://api.cards402.com/v1
+  // baseUrl defaults to https://api.cspr402.xyz/v1
 });
 
 // Create the order
 const order = await client.createOrder({ amount_usdc: '10.00' });
-console.log(`Pay ${order.payment.xlm.amount} XLM to contract ${order.payment.contract_id}`);
+console.log(
+  `Pay ${order.payment.cspr.amount} CSPR to ${order.payment.recipient_public_key} (transfer_id ${order.payment.transfer_id})`,
+);
 
-// ... submit the Soroban transaction yourself, or use the payViaContract helpers ...
+// ... submit the Casper native transfer yourself, then verify:
+await client.verifyCasperPayment(order.order_id, deployHash, { senderPublicKey });
 
 // Wait for delivery (uses SSE under the hood, with polling fallback)
 const card = await client.waitForCard(order.order_id, { timeoutMs: 120000 });
 console.log(card.number, card.cvv, card.expiry);
 ```
 
-### CardCasper402 Casper testnet flow
+### Casper testnet flow (mockUSDC CEP-18)
 
 ```typescript
-const csprOrder = await client.createOrder({ amount_usdc: '10.00' });
-// Submit csprOrder.payment as a Casper native transfer, then verify:
-await client.verifyCasperPayment(csprOrder.order_id, deployHash, { senderPublicKey });
-
 const mockUsdcOrder = await client.createOrder({
   amount_usdc: '10.00',
   payment_asset: 'mock_usdc_cep18',
   payer_public_key: senderPublicKey,
 });
 // Submit mockUsdcOrder.payment as a CEP-18 transfer, then verify with the same method.
+await client.verifyCasperPayment(mockUsdcOrder.order_id, deployHash, { senderPublicKey });
 ```
 
 `mock_usdc_cep18` is a Casper testnet mock token rail for demos, not official USDC.
@@ -119,9 +110,9 @@ Add to your client's `mcpServers` config:
 ```json
 {
   "mcpServers": {
-    "cards402": {
+    "cspr402": {
       "command": "npx",
-      "args": ["-y", "cards402"],
+      "args": ["-y", "cspr402"],
       "env": { "CARDS402_API_KEY": "cards402_<your key>" }
     }
   }
@@ -132,11 +123,11 @@ The MCP server exposes four tools: `setup_wallet`, `check_budget`, `check_order`
 
 ## Error handling
 
-All SDK errors inherit from `Cards402Error`. Typed subclasses let you react to specific failure modes:
+All SDK errors inherit from `CSPR402Error`. Typed subclasses let you react to specific failure modes:
 
 ```typescript
 import {
-  Cards402Error,
+  CSPR402Error,
   AuthError,
   SpendLimitError,
   RateLimitError,
@@ -144,10 +135,10 @@ import {
   InvalidAmountError,
   OrderFailedError,
   WaitTimeoutError,
-} from 'cards402';
+} from 'cspr402';
 
 try {
-  const card = await purchaseCardOWS({ ... });
+  const card = await purchaseCardCasper({ ... });
 } catch (err) {
   if (err instanceof SpendLimitError) { /* cap reached — ask owner to raise */ }
   else if (err instanceof OrderFailedError) { /* check err.refund for refund tx */ }
@@ -158,15 +149,15 @@ try {
 
 ## Keeping card details safe
 
-`purchaseCardOWS` returns the card PAN, CVV, and expiry as plain strings. **Treat them as secrets.** Don't log them, don't write them to disk, don't send them to observability pipelines unless those pipelines are explicitly PCI-compliant.
+`purchaseCardCasper` returns the mock card PAN, CVV, and expiry as plain strings. **Treat them as secrets.** Don't log them, don't write them to disk, don't send them to observability pipelines unless those pipelines are explicitly PCI-compliant.
 
 ## Links
 
-- [cards402.com](https://cards402.com) — dashboard and docs
-- [cards402.com/docs](https://cards402.com/docs) — full API reference
-- [cards402.com/skill.md](https://cards402.com/skill.md) — drop-in agent onboarding brief
-- [cards402.com/llms.txt](https://cards402.com/llms.txt) — LLM-index of every docs surface
-- [github.com/CTX-com/Cards402](https://github.com/CTX-com/Cards402) — source
+- [cspr402.xyz](https://cspr402.xyz) — dashboard and docs
+- [cspr402.xyz/docs](https://cspr402.xyz/docs) — full API reference
+- [cspr402.xyz/skill.md](https://cspr402.xyz/skill.md) — drop-in agent onboarding brief
+- [cspr402.xyz/llms.txt](https://cspr402.xyz/llms.txt) — LLM-index of every docs surface
+- [github.com/kann420/CSPR402](https://github.com/kann420/CSPR402) — source
 
 ## License
 
