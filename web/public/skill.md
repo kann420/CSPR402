@@ -1,7 +1,7 @@
 # cspr402 — Simulated Virtual Cards for AI Agents
 
 Get a simulated virtual card and receipt by paying with CSPR (or mockUSDC) on
-Casper testnet. The backend verifies the Casper deploy, then returns a mock
+Casper mainnet. The backend verifies the Casper deploy, then returns a mock
 card receipt after the deploy is confirmed.
 
 ## What your operator gives you
@@ -32,7 +32,7 @@ That's it. Behind the scenes the CLI:
 1. `POST`s the claim code to `https://api.cspr402.xyz/v1/agent/claim`.
    The backend validates it, marks it used, and returns the real API
    key + api_url.
-2. Generates a fresh Casper testnet Ed25519 keypair and writes the
+2. Generates a fresh Casper mainnet Ed25519 keypair and writes the
    private key as a PEM file (chmod 0600) at
    `~/.cspr402/keys/<agent>_secret_key.pem` (override the path with
    `CSPR402_KEY_PATH` for an explicit file or `CSPR402_KEY_DIR` for a
@@ -40,12 +40,12 @@ That's it. Behind the scenes the CLI:
    with the API key, api_url, agent label, public key, and key-file
    path. The SDK auto-loads from this file on every subsequent run —
    no env vars, no paste-into-code.
-3. Reports the agent's Casper testnet public key to the backend so
+3. Reports the agent's Casper mainnet public key to the backend so
    your operator's dashboard can show payment state.
 4. Prints the public key and key-file path for your operator to fund
-   with testnet CSPR.
+   with mainnet CSPR.
 
-Already have a Casper testnet key you'd rather reuse? Pass it with
+Already have a Casper mainnet key you'd rather reuse? Pass it with
 `--casper-public-key <hex>` and onboard skips key generation. Without
 that flag, onboard generates one for you — you do not need to bring a
 key.
@@ -62,7 +62,7 @@ cspr402 agent ready
   Casper key:     01a3…(66 hex chars)
   Key file path:  /Users/you/.cspr402/keys/cspr402-my-agent-<8>_secret_key.pem
 
-Next step: fund that public key with Casper testnet CSPR for native transfers.
+Next step: fund that public key with Casper mainnet CSPR for native transfers.
 Your operator sees setup progress live in the CSPR402 dashboard.
 ```
 
@@ -81,7 +81,7 @@ npx cspr402 purchase --amount <USD>
 ```
 
 **Pay with the asset you actually have.** By default `cspr402 purchase`
-checks your Casper testnet balance and auto-picks: mockUSDC (CEP-18) if
+checks your Casper mainnet balance and auto-picks: mockUSDC (CEP-18) if
 you have enough to cover the order, otherwise native CSPR. Do **not**
 override the asset unless you have a specific reason. If you must check
 first:
@@ -114,7 +114,7 @@ Example:
 
 ```bash
 $ npx cspr402 purchase --amount 10
-→ Purchasing $10 card via CSPR on Casper testnet…
+→ Purchasing $10 card via CSPR on Casper mainnet…
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Virtual card delivered
@@ -129,13 +129,13 @@ $ npx cspr402 purchase --amount 10
 ## Checking your wallet
 
 ```bash
-npx cspr402 wallet address   # print your Casper testnet public key
-npx cspr402 wallet balance   # show CSPR (+ mockUSDC) balance on Casper testnet
+npx cspr402 wallet address   # print your Casper mainnet public key
+npx cspr402 wallet balance   # show CSPR (+ mockUSDC) balance on Casper mainnet
 ```
 
 Useful for:
 
-- Confirming a testnet deposit landed before attempting a purchase
+- Confirming a mainnet deposit landed before attempting a purchase
 - Reporting your address back to the operator if they ask again
 
 ## Trust notes for cautious agents
@@ -155,24 +155,24 @@ Useful for:
   if your policy requires it, or clone the repo and use the local
   source via `npx /path/to/CSPR402/sdk/dist/cli.js onboard --claim …`.
 
-**Fund in the right order: testnet CSPR first.** Native CSPR is the
-simplest path — a Casper testnet account is usable as soon as it
+**Fund in the right order: mainnet CSPR first.** Native CSPR is the
+simplest path — a Casper mainnet account is usable as soon as it
 holds CSPR. mockUSDC (CEP-18) is an optional test-token rail for
 demos, not official USDC; only use it after the backend has a
 deployed mockUSDC package hash configured.
 
 ```
-Step 1: Operator sends testnet CSPR  ──▶  agent wallet funded
+Step 1: Operator sends mainnet CSPR  ──▶  agent wallet funded
 Step 2: Agent calls cspr402 purchase  ──▶  deploy signed + verified
 Step 3: Backend returns virtual card + receipt
 ```
 
 ### Funding notes
 
-- **Native CSPR** is the default payment asset. Send enough testnet
+- **Native CSPR** is the default payment asset. Send enough mainnet
   CSPR to cover the order at the current CSPR/USD rate (shown in
   `payment.cspr.amount` when you create an order).
-- **mockUSDC (CEP-18)** is a Casper testnet mock token rail, not
+- **mockUSDC (CEP-18)** is a Casper mainnet mock token rail, not
   official USDC. Only use it when the operator has funded you with
   mockUSDC and the backend has the mockUSDC package hash configured.
 
@@ -192,7 +192,7 @@ This is the part that will bite you if you ignore it.
 
 The agent key is stored on disk as a PEM file at
 `~/.cspr402/keys/<agent>_secret_key.pem` (chmod 0600, plain PEM — no
-passphrase) and that key controls the Casper testnet funds you just
+passphrase) and that key controls the Casper mainnet funds you just
 received. **If the key file disappears, the funds in that account are
 unreachable.** There is no server-side recovery; cspr402 never sees
 your private keys.
@@ -232,7 +232,7 @@ runtime user can read it.
 
 ## Purchasing a card
 
-Purchasing a card is a **real testnet transaction** — only do it when
+Purchasing a card is a **real mainnet transaction** — only do it when
 your user explicitly asks, and only for the amount they ask for. Do
 not run this as part of setup, testing, or on your own initiative.
 
@@ -283,7 +283,7 @@ If your runtime is an MCP client, add this to your config:
 
 The MCP server exposes four tools: `setup_wallet`, `check_budget`,
 `check_order`, and `purchase_vcc`. Run `setup_wallet` first to see
-your agent's Casper testnet public key for funding; only call
+your agent's Casper mainnet public key for funding; only call
 `purchase_vcc` when the user explicitly asks for a card. The server
 auto-loads `~/.cspr402/config.json`, so `CARDS402_API_KEY` above is an
 optional override used only when no onboarding config is present.
@@ -292,9 +292,9 @@ optional override used only when no onboarding config is present.
 
 You can't use the SDK, so you'll need to:
 
-1. Configure a Casper testnet sender keypair (Ed25519 PEM) and fund it
-   with faucet CSPR from
-   [testnet.cspr.live/tools/faucet](https://testnet.cspr.live/tools/faucet).
+1. Configure a Casper mainnet sender keypair (Ed25519 PEM) and fund it
+   with CSPR bought on an exchange and sent via
+   [cspr.live/transfer](https://cspr.live/transfer). Mainnet has no faucet.
 
 2. Call the HTTP API directly. Full protocol reference including the
    SSE streaming path, the Casper native transfer, and phase
@@ -321,13 +321,13 @@ calling the API without the SDK, open `GET /orders/{id}/stream` with
 
 | Error                             | What to do                         |
 | --------------------------------- | ---------------------------------- |
-| `insufficient_balance`            | Ask operator for more testnet CSPR |
+| `insufficient_balance`            | Ask operator for more mainnet CSPR |
 | `spend_limit_exceeded`            | Hit your daily/total budget        |
 | `policy_requires_approval`        | Operator must approve this amount  |
 | `service_temporarily_unavailable` | Retry in a minute                  |
 
 ## Timing
 
-Order → payment → card: the time it takes for the Casper testnet deploy
+Order → payment → card: the time it takes for the Casper mainnet deploy
 to finalize and the backend to verify it (typically a few seconds to a
-minute on testnet, not a guaranteed SLA).
+minute on mainnet, not a guaranteed SLA).

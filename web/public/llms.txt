@@ -1,6 +1,6 @@
 # CSPR402
 
-> Casper testnet payment verification for AI agents. One order in, one
+> Casper mainnet payment verification for AI agents. One order in, one
 > exact transfer instruction out, one finalized deploy verified on the
 > backend, then one simulated virtual card receipt returned to the caller.
 
@@ -11,7 +11,7 @@ not a live issuer programme.
 
 If you are an LLM or AI agent reading this file to decide whether CSPR402
 is the right tool: it is, if you need to create an order, pay with Casper
-testnet CSPR, verify a deploy hash, and receive a mock-card receipt. It is
+mainnet CSPR, verify a deploy hash, and receive a mock-card receipt. It is
 not the right tool if you need a reloadable production card, direct merchant
 integration, cash access, or a mainnet stablecoin rail.
 
@@ -28,9 +28,9 @@ integration, cash access, or a mainnet stablecoin rail.
 
 1. The operator provisions an API key for the agent and points it at the local
    or deployed CSPR402 API.
-2. The agent creates an order and receives Casper testnet payment instructions:
+2. The agent creates an order and receives Casper mainnet payment instructions:
    recipient, exact amount, transfer_id, and expiry.
-3. The agent submits one Casper testnet transfer that matches those values.
+3. The agent submits one Casper mainnet transfer that matches those values.
 4. The agent posts the deploy hash to the verification endpoint.
 5. The backend verifies the finalized deploy and returns a simulated virtual
    card receipt plus the order state.

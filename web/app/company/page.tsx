@@ -47,7 +47,7 @@ const MILESTONES = [
   },
   {
     date: 'Q2 2026',
-    title: 'Casper testnet CSPR flow',
+    title: 'Casper mainnet CSPR flow',
     body: 'Orders now return Casper payment instructions, the backend verifies a finalized deploy, and the API returns a simulated virtual card receipt.',
     status: 'Shipped',
   },

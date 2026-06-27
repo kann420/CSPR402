@@ -11,7 +11,7 @@ Location: Remote-first · London HQ
 
 /* THANKS */
 
-- The Casper ecosystem, for the testnet infrastructure this MVP is built on.
+- The Casper ecosystem, for the Casper infrastructure this MVP is built on.
 - Every operator who shipped an agent on top of this early and told us what
   was broken.
 

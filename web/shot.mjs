@@ -18,7 +18,7 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:3000/';
 // web/app/page.tsx + components/HeroCard.tsx — if the copy changes, update
 // here too so a silent content regression fails the check.
 const REQUIRED_TEXT = [
-  'Casper testnet · verified card payments',
+  'Casper mainnet · verified card payments',
   'One Casper transfer.',
   'One verified card.',
   'AI agents need to spend money',
