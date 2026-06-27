@@ -17,7 +17,7 @@ The active deployment is the MVP mode:
 There is **no on-chain smart contract in the active path**. Payment verification
 is pull-based: the backend queries the Casper node RPC (`info_get_transaction`
 with `info_get_deploy` fallback) when the agent calls the verify endpoint.
-Fulfillment is mocked — a sealed mock card is written to the database at the
+Fulfillment is simulated — a sealed virtual card is written to the database at the
 moment payment is verified. A real virtual-card fulfillment service is out of
 scope for the MVP.
 
@@ -123,7 +123,8 @@ CasperCard402/
      hash, `amount_base_units >= expected`.
 
    On success, an atomic `UPDATE pending_payment → delivered` writes a sealed
-   mock card (`4242424242424242` / `123` / `12/99` / `Mock Virtual Card`),
+   virtual card — a fresh Luhn-valid Visa-pattern PAN + CVV + expiry generated
+   per order (brand `CSPR402 Virtual Card`), unique per agent — plus
    `casper_deploy_hash`, `casper_sender_public_key`, `casper_paid_at`, and
    `payment_receipt_json`. The update is guarded by
    `casper_deploy_hash IS NULL` plus a pre-check uniqueness query so a single

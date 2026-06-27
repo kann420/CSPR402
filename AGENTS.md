@@ -21,8 +21,8 @@ behavior is current.
 - Use Casper testnet only for the MVP. Do not claim production Visa issuance or
   production USDC support unless it has been explicitly implemented and
   verified.
-- The virtual card issuer is mocked for this hackathon MVP. Never represent
-  mock card data as a real Visa card or a spendable instrument.
+- The virtual card issuer is simulated for this hackathon MVP. Never represent
+  virtual card data as a real Visa card or a spendable instrument.
 
 ## MVP Scope
 
@@ -32,7 +32,7 @@ Ship the smallest credible demo first:
 2. Return Casper testnet payment instructions.
 3. Pay with native CSPR on Casper testnet.
 4. Backend verifies the finalized payment.
-5. Backend marks the order paid and fulfills a mock virtual card.
+5. Backend marks the order paid and fulfills a virtual card.
 6. API returns card details, receipt, and Casper deploy hash.
 
 `mockUSDC` via CEP-18 is a bonus after the CSPR path works. Do not block the
@@ -165,7 +165,7 @@ exact command, error, and fix.
 
 Use precise hackathon language:
 
-- Say "simulated virtual card" or "mock virtual card" for this MVP.
+- Say "simulated virtual card" for this MVP.
 - Say "Casper testnet CSPR" for native testnet payment.
 - Say "mockUSDC CEP-18" unless an official, verified Casper testnet USDC path is
   implemented.

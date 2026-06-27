@@ -9,7 +9,7 @@ Thanks for wanting to improve CSPR402. This repo has four main pieces:
 | `web/`      | Next.js + TypeScript               | Owner dashboard (admin + per-agent views)             |
 | `contract/` | Rust / Soroban                     | Legacy reference contract, not used by the Casper MVP |
 
-And one sibling repo at `../vcc` which does the fulfillment (mock card issuer + scraper).
+And one sibling repo at `../vcc` which does the fulfillment (virtual card issuer + scraper).
 
 ## Dev setup
 

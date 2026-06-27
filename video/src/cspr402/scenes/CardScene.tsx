@@ -1,6 +1,6 @@
 // Scene 5 — payoff: the x402 card is delivered. Hero card front and
 // center, a "Card delivered" pill, a Casper receipt stamp, and the
-// closing line. Recreates the moment the SDK returns the mock card.
+// closing line. Recreates the moment the SDK returns the virtual card.
 import { AbsoluteFill, interpolate, useCurrentFrame } from 'remotion';
 import { COLORS, FONT, EASE } from '../theme';
 import { HeroCard } from '../HeroCard';

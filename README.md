@@ -1,6 +1,6 @@
 # CSPR402
 
-CSPR402 issues mock virtual cards to AI agents in exchange for verified Casper testnet payments (native CSPR or CEP-18 mockUSDC). An agent pays the face value on Casper and receives a card number, CVV, and expiry back. The MVP runs with `PAYMENT_PROVIDER=casper` and `MOCK_CARD_MODE=true`.
+CSPR402 issues virtual cards to AI agents in exchange for verified Casper payments (native CSPR or CEP-18 mockUSDC). An agent pays the face value on Casper and receives a card number, CVV, and expiry back. The MVP runs with `PAYMENT_PROVIDER=casper` and `MOCK_CARD_MODE=true`.
 
 - **Web:** https://cspr402.xyz
 - **API:** https://api.cspr402.xyz/v1
@@ -21,7 +21,7 @@ examples/  Node, Python, and LangChain agent examples
 scripts/   API validation, smoke tests, admin-key generation
 ```
 
-A real virtual-card fulfillment service is out of scope for the MVP. When a Casper payment verifies, the backend writes a sealed mock card and returns it; integration with a real issuer is a later milestone.
+A real virtual-card fulfillment service is out of scope for the MVP. When a Casper payment verifies, the backend writes a sealed virtual card and returns it; integration with a real issuer is a later milestone.
 
 For the full system design, see [`./ARCHITECTURE.md`](./ARCHITECTURE.md).
 
@@ -67,7 +67,7 @@ Agent-facing TypeScript client library, CLI, and MCP server. Published to npm as
 CLI commands:
 
 - `cspr402 onboard` — redeem a claim code for an API key and configure the local wallet.
-- `cspr402 purchase` — create an order, pay on Casper testnet, verify the deploy, and return the mock card.
+- `cspr402 purchase` — create an order, pay on Casper testnet, verify the deploy, and return the virtual card.
 - `cspr402 wallet` — inspect / manage the local Casper wallet.
 - `cspr402 mcp` — run the Model Context Protocol server so an AI agent can drive cards through tools.
 
@@ -102,7 +102,7 @@ npm run build
    npx -y cspr402@latest onboard --claim <code>
    ```
 3. **Fund the Casper wallet** with CSPR (or mockUSDC if the backend has it enabled) on `casper-test`.
-4. **Purchase** — create an order, pay, verify, and receive the mock card:
+4. **Purchase** — create an order, pay, verify, and receive the virtual card:
    ```bash
    npx -y cspr402@latest purchase --amount 10
    ```

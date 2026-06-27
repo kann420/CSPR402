@@ -277,7 +277,7 @@ async function main() {
   const card = verified.order.card;
   const receipt = verified.receipt;
 
-  console.log('\nMock virtual card fulfilled');
+  console.log('\nVirtual card fulfilled');
   console.log(`  Order:       ${verified.order.order_id}`);
   console.log(`  Deploy hash: ${receipt.deploy_hash}`);
   if (receipt.type === 'casper_mock_usdc_receipt') {
@@ -290,7 +290,7 @@ async function main() {
   console.log(`  Card:        ${card.number}`);
   console.log(`  CVV:         ${card.cvv}`);
   console.log(`  Expiry:      ${card.expiry}`);
-  console.log(`  Brand:       ${card.brand || 'Mock Virtual Card'}`);
+  console.log(`  Brand:       ${card.brand || 'CSPR402 Virtual Card'}`);
 }
 
 main().catch((err) => {

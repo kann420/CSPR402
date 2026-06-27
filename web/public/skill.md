@@ -102,8 +102,8 @@ and agent label, so you do not need to pass either. The command:
 2. Signs and submits the Casper native CSPR (or mockUSDC CEP-18) transfer
    from the local agent key
 3. Subscribes to the SSE stream `/v1/orders/:id/stream`
-4. Returns when the deploy is verified and the mock card is ready
-5. Prints the mock card number, CVV, and expiry to stdout
+4. Returns when the deploy is verified and the virtual card is ready
+5. Prints the virtual card number, CVV, and expiry to stdout
 
 **Treat the output as secrets.** Save the PAN/CVV/expiry to a
 secrets store immediately. Do not log them, do not echo them back
@@ -117,7 +117,7 @@ $ npx cspr402 purchase --amount 10
 → Purchasing $10 card via CSPR on Casper testnet…
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- Mock card delivered
+ Virtual card delivered
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   Number: 4111 2345 6789 0123
   CVV:    847
@@ -164,7 +164,7 @@ deployed mockUSDC package hash configured.
 ```
 Step 1: Operator sends testnet CSPR  ──▶  agent wallet funded
 Step 2: Agent calls cspr402 purchase  ──▶  deploy signed + verified
-Step 3: Backend returns mock card + receipt
+Step 3: Backend returns virtual card + receipt
 ```
 
 ### Funding notes

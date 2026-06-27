@@ -638,3 +638,15 @@ doing:
   repeating: run the spec against a dev backend in CI. Even a
   single `for path in spec.paths: requests.request(method, dev_url+path)`
   loop would catch most of the drift we've been manually chasing.
+
+## Loop 14 — per-order virtual card + mainnet support
+
+Shipped 2026-06-27 for the hackathon demo (mainnet pivot, tight deadline):
+
+- ✅ **Unique virtual card per order** (`backend/src/lib/virtual-card.js`). Replaced the single shared hardcoded `4242…` mock card with a fresh Luhn-valid 16-digit Visa-pattern PAN + 3-digit CVV + ~3-year-future expiry, generated per fulfilled order and sealed via the existing card-vault. Each agent now receives a distinct card; re-verify returns the persisted card (idempotent). Branded `CSPR402 Virtual Card` (added a `normalize-card` passthrough rule). Still a SIMULATED demo artifact — not bank-issued / not spendable; the real demo value is the on-chain CSPR payment + deploy verification.
+- ✅ **Mainnet env support.** `env.js` zod enums widened: `CASPER_NETWORK` accepts `mainnet|testnet`, `CASPER_CHAIN_NAME` accepts `casper|casper-test`, with a boot-time network↔chain consistency check. The RPC contract is identical across networks, so flipping to mainnet is config-only (`CASPER_NETWORK=mainnet`, `CASPER_CHAIN_NAME=casper`, `CASPER_NODE_RPC_URL=<mainnet node>`); `MOCK_USDC_ENABLED` stays `false` on mainnet (CEP-18 mockUSDC is testnet-only). `.env.casper.example` documents the mainnet block.
+- ✅ SDK CLI/MCP card label `Mock card:` → `Virtual card:` (bumped to 0.4.9; user republishes).
+- ✅ **`CASPER_NODE_RPC_AUTH` support** so the backend (verify + funding poller) and the SDK `wallet balance` can talk to an authenticated RPC provider (CSPR.cloud `node.cspr.cloud`, raw access token, no `Bearer `). Unblocks mainnet without the free-tier 5 req/min limit (Tatum gateway). Sent on every Casper RPC call; unset for free no-auth endpoints.
+- ✅ **"mock card" → "virtual card" rebrand** across all user-facing display prose (README, AGENTS, ARCHITECTURE, skill.md, SDK README/skills/CLI/MCP, web docs/legal/privacy/pricing/press/portal/hero/dashboard, node-agent example, video). Wire-format enum values kept stable to avoid breaking the API contract/tests: `card_mode: 'mock'`, the `mock_card_mode` boolean, the `MOCK_CARD_MODE` env var, the `order.fulfilled_mock_casper` bizEvent, and the normalize-card `mock` rule (legacy brand handling). The simulated/not-spendable disclosure substance is preserved in the legal + privacy pages.
+
+Follow-ups (not deadline-feasible): real spendable virtual cards (Pathward/ctx.com, Lithic, Stripe Issuing) need issuer partnership + KYC. Wire-format `card_mode: 'mock'` could be renamed to `'virtual'` in a contract-breaking revision if desired (currently kept for API stability).
