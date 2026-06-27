@@ -308,7 +308,7 @@ export default function SettingsPage() {
 // Platform-owner-only treasury card. CSPR402 Day 2 only needs to
 // surface the configured treasury identity. We deliberately avoid
 // speculative balance widgets here because CSPR402 verifies Casper
-// testnet transfers against the configured treasury public key.
+// mainnet transfers against the configured treasury public key.
 function PlatformTreasuryCard() {
   const toast = useToast();
   const [wallet, setWallet] = useState<{

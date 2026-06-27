@@ -31,7 +31,7 @@ type PageProps = { params: Promise<{ id: string }> };
 
 export default function AgentDetailPage({ params }: PageProps) {
   const { id } = use(params);
-  const { agents, orders, walletBalances, refresh } = useDashboard();
+  const { agents, orders, walletBalances, info, refresh } = useDashboard();
   const agent = agents.find((a) => a.id === id);
   const toast = useToast();
   const [topUpOpen, setTopUpOpen] = useState(false);
@@ -89,8 +89,12 @@ export default function AgentDetailPage({ params }: PageProps) {
   const state = (liveAgent.agent?.state ?? 'minted') as AgentStateName;
   const balCspr = agentCsprBalance(liveAgent.agent?.detail);
   const balUsdc = walletBalances[liveAgent.id]?.usdc || '0';
-  const comboUsd =
-    parseFloat(balUsdc) + parseFloat(balCspr) * 0.2; /* rough CSPR/USD heuristic (mock) */
+  // CSPR/USD rate comes from the backend (CSPR_USD_RATE env), the same
+  // value used for order pricing — not a hardcoded heuristic. When unset
+  // (e.g. stellar provider, or local dev without the env), CSPR simply
+  // contributes 0 to the USD total rather than a made-up number.
+  const csprUsdRate = parseFloat(info?.cspr_usd_rate ?? '') || 0;
+  const comboUsd = parseFloat(balUsdc) + parseFloat(balCspr) * csprUsdRate;
 
   async function patch(body: Parameters<typeof updateAgent>[1]) {
     try {

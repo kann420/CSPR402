@@ -126,6 +126,7 @@ export interface DashboardInfo {
   created_at: string;
   network: string;
   payment_provider?: string;
+  cspr_usd_rate?: string | null;
   mock_card_mode?: boolean;
   mock_usdc?: {
     enabled: boolean;
