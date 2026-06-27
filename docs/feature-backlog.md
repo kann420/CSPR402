@@ -74,6 +74,55 @@ and believe are clean: `contract/README.md`,
 `contract/api/vcc-internal.openapi.yaml`, `ARCHITECTURE.md §vcc
 interface + §security model`.
 
+**Loop 19 note — agent-onboarding root-cause fix:** the dashboard
+"create agent" flow stalled at "Claim redeemed" and never reached
+"Awaiting deposit" because `onboard` only reported
+`state='awaiting_funding'` + a `wallet_public_key` when the operator
+passed `--casper-public-key` — a fresh agent had no Casper key, so
+the stepper had nothing to advance on. Fixed across three layers:
+
+- **SDK `onboard` auto-keygen (zero new deps):** `onboard --claim
+<code>` now generates an Ed25519 Casper testnet keypair via Node's
+  built-in `crypto`, writes a PKCS8 PEM (0600) at
+  `~/.cspr402/keys/<agent>_secret_key.pem`, and reports
+  `awaiting_funding` + the derived public key. Idempotent — re-running
+  on the same machine reuses the existing PEM (re-derives the pubkey)
+  so funds are never stranded. `--casper-public-key` stays as an
+  optional override. PEM byte-compatibility with `casper-js-sdk`
+  `PrivateKey.fromPem` verified empirically (Node crypto keygen ==
+  sdk keygen, same PEM, same pubkey).
+- **Backend Casper funding poller:** `jobs.js::checkAgentFundingStatus`
+  now branches on `PAYMENT_PROVIDER` (default `casper`) and queries
+  the Casper node JSON-RPC (struct params, node api_version 2.0.0)
+  via new `payments/casper-balance.js`. A freshly-onboarded key has
+  no on-chain account until its first deposit — `state_get_account_info`
+  returns `-32009 "No such account"`, surfaced as a quiet "still
+  awaiting" (NOT an outage); `motes>0` flips `agent_state='funded'`
+  with `agent_state_detail='cspr=<x>'`. RPC errors dedup to one
+  `funding.casper_rpc_error` bizEvent per outage + `casper_recovered`
+  on the first successful response.
+- **Web stepper + snippet + skill.md:** the 'funded' step was dead
+  code (relied on a never-fetched `walletBalances` map) AND regressed
+  to 'wallet' when jobs.js flipped funded. Stepper is now purely
+  server-state-driven; the funded detail shows the real `cspr=<x>`
+  from `agent_state_detail`. Dropped the harmful
+  `--casper-public-key <hex>` line from the copy-snippet (agents
+  pasted `<hex>` verbatim → regex exit 2). Synced the detailed root
+  `skill.md` → `web/public/skill.md` (the file served at
+  cspr402.xyz/skill.md, previously a 52-line stub) via
+  `scripts/sync-skill-md.mjs` wired into `web` `prebuild` so it can't
+  drift again.
+- **SDK `wallet balance` RPC fix (discovered):** was sending legacy
+  `[{name,value}]` array params rejected by node 2.0.0 with `-32602`.
+  Switched to struct params; verified live against
+  `node.testnet.casper.network/rpc` (funded validator returns real
+  CSPR; fresh key returns "account not funded yet / cspr: 0").
+
+`purchase` external-signing behavior unchanged (out of scope; no
+`casper-js-sdk` dep added to the SDK). Tests: SDK 108 pass, web 57
+pass, backend 1168 pass (incl. 6 new Casper poller cases + existing
+Stellar cases now explicitly `PAYMENT_PROVIDER=stellar`).
+
 ## Core product
 
 ### Cards

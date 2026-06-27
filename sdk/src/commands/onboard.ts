@@ -1,6 +1,13 @@
 // `cspr402 onboard --claim <code>` - one-shot agent setup.
 
 import { assertSafeBaseUrl, loadCards402Config, saveCards402Config } from '../config';
+import {
+  generateCasperEd25519Key,
+  publicKeyHexFromPem,
+  readCasperKeyPemIfExists,
+  resolveCasperKeyPath,
+  writeCasperKeyFile,
+} from '../lib/casper-key';
 import { CSPR402Client } from '../client';
 
 export { deriveDefaultWalletName as _deriveDefaultWalletName };
@@ -150,7 +157,7 @@ export async function onboardCommand(argv: string[]): Promise<number> {
     process.stderr.write(`error: ${err instanceof Error ? err.message : String(err)}\n`);
     return 2;
   }
-  const casperKeyPath = args.casperKeyPath || process.env.CSPR402_CASPER_KEY_PATH;
+  let casperKeyPath = args.casperKeyPath || process.env.CSPR402_CASPER_KEY_PATH;
 
   const existing = loadCards402Config();
   if (existing) {
@@ -180,6 +187,40 @@ export async function onboardCommand(argv: string[]): Promise<number> {
     args.agentName ||
     args.walletName ||
     deriveDefaultWalletName(claim, claimResponse.label ?? null);
+
+  // Auto-generate a Casper Ed25519 keypair when the operator did not
+  // supply `--casper-public-key`, so the dashboard stepper can advance
+  // to "Awaiting deposit" without an out-of-band key. Idempotent: if a
+  // PEM already exists at the target path (e.g. re-running onboard on
+  // the same machine), reuse it and re-derive the public key instead of
+  // overwriting — overwriting would strand any funds already held by
+  // the existing key.
+  let keyOrigin: 'generated' | 'reused' | 'supplied' = 'supplied';
+  if (!casperPublicKey) {
+    const keyPath = resolveCasperKeyPath(agentName);
+    const existingPem = readCasperKeyPemIfExists(keyPath);
+    if (existingPem) {
+      casperPublicKey = publicKeyHexFromPem(existingPem);
+      casperKeyPath = keyPath;
+      keyOrigin = 'reused';
+    } else {
+      const { pem, publicKeyHex } = generateCasperEd25519Key();
+      const { path: writtenPath } = writeCasperKeyFile(agentName, pem);
+      casperPublicKey = publicKeyHex;
+      casperKeyPath = writtenPath;
+      keyOrigin = 'generated';
+    }
+  }
+
+  // After the keygen block casperPublicKey is always a string (either
+  // supplied, re-derived from an existing PEM, or freshly generated).
+  // This guard narrows the type for TypeScript and is a defensive
+  // assertion that the invariant holds.
+  if (!casperPublicKey) {
+    process.stderr.write('error: failed to establish a Casper public key.\n');
+    return 1;
+  }
+
   const { path: configPath } = saveCards402Config({
     api_key: claimResponse.api_key,
     api_url: finalApiUrl,
@@ -191,11 +232,19 @@ export async function onboardCommand(argv: string[]): Promise<number> {
   });
 
   const client = new CSPR402Client({ apiKey: claimResponse.api_key, baseUrl: finalApiUrl });
-  await client.reportStatus(casperPublicKey ? 'awaiting_funding' : 'initializing', {
+  // casperPublicKey is now always defined — either supplied by the
+  // operator or auto-generated above — so the agent always reports
+  // `awaiting_funding` with a real wallet_public_key, which is what
+  // drives the dashboard stepper from "Claim redeemed" to "Awaiting
+  // deposit" (the previously-unreachable "fund wallet" step).
+  await client.reportStatus('awaiting_funding', {
     wallet_public_key: casperPublicKey,
-    detail: casperPublicKey
-      ? 'Casper public key configured'
-      : 'Claim redeemed; Casper public key not configured yet',
+    detail:
+      keyOrigin === 'generated'
+        ? 'Casper wallet generated'
+        : keyOrigin === 'reused'
+          ? 'Casper wallet reused'
+          : 'Casper public key configured',
   });
 
   process.stdout.write('\n');
@@ -203,18 +252,14 @@ export async function onboardCommand(argv: string[]): Promise<number> {
   process.stdout.write(`  Label:          ${claimResponse.label ?? '(none)'}\n`);
   process.stdout.write(`  Config:         ${configPath}\n`);
   process.stdout.write(`  API base:       ${finalApiUrl}\n`);
-  if (casperPublicKey) process.stdout.write(`  Casper key:     ${casperPublicKey}\n`);
-  if (casperKeyPath) process.stdout.write(`  Key file path:  ${casperKeyPath}\n`);
-  process.stdout.write('\n');
-  if (!casperPublicKey) {
-    process.stdout.write(
-      'Next step: set CSPR402_CASPER_PUBLIC_KEY or rerun with --casper-public-key.\n',
-    );
-  } else {
-    process.stdout.write(
-      'Next step: fund that public key with Casper testnet CSPR for native transfers.\n',
-    );
+  process.stdout.write(`  Casper key:     ${casperPublicKey}\n`);
+  if (keyOrigin !== 'supplied' && casperKeyPath) {
+    process.stdout.write(`  Key file path:  ${casperKeyPath}\n`);
   }
+  process.stdout.write('\n');
+  process.stdout.write(
+    'Next step: fund that public key with Casper testnet CSPR for native transfers.\n',
+  );
   process.stdout.write('Your operator sees setup progress live in the CSPR402 dashboard.\n');
   return 0;
 }

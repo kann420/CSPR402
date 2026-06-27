@@ -32,28 +32,38 @@ That's it. Behind the scenes the CLI:
 1. `POST`s the claim code to `https://api.cspr402.xyz/v1/agent/claim`.
    The backend validates it, marks it used, and returns the real API
    key + api_url.
-2. Writes `~/.cspr402/config.json` (chmod 0600) with the API key,
-   api_url, and your agent label. The SDK auto-loads from this file
-   on every subsequent run — no env vars, no paste-into-code.
-3. Reports the agent's configured Casper testnet sender public key to
-   the backend so your operator's dashboard can show payment state.
-4. Prints the sender public key for your operator to fund with testnet
-   CSPR.
+2. Generates a fresh Casper testnet Ed25519 keypair and writes the
+   private key as a PEM file (chmod 0600) at
+   `~/.cspr402/keys/<agent>_secret_key.pem` (override the path with
+   `CSPR402_KEY_PATH` for an explicit file or `CSPR402_KEY_DIR` for a
+   directory). It also writes `~/.cspr402/config.json` (chmod 0600)
+   with the API key, api_url, agent label, public key, and key-file
+   path. The SDK auto-loads from this file on every subsequent run —
+   no env vars, no paste-into-code.
+3. Reports the agent's Casper testnet public key to the backend so
+   your operator's dashboard can show payment state.
+4. Prints the public key and key-file path for your operator to fund
+   with testnet CSPR.
+
+Already have a Casper testnet key you'd rather reuse? Pass it with
+`--casper-public-key <hex>` and onboard skips key generation. Without
+that flag, onboard generates one for you — you do not need to bring a
+key.
 
 Example run:
 
 ```
-→ Claiming agent credentials…
-✓ Credentials saved to /Users/you/.cspr402/config.json (chmod 0600)
+Redeeming CSPR402 claim...
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- cspr402 agent ready
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Label:            my-agent
-  Casper public key: 0203…abc
-  CSPR balance:      0
+cspr402 agent ready
+  Label:          my-agent
+  Config:         /Users/you/.cspr402/config.json
+  API base:       https://api.cspr402.xyz/v1
+  Casper key:     01a3…(66 hex chars)
+  Key file path:  /Users/you/.cspr402/keys/cspr402-my-agent-<8>_secret_key.pem
 
-Ask your operator to send testnet CSPR to the public key above.
+Next step: fund that public key with Casper testnet CSPR for native transfers.
+Your operator sees setup progress live in the CSPR402 dashboard.
 ```
 
 **The operator sees your setup progress live** in their CSPR402
@@ -180,11 +190,18 @@ flips your state to "Active" — no extra reporting required.
 
 This is the part that will bite you if you ignore it.
 
-The agent key is stored on disk — by default under the cspr402 config
-directory — and that key controls the Casper testnet funds you just
+The agent key is stored on disk as a PEM file at
+`~/.cspr402/keys/<agent>_secret_key.pem` (chmod 0600, plain PEM — no
+passphrase) and that key controls the Casper testnet funds you just
 received. **If the key file disappears, the funds in that account are
 unreachable.** There is no server-side recovery; cspr402 never sees
 your private keys.
+
+Re-running `cspr402 onboard --claim <code>` on the same machine is
+safe: if a PEM already exists at the target path, onboard reuses it
+and re-derives the public key instead of overwriting — so funds held
+by the existing key are never stranded. A genuinely new agent on a
+fresh machine has no PEM, so onboard generates a fresh keypair.
 
 Before you run setup for the first time, check where the key file
 actually lives on your runtime and whether that location survives a
@@ -197,15 +214,16 @@ restart:
   sandboxes, ephemeral dev containers, Replit without persistence:**
   `~` resets between invocations or on every restart. You **must**
   point cspr402 at a persistent volume or you'll lose every key you
-  create. Set the `CSPR402_KEY_PATH` environment variable (or pass
-  `keyPath` to the setup helper) to a path on a mounted volume that
-  survives restarts.
+  create. Set the `CSPR402_KEY_PATH` environment variable (an explicit
+  file path) or `CSPR402_KEY_DIR` (a directory) to a location on a
+  mounted volume that survives restarts.
 - **Not sure?** Tell your operator which runtime you're in and ask
   them where persistent storage lives. Better to pause here than to
   lose funds later.
 
-The key is encrypted at rest when you also pass a `passphrase` to
-setup. Recommended when the key path is on shared storage.
+The key file is written with chmod 0600 (owner read/write only). On
+shared storage, restrict filesystem access so only your agent's
+runtime user can read it.
 
 **Reference material your operator may want to read:**
 
@@ -221,6 +239,9 @@ not run this as part of setup, testing, or on your own initiative.
 ```javascript
 import { purchaseCardCasper, getCasperBalance } from 'cspr402';
 
+// The SDK auto-loads ~/.cspr402/config.json (written by onboard), so
+// apiKey / baseUrl / agentName below are optional overrides — you only
+// need them when running outside the onboarding machine.
 // Check what the wallet actually has BEFORE picking the asset. If you
 // pay in an asset you don't hold the call will fail at the Casper
 // transfer step and waste a deploy fee.
@@ -263,7 +284,9 @@ If your runtime is an MCP client, add this to your config:
 The MCP server exposes four tools: `setup_wallet`, `check_budget`,
 `check_order`, and `purchase_vcc`. Run `setup_wallet` first to see
 your agent's Casper testnet public key for funding; only call
-`purchase_vcc` when the user explicitly asks for a card.
+`purchase_vcc` when the user explicitly asks for a card. The server
+auto-loads `~/.cspr402/config.json`, so `CARDS402_API_KEY` above is an
+optional override used only when no onboarding config is present.
 
 ## Setup — non-Node agents (Python, Go, shell, etc.)
 

@@ -1,51 +1,333 @@
-# CSPR402 Agent Skill
+# cspr402 — Simulated Virtual Cards for AI Agents
 
-You are setting up an agent for CSPR402, a Casper testnet payment demo.
+Get a simulated virtual card and receipt by paying with CSPR (or mockUSDC) on
+Casper testnet. The backend verifies the Casper deploy, then returns a mock
+card receipt after the deploy is confirmed.
 
-Run the command the operator provided:
+## What your operator gives you
 
-```bash
-npx -y cspr402@latest onboard --claim <claim_code>
+A single one-shot command — nothing else. It looks like this:
+
+```
+Read https://cspr402.xyz/skill.md
+and set up this agent by running:
+
+  npx cspr402 onboard --claim c402_<48_hex_chars>
 ```
 
-If your agent already has a Casper testnet public key, include it on the first
-run so the dashboard can advance through "Casper wallet configured":
+**No raw API key in the paste.** The `c402_…` value is a one-time claim
+code that expires in 10 minutes and can be redeemed exactly once. The
+command below trades it for a real API key over HTTPS and writes the
+key to a local config file — the raw API key never enters your
+conversation transcript.
+
+## Setup — one command
 
 ```bash
-npx -y cspr402@latest onboard --claim <claim_code> --casper-public-key <hex>
+npx cspr402 onboard --claim <code>
 ```
 
-## What CSPR402 Does
+That's it. Behind the scenes the CLI:
 
-CSPR402 creates an order, returns a Casper testnet CSPR transfer instruction,
-verifies the finalized deploy on the backend, then returns one mock virtual card
-and one receipt.
+1. `POST`s the claim code to `https://api.cspr402.xyz/v1/agent/claim`.
+   The backend validates it, marks it used, and returns the real API
+   key + api_url.
+2. Generates a fresh Casper testnet Ed25519 keypair and writes the
+   private key as a PEM file (chmod 0600) at
+   `~/.cspr402/keys/<agent>_secret_key.pem` (override the path with
+   `CSPR402_KEY_PATH` for an explicit file or `CSPR402_KEY_DIR` for a
+   directory). It also writes `~/.cspr402/config.json` (chmod 0600)
+   with the API key, api_url, agent label, public key, and key-file
+   path. The SDK auto-loads from this file on every subsequent run —
+   no env vars, no paste-into-code.
+3. Reports the agent's Casper testnet public key to the backend so
+   your operator's dashboard can show payment state.
+4. Prints the public key and key-file path for your operator to fund
+   with testnet CSPR.
 
-## What It Does Not Do
+Already have a Casper testnet key you'd rather reuse? Pass it with
+`--casper-public-key <hex>` and onboard skips key generation. Without
+that flag, onboard generates one for you — you do not need to bring a
+key.
 
-- No real Visa issuance
-- No mainnet payment flow
-- No production USDC support
-- No private keys, mnemonics, or API keys in source code
+Example run:
 
-## Agent Inputs
+```
+Redeeming CSPR402 claim...
 
-- A one-time CSPR402 claim code from the dashboard
-- An optional Casper testnet public key or local key-file path
-- Testnet CSPR for native transfers and gas
+cspr402 agent ready
+  Label:          my-agent
+  Config:         /Users/you/.cspr402/config.json
+  API base:       https://api.cspr402.xyz/v1
+  Casper key:     01a3…(66 hex chars)
+  Key file path:  /Users/you/.cspr402/keys/cspr402-my-agent-<8>_secret_key.pem
 
-## Payment Flow
+Next step: fund that public key with Casper testnet CSPR for native transfers.
+Your operator sees setup progress live in the CSPR402 dashboard.
+```
 
-1. Create an order with `payment_asset: "cspr_casper"` and your Casper public key.
-2. Read `payment.recipient`, `payment.amount_motes`, and `payment.transfer_id`.
-3. Send one Casper testnet native transfer matching those values.
-4. Verify with `POST /v1/orders/:id/verify-payment` and the deploy hash.
-5. Read the returned receipt and mock virtual card payload.
+**The operator sees your setup progress live** in their CSPR402
+dashboard — your key moves through the state pill from "Minted" →
+"Setting up" → "Awaiting deposit" → "Funded" as the CLI runs and
+the wallet receives its first deposit. They'll know to fund the
+address without you having to message them separately.
 
-## Safety Rules
+## Purchasing a card
 
-- Never expose private keys or wallet seed phrases.
-- Keep local key files outside git.
-- Do not call the mock card a production or spendable card.
-- If a CSPR.click or testnet status callback times out, paste the deploy hash
-  into the manual verify fallback.
+When your user asks you to buy a card, run:
+
+```bash
+npx cspr402 purchase --amount <USD>
+```
+
+**Pay with the asset you actually have.** By default `cspr402 purchase`
+checks your Casper testnet balance and auto-picks: mockUSDC (CEP-18) if
+you have enough to cover the order, otherwise native CSPR. Do **not**
+override the asset unless you have a specific reason. If you must check
+first:
+
+```bash
+npx cspr402 wallet balance
+```
+
+Optional flags:
+
+- `--asset cspr|mock_usdc` — force a specific asset. Default: auto (recommended).
+- `--wallet-name <name>` — override the agent label from config.
+
+`cspr402 purchase` reads `~/.cspr402/config.json` for the api key
+and agent label, so you do not need to pass either. The command:
+
+1. Creates an order at `POST /v1/orders`
+2. Signs and submits the Casper native CSPR (or mockUSDC CEP-18) transfer
+   from the local agent key
+3. Subscribes to the SSE stream `/v1/orders/:id/stream`
+4. Returns when the deploy is verified and the mock card is ready
+5. Prints the mock card number, CVV, and expiry to stdout
+
+**Treat the output as secrets.** Save the PAN/CVV/expiry to a
+secrets store immediately. Do not log them, do not echo them back
+into chat transcripts, and do not send them to observability
+pipelines.
+
+Example:
+
+```bash
+$ npx cspr402 purchase --amount 10
+→ Purchasing $10 card via CSPR on Casper testnet…
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ Mock card delivered
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Number: 4111 2345 6789 0123
+  CVV:    847
+  Expiry: 12/27
+  Brand:  Visa (mock)
+  Order:  3f8e2b91-4a6c-41ff-b2d3-9c1785a6e4f2
+```
+
+## Checking your wallet
+
+```bash
+npx cspr402 wallet address   # print your Casper testnet public key
+npx cspr402 wallet balance   # show CSPR (+ mockUSDC) balance on Casper testnet
+```
+
+Useful for:
+
+- Confirming a testnet deposit landed before attempting a purchase
+- Reporting your address back to the operator if they ask again
+
+## Trust notes for cautious agents
+
+- Package name (`cspr402`) matches the domain you fetched this guide
+  from (`cspr402.xyz`). Scope matches domain — no supply-chain
+  mismatch.
+- Source: <https://github.com/kann420/CSPR402>. The `sdk/` directory
+  is what gets published.
+- Maintainer on npm: `ashfrancis`. Verify with
+  `npm view cspr402 maintainers`.
+- The only secret in the operator's paste block is a short-lived
+  one-time claim code. Worst-case context leak of the paste = leak
+  of a 10-minute single-use token that can only be redeemed by the
+  first caller.
+- Run `npm pack cspr402` and inspect the tarball before installing
+  if your policy requires it, or clone the repo and use the local
+  source via `npx /path/to/CSPR402/sdk/dist/cli.js onboard --claim …`.
+
+**Fund in the right order: testnet CSPR first.** Native CSPR is the
+simplest path — a Casper testnet account is usable as soon as it
+holds CSPR. mockUSDC (CEP-18) is an optional test-token rail for
+demos, not official USDC; only use it after the backend has a
+deployed mockUSDC package hash configured.
+
+```
+Step 1: Operator sends testnet CSPR  ──▶  agent wallet funded
+Step 2: Agent calls cspr402 purchase  ──▶  deploy signed + verified
+Step 3: Backend returns mock card + receipt
+```
+
+### Funding notes
+
+- **Native CSPR** is the default payment asset. Send enough testnet
+  CSPR to cover the order at the current CSPR/USD rate (shown in
+  `payment.cspr.amount` when you create an order).
+- **mockUSDC (CEP-18)** is a Casper testnet mock token rail, not
+  official USDC. Only use it when the operator has funded you with
+  mockUSDC and the backend has the mockUSDC package hash configured.
+
+### Checking state at any time
+
+```javascript
+const balance = await getCasperBalance('my-agent');
+console.log(`CSPR: ${balance.cspr}  mockUSDC: ${balance.mockUsdc}`);
+```
+
+When you make your first successful purchase, the backend automatically
+flips your state to "Active" — no extra reporting required.
+
+### ⚠ Persisting your agent key
+
+This is the part that will bite you if you ignore it.
+
+The agent key is stored on disk as a PEM file at
+`~/.cspr402/keys/<agent>_secret_key.pem` (chmod 0600, plain PEM — no
+passphrase) and that key controls the Casper testnet funds you just
+received. **If the key file disappears, the funds in that account are
+unreachable.** There is no server-side recovery; cspr402 never sees
+your private keys.
+
+Re-running `cspr402 onboard --claim <code>` on the same machine is
+safe: if a PEM already exists at the target path, onboard reuses it
+and re-derives the public key instead of overwriting — so funds held
+by the existing key are never stranded. A genuinely new agent on a
+fresh machine has no PEM, so onboard generates a fresh keypair.
+
+Before you run setup for the first time, check where the key file
+actually lives on your runtime and whether that location survives a
+restart:
+
+- **Long-lived VM, your own laptop, persistent container:** `~` is
+  your real home directory. Default location is fine. No action
+  needed.
+- **Serverless (Lambda, Cloud Run, Vercel Functions), scratch
+  sandboxes, ephemeral dev containers, Replit without persistence:**
+  `~` resets between invocations or on every restart. You **must**
+  point cspr402 at a persistent volume or you'll lose every key you
+  create. Set the `CSPR402_KEY_PATH` environment variable (an explicit
+  file path) or `CSPR402_KEY_DIR` (a directory) to a location on a
+  mounted volume that survives restarts.
+- **Not sure?** Tell your operator which runtime you're in and ask
+  them where persistent storage lives. Better to pause here than to
+  lose funds later.
+
+The key file is written with chmod 0600 (owner read/write only). On
+shared storage, restrict filesystem access so only your agent's
+runtime user can read it.
+
+**Reference material your operator may want to read:**
+
+- Casper accounts and keys: <https://docs.casper.network/concepts/accounts-and-keys>
+- Casper SDK client usage: <https://docs.casper.network/developers/dapps/sdk/client-library-usage>
+
+## Purchasing a card
+
+Purchasing a card is a **real testnet transaction** — only do it when
+your user explicitly asks, and only for the amount they ask for. Do
+not run this as part of setup, testing, or on your own initiative.
+
+```javascript
+import { purchaseCardCasper, getCasperBalance } from 'cspr402';
+
+// The SDK auto-loads ~/.cspr402/config.json (written by onboard), so
+// apiKey / baseUrl / agentName below are optional overrides — you only
+// need them when running outside the onboarding machine.
+// Check what the wallet actually has BEFORE picking the asset. If you
+// pay in an asset you don't hold the call will fail at the Casper
+// transfer step and waste a deploy fee.
+const bal = await getCasperBalance('my-agent');
+const wantUsdc = '<amount the user requested>';
+const paymentAsset = parseFloat(bal.mockUsdc) >= parseFloat(wantUsdc) ? 'mock_usdc' : 'cspr';
+
+const card = await purchaseCardCasper({
+  apiKey: process.env.CARDS402_API_KEY,
+  baseUrl: process.env.CARDS402_BASE_URL,
+  agentName: 'my-agent',
+  amountUsdc: wantUsdc,
+  paymentAsset,
+});
+
+console.log('Card:', card.number, 'CVV:', card.cvv, 'Exp:', card.expiry);
+```
+
+Under the hood, `purchaseCardCasper` opens a single SSE stream to
+`/v1/orders/:id/stream`, waits for the `ready` event (after the Casper
+deploy is verified), and returns the card details. No polling, no
+webhook endpoint required.
+
+## Setup — MCP (Claude Desktop, Cursor, other MCP clients)
+
+If your runtime is an MCP client, add this to your config:
+
+```json
+{
+  "mcpServers": {
+    "cspr402": {
+      "command": "npx",
+      "args": ["-y", "cspr402"],
+      "env": { "CARDS402_API_KEY": "cards402_<your key>" }
+    }
+  }
+}
+```
+
+The MCP server exposes four tools: `setup_wallet`, `check_budget`,
+`check_order`, and `purchase_vcc`. Run `setup_wallet` first to see
+your agent's Casper testnet public key for funding; only call
+`purchase_vcc` when the user explicitly asks for a card. The server
+auto-loads `~/.cspr402/config.json`, so `CARDS402_API_KEY` above is an
+optional override used only when no onboarding config is present.
+
+## Setup — non-Node agents (Python, Go, shell, etc.)
+
+You can't use the SDK, so you'll need to:
+
+1. Configure a Casper testnet sender keypair (Ed25519 PEM) and fund it
+   with faucet CSPR from
+   [testnet.cspr.live/tools/faucet](https://testnet.cspr.live/tools/faucet).
+
+2. Call the HTTP API directly. Full protocol reference including the
+   SSE streaming path, the Casper native transfer, and phase
+   transitions: https://cspr402.xyz/agents.txt
+
+## Quick reference
+
+| Action               | Command                                                   |
+| -------------------- | --------------------------------------------------------- |
+| Check wallet balance | `cspr402 wallet balance`                                  |
+| Check spend budget   | `curl $API_URL/usage -H "X-Api-Key: $KEY"`                |
+| Stream order updates | `curl -N $API_URL/orders/$ID/stream -H "X-Api-Key: $KEY"` |
+| Get order snapshot   | `curl $API_URL/orders/$ID -H "X-Api-Key: $KEY"`           |
+| List recent orders   | `curl $API_URL/orders -H "X-Api-Key: $KEY"`               |
+
+The SDK's `purchaseCardCasper` subscribes to the live SSE stream under the
+hood — one open connection, push notifications, closes cleanly when the
+card is ready. No polling, no webhook endpoint to host. If you're
+calling the API without the SDK, open `GET /orders/{id}/stream` with
+`Accept: text/event-stream` and read events until you see
+`phase: "ready"`. Full protocol details: https://cspr402.xyz/agents.txt
+
+## Errors
+
+| Error                             | What to do                         |
+| --------------------------------- | ---------------------------------- |
+| `insufficient_balance`            | Ask operator for more testnet CSPR |
+| `spend_limit_exceeded`            | Hit your daily/total budget        |
+| `policy_requires_approval`        | Operator must approve this amount  |
+| `service_temporarily_unavailable` | Retry in a minute                  |
+
+## Timing
+
+Order → payment → card: the time it takes for the Casper testnet deploy
+to finalize and the backend to verify it (typically a few seconds to a
+minute on testnet, not a guaranteed SLA).

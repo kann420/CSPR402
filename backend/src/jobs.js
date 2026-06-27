@@ -1025,6 +1025,12 @@ const MAINNET_USDC_ISSUER = 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K
 // successful fetch — see recordHorizonResult below.
 let _horizonOutageAlerted = false;
 
+// F2-funding-casper: mirror of _horizonOutageAlerted for the Casper RPC
+// path. A persistent Casper node outage shouldn't spam one bizEvent
+// per awaiting wallet per 15s tick; cleared on the next successful
+// fetch.
+let _casperOutageAlerted = false;
+
 // Horizon base URL picked by STELLAR_NETWORK. Testnet deployments
 // point at horizon-testnet.stellar.org; mainnet at horizon.stellar.org.
 // Pre-fix the mainnet URL was hardcoded too, which broke every testnet
@@ -1035,7 +1041,19 @@ function horizonBase() {
     : 'https://horizon.stellar.org';
 }
 
+// Dispatch by PAYMENT_PROVIDER. Default is 'casper' (env.js:189). The
+// stellar branch is the legacy Horizon poller; the casper branch queries
+// the Casper node RPC. On a casper deploy every wallet_public_key is a
+// Casper hex key (POST /v1/agent/status rejects cross-provider keys,
+// app.js:766-783), so branching on the deployment's configured provider
+// is correct and cheaper than per-row key-shape sniffing.
 async function checkAgentFundingStatus() {
+  const provider = process.env.PAYMENT_PROVIDER || 'casper';
+  if (provider === 'stellar') return checkAgentFundingStatusStellar();
+  return checkAgentFundingStatusCasper();
+}
+
+async function checkAgentFundingStatusStellar() {
   const usdcIssuer = process.env.STELLAR_USDC_ISSUER || MAINNET_USDC_ISSUER;
   const awaiting = /** @type {any[]} */ (
     db
@@ -1153,9 +1171,91 @@ async function checkAgentFundingStatus() {
   }
 }
 
+// Casper funding poller. For each awaiting_funding agent, query the
+// Casper node RPC for the wallet's CSPR balance and flip to 'funded'
+// once it holds any CSPR. A freshly-onboarded key has no on-chain
+// account until it receives its first deposit; `fetchCasperBalance`
+// surfaces that as `notFound: true` (quiet, retry next tick) rather
+// than an outage.
+async function checkAgentFundingStatusCasper() {
+  const awaiting = /** @type {any[]} */ (
+    db
+      .prepare(
+        `SELECT id, wallet_public_key
+         FROM api_keys
+         WHERE agent_state = 'awaiting_funding'
+           AND wallet_public_key IS NOT NULL`,
+      )
+      .all()
+  );
+  if (awaiting.length === 0) return;
+
+  const { fetchCasperBalance, formatCSPR } = require('./payments/casper-balance');
+  const { emit: emitBusEvent } = require('./lib/event-bus');
+  for (const row of awaiting) {
+    let result;
+    try {
+      result = await fetchCasperBalance(row.wallet_public_key);
+    } catch (err) {
+      // Transient Casper RPC failure (network, timeout, 5xx, non-32009
+      // RPC error) — retry next tick. Outage-dedup so a persistent node
+      // failure doesn't spam one bizEvent per awaiting wallet per tick.
+      if (!_casperOutageAlerted) {
+        _casperOutageAlerted = true;
+        logger.event('funding.casper_rpc_error', {
+          error: err instanceof Error ? err.message : String(err),
+          awaiting_count: awaiting.length,
+        });
+        console.error(
+          `[jobs] funding check: Casper RPC error (first seen this outage; ` +
+            `subsequent errors suppressed until recovery): ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+        );
+      }
+      continue;
+    }
+
+    // Any non-throwing return means the node responded (even `-32009
+    // No such account` is a valid node answer, not an outage) — reset
+    // the outage flag so a future outage re-alerts.
+    if (_casperOutageAlerted) {
+      _casperOutageAlerted = false;
+      logger.event('funding.casper_recovered', {});
+    }
+
+    // Quiet path: account not funded yet — retry next tick, no alert.
+    if (result.notFound || !result.funded) continue;
+
+    const detail = `cspr=${formatCSPR(result.motes)}`;
+    db.prepare(
+      `UPDATE api_keys
+       SET agent_state = 'funded',
+           agent_state_at = @at,
+           agent_state_detail = @detail
+       WHERE id = @id`,
+    ).run({
+      id: row.id,
+      at: new Date().toISOString(),
+      detail,
+    });
+    emitBusEvent('agent_state', {
+      api_key_id: row.id,
+      state: 'funded',
+      wallet_public_key: row.wallet_public_key,
+      detail,
+    });
+  }
+}
+
 // Test-only: reset the Horizon outage alert dedup state.
 function _resetFundingHorizonOutageState() {
   _horizonOutageAlerted = false;
+}
+
+// Test-only: reset the Casper outage alert dedup state.
+function _resetFundingCasperOutageState() {
+  _casperOutageAlerted = false;
 }
 
 // Mutex guard for runJobs. setInterval does NOT await async callbacks,
@@ -1334,6 +1434,7 @@ module.exports = {
   runJobs,
   checkAgentFundingStatus,
   _resetFundingHorizonOutageState,
+  _resetFundingCasperOutageState,
   _horizonBase: horizonBase,
   _MAINNET_USDC_ISSUER: MAINNET_USDC_ISSUER,
 };

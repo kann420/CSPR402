@@ -203,32 +203,14 @@ export function assertSafeBaseUrl(url: string, opts: { context?: string } = {}):
 }
 
 /**
- * Write the config file atomically with 0600 permissions so only the
- * owner can read it. Creates the parent directory on demand.
- *
- * Atomicity: write to `<path>.tmp-<pid>-<rand>` first, fsync, then
- * rename over the target. A mid-write crash (power loss, OOM, Ctrl-C
- * between write and flush) leaves the old file intact instead of a
- * truncated new one that loadCards402Config would explode on.
- *
- * Permission hardening: the `mode` option on writeFileSync only
- * applies when the file is being CREATED, so a stale 0644 file from
- * an earlier buggy version would retain its wide permissions forever.
- * We fsync+rename so the temp path is always freshly created with
- * 0600, then the rename replaces the target atomically.
+ * Create a directory (recursively) and harden it to 0700 so secrets
+ * written inside it are not world-traversable. mkdirSync's `mode`
+ * only applies to dirs it CREATES, so an existing 0755 dir is
+ * explicitly chmod'd to 0700. Skipped on Windows where mode bits
+ * are simulated and chmod can fail or no-op unpredictably.
  */
-export function saveCards402Config(config: Cards402Config, configPath?: string): { path: string } {
-  const p = configPath || defaultConfigPath();
-  const dir = path.dirname(p);
+export function ensurePrivateDir(dir: string): void {
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-  // F2-config: mkdirSync's mode option only applies to directories
-  // it actually CREATES. An existing ~/.cards402 directory at 0755
-  // (from an older buggy SDK version, a package install, or a
-  // manual mkdir) silently stays loose, and the config file sits
-  // inside a world-traversable parent. Explicit chmod after mkdir
-  // guarantees the directory ends up at 0700 regardless of its
-  // pre-existing state. Skip on Windows — mode bits are simulated
-  // and the chmod can fail or no-op unpredictably.
   if (process.platform !== 'win32') {
     try {
       fs.chmodSync(dir, 0o700);
@@ -236,20 +218,31 @@ export function saveCards402Config(config: Cards402Config, configPath?: string):
       /* non-fatal — best effort */
     }
   }
+}
 
-  // F3-config: crypto.randomBytes is strictly safer than Math.random
-  // for a temp-file suffix. Collision is already near-zero in
-  // practice but Math.random is seeded from the clock — two
-  // containers starting in the same millisecond could in principle
-  // produce the same sequence. Crypto random adds no meaningful
-  // cost and eliminates the class of concern.
-  const tmp = `${p}.tmp-${process.pid}-${crypto.randomBytes(4).toString('hex')}`;
-  const body = JSON.stringify(config, null, 2);
+/**
+ * Write a file atomically with 0600 permissions so only the owner
+ * can read it. Caller is responsible for creating/hardening the
+ * parent directory (see `ensurePrivateDir`).
+ *
+ * Atomicity: write to `<path>.tmp-<pid>-<rand>` first, fsync, then
+ * rename over the target. A mid-write crash (power loss, OOM, Ctrl-C
+ * between write and flush) leaves the old file intact instead of a
+ * truncated new one that a loader would explode on.
+ *
+ * Permission hardening: the `mode` option on writeFileSync only
+ * applies when the file is being CREATED, so a stale 0644 file would
+ * retain its wide permissions forever. We fsync+rename so the temp
+ * path is always freshly created with 0600, then the rename replaces
+ * the target atomically, then we belt-and-braces chmod after.
+ */
+export function atomicWriteFile600(absPath: string, contents: string): void {
+  const tmp = `${absPath}.tmp-${process.pid}-${crypto.randomBytes(4).toString('hex')}`;
   let committed = false;
   try {
     const fd = fs.openSync(tmp, 'w', 0o600);
     try {
-      fs.writeFileSync(fd, body);
+      fs.writeFileSync(fd, contents);
       fs.fsyncSync(fd);
     } finally {
       fs.closeSync(fd);
@@ -257,14 +250,9 @@ export function saveCards402Config(config: Cards402Config, configPath?: string):
     // Atomic rename. POSIX guarantees this replaces an existing file
     // with the same semantics; on Windows rename-over-existing also
     // works from Node 10+.
-    fs.renameSync(tmp, p);
+    fs.renameSync(tmp, absPath);
     committed = true;
   } finally {
-    // F3-config: clean up the temp file on any failure before the
-    // rename commits. A leaked ~/.cards402/config.json.tmp-* file
-    // holding a fresh api_key would otherwise linger on disk with
-    // the same 0600 permissions as the target but under a path no
-    // one checks — easy to miss during credential rotation.
     if (!committed) {
       try {
         fs.unlinkSync(tmp);
@@ -274,12 +262,27 @@ export function saveCards402Config(config: Cards402Config, configPath?: string):
     }
   }
   // Belt-and-braces: some filesystems (FAT on USB sticks) drop the
-  // mode on rename. Force-tighten after.
-  try {
-    fs.chmodSync(p, 0o600);
-  } catch {
-    /* non-fatal — best effort */
+  // mode on rename. Force-tighten after. Skip on Windows.
+  if (process.platform !== 'win32') {
+    try {
+      fs.chmodSync(absPath, 0o600);
+    } catch {
+      /* non-fatal — best effort */
+    }
   }
+}
+
+/**
+ * Write the config file atomically with 0600 permissions so only the
+ * owner can read it. Creates the parent directory on demand.
+ *
+ * See `atomicWriteFile600` for the atomicity / permission-hardening
+ * rationale.
+ */
+export function saveCards402Config(config: Cards402Config, configPath?: string): { path: string } {
+  const p = configPath || defaultConfigPath();
+  ensurePrivateDir(path.dirname(p));
+  atomicWriteFile600(p, JSON.stringify(config, null, 2));
   return { path: p };
 }
 

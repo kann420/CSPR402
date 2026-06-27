@@ -47,7 +47,7 @@ function resolvePublicKey(rest: string[]): string {
   );
   if (!publicKey) {
     throw new Error(
-      "No Casper public key configured. Re-run 'cspr402 onboard --claim <code> --casper-public-key <hex>' or pass --public-key.",
+      "No Casper public key configured. Run 'cspr402 onboard --claim <code>' to generate one, or pass --public-key.",
     );
   }
   return publicKey;
@@ -62,14 +62,34 @@ function resolveRpcUrl(rest: string[]): string {
   );
 }
 
-async function rpcCall(rpcUrl: string, method: string, params: unknown[]): Promise<unknown> {
+/**
+ * Error from the Casper JSON-RPC layer. Carries the numeric `code` so
+ * callers can classify (e.g. -32009 "No such account" = unfunded key,
+ * not an outage).
+ */
+class CasperRpcError extends Error {
+  code?: number;
+  constructor(message: string, code?: number) {
+    super(message);
+    this.name = 'CasperRpcError';
+    this.code = code;
+  }
+}
+
+/**
+ * Send a Casper JSON-RPC call. `params` is the struct/object form
+ * required by node api_version 2.0.0 (the legacy `[{name,value}]`
+ * array form is rejected with -32602). Returns `body.result`; throws
+ * `CasperRpcError` (with `code`) on an RPC error or non-200.
+ */
+async function rpcCall(rpcUrl: string, method: string, params: unknown): Promise<unknown> {
   const res = await fetch(rpcUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id: 1, jsonrpc: '2.0', method, params }),
   });
   const body = (await res.json().catch(() => ({}))) as {
-    error?: { message?: string; data?: unknown };
+    error?: { code?: number; message?: string; data?: unknown };
     result?: unknown;
   };
   if (!res.ok || body.error) {
@@ -77,18 +97,12 @@ async function rpcCall(rpcUrl: string, method: string, params: unknown[]): Promi
       body.error?.message ||
       (typeof body.error?.data === 'string' ? body.error.data : undefined) ||
       `Casper RPC HTTP ${res.status}`;
-    throw new Error(msg);
+    throw new CasperRpcError(msg, body.error?.code);
   }
   return body.result;
 }
 
-function unwrapValue(result: unknown): Record<string, unknown> {
-  const obj = result as Record<string, unknown>;
-  if (obj && typeof obj === 'object' && obj.value && typeof obj.value === 'object') {
-    return obj.value as Record<string, unknown>;
-  }
-  return obj || {};
-}
+const ACCOUNT_NOT_FOUND_CODE = -32009;
 
 function formatCSPR(motesRaw: string): string {
   const motes = BigInt(motesRaw);
@@ -97,34 +111,49 @@ function formatCSPR(motesRaw: string): string {
   return `${whole}.${frac}`;
 }
 
-async function fetchBalance(
-  publicKey: string,
-  rpcUrl: string,
-): Promise<{ accountHash: string; motes: string }> {
-  const accountInfo = unwrapValue(
-    await rpcCall(rpcUrl, 'state_get_account_info', [
-      { name: 'account_identifier', value: publicKey },
-    ]),
-  );
-  const account = accountInfo.account as Record<string, unknown> | undefined;
+interface BalanceResult {
+  accountHash: string | null;
+  motes: string;
+  notFound: boolean;
+}
+
+/**
+ * Fetch the CSPR balance for a Casper public key via
+ * `state_get_account_info` → `query_balance` (struct params, node
+ * api_version 2.0.0). A freshly-generated key that has never received
+ * CSPR has no on-chain account: `state_get_account_info` returns RPC
+ * error -32009 "No such account", which we surface as `notFound: true`
+ * with `motes: '0'` (NOT an error — the agent simply hasn't been
+ * funded yet).
+ */
+async function fetchBalance(publicKey: string, rpcUrl: string): Promise<BalanceResult> {
+  let accountInfo: unknown;
+  try {
+    accountInfo = await rpcCall(rpcUrl, 'state_get_account_info', {
+      public_key: publicKey,
+    });
+  } catch (err) {
+    if (err instanceof CasperRpcError && err.code === ACCOUNT_NOT_FOUND_CODE) {
+      return { accountHash: null, motes: '0', notFound: true };
+    }
+    throw err;
+  }
+  const account = (accountInfo as Record<string, unknown> | undefined)?.account as
+    | Record<string, unknown>
+    | undefined;
   const accountHash = typeof account?.account_hash === 'string' ? account.account_hash : undefined;
   if (!accountHash) {
-    throw new Error('Account was not found on Casper testnet. Fund it with testnet CSPR first.');
+    return { accountHash: null, motes: '0', notFound: true };
   }
 
-  const balanceResult = unwrapValue(
-    await rpcCall(rpcUrl, 'query_balance', [
-      {
-        name: 'purse_identifier',
-        value: { main_purse_under_account_hash: accountHash },
-      },
-    ]),
-  );
-  const balance = balanceResult.balance;
+  const balanceResult = (await rpcCall(rpcUrl, 'query_balance', {
+    purse_identifier: { main_purse_under_account_hash: accountHash },
+  })) as Record<string, unknown> | undefined;
+  const balance = balanceResult?.balance;
   if (typeof balance !== 'string' || !/^\d+$/.test(balance)) {
     throw new Error('Casper RPC did not return a parseable balance.');
   }
-  return { accountHash, motes: balance };
+  return { accountHash, motes: balance, notFound: false };
 }
 
 export async function walletCommand(argv: string[]): Promise<number> {
@@ -180,9 +209,14 @@ export async function walletCommand(argv: string[]): Promise<number> {
       const rpcUrl = resolveRpcUrl(rest);
       const balance = await fetchBalance(publicKey, rpcUrl);
       process.stdout.write(`address:      ${publicKey}\n`);
-      process.stdout.write(`account_hash: ${balance.accountHash}\n`);
-      process.stdout.write(`motes:        ${balance.motes}\n`);
-      process.stdout.write(`cspr:         ${formatCSPR(balance.motes)}\n`);
+      if (balance.notFound) {
+        process.stdout.write('status:       account not funded yet\n');
+        process.stdout.write('cspr:         0\n');
+      } else {
+        process.stdout.write(`account_hash: ${balance.accountHash}\n`);
+        process.stdout.write(`motes:        ${balance.motes}\n`);
+        process.stdout.write(`cspr:         ${formatCSPR(balance.motes)}\n`);
+      }
       return 0;
     }
 

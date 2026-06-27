@@ -27,7 +27,7 @@ interface Props {
 type Step = 'waiting' | 'claimed' | 'wallet' | 'awaiting_deposit' | 'funded' | 'active';
 
 export function CreateAgentDrawer({ open, onClose }: Props) {
-  const { agents, refresh, walletBalances } = useDashboard();
+  const { agents, refresh } = useDashboard();
   const toast = useToast();
   const router = useRouter();
 
@@ -68,22 +68,24 @@ export function CreateAgentDrawer({ open, onClose }: Props) {
     return agents.find((a) => a.id === created.id) ?? null;
   }, [agents, created]);
 
-  const balance = created ? walletBalances[created.id] : undefined;
-
+  // Stepper is driven entirely by server-reported agent state, not by
+  // the (never-fetched) `walletBalances` map. `walletBalances` is hard-
+  // seeded to zeros in DashboardProvider and never refreshed, so the old
+  // `hasFunds` branch was dead code AND regressed to 'wallet' once
+  // jobs.js flipped `agent_state='funded'` (no branch matched 'funded').
+  // The 'funded' step is now reached the moment the backend funding
+  // poller flips the agent's state.
   const step = useMemo<Step>(() => {
     if (!liveAgent) return 'waiting';
     const state = liveAgent.agent?.state ?? 'minted';
     const wallet = liveAgent.agent?.wallet_public_key ?? liveAgent.wallet_public_key ?? null;
-    const hasFunds = balance
-      ? parseFloat(balance.cspr) >= 1 || parseFloat(balance.usdc) > 0
-      : false;
     if (state === 'active') return 'active';
-    if (hasFunds && wallet) return 'funded';
+    if (state === 'funded') return 'funded';
     if (state === 'awaiting_funding' && wallet) return 'awaiting_deposit';
     if (wallet) return 'wallet';
     if (state === 'initializing') return 'claimed';
     return 'waiting';
-  }, [liveAgent, balance]);
+  }, [liveAgent]);
 
   // When the agent flips to active, auto-close the drawer and jump
   // the operator to the detail page — they're done with setup.
@@ -106,9 +108,6 @@ export function CreateAgentDrawer({ open, onClose }: Props) {
     ? [
         'Read https://cspr402.xyz/skill.md and set up this by running:',
         `npx -y cspr402@latest onboard --claim ${created.claim.code}`,
-        '',
-        'If this agent already has a Casper testnet public key, add:',
-        '--casper-public-key <hex>',
       ].join('\n')
     : '';
 
@@ -281,7 +280,15 @@ export function CreateAgentDrawer({ open, onClose }: Props) {
             <StepRow
               state={stepState(step, 'funded')}
               title="Funded"
-              detail={balance ? `${parseFloat(balance.cspr).toFixed(2)} CSPR testnet` : undefined}
+              detail={
+                // `agent_state_detail` is set by the backend funding
+                // poller as `cspr=<motes/1e9>` when it flips the agent
+                // to funded. Surface the real on-chain CSPR amount
+                // instead of the never-fetched walletBalances map.
+                liveAgent?.agent?.detail?.startsWith('cspr=')
+                  ? `${liveAgent.agent.detail.slice(5)} CSPR testnet`
+                  : (liveAgent?.agent?.detail ?? undefined)
+              }
             />
             <StepRow state={stepState(step, 'active')} title="Active" />
           </div>
