@@ -235,7 +235,7 @@ async function loadRuntime(): Promise<CsprClickClient> {
     chainName:
       config.casper_chain_name?.trim() ||
       process.env.NEXT_PUBLIC_CASPER_CHAIN_NAME?.trim() ||
-      'casper-test',
+      'casper',
     providers,
   };
   window.clickUIOptions = {

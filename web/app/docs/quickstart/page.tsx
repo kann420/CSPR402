@@ -5,14 +5,17 @@ import { CopyCodeBlock } from '@/app/components/CopyCodeBlock';
 export const metadata: Metadata = {
   title: 'Quickstart',
   description:
-    'Five minutes from cold clone to a verified Casper testnet deploy: set env, faucet two keys, boot backend and web, create an order, send CSPR, and verify the deploy for a mock card.',
+    'Five minutes from cold clone to a verified Casper mainnet deploy: set env, fund two keys, boot backend and web, create an order, send CSPR, and verify the deploy for a virtual card.',
 };
 
 const envSample = `PAYMENT_PROVIDER=casper
-CASPER_NETWORK=testnet
-CASPER_CHAIN_NAME=casper-test
-CASPER_NODE_RPC_URL=https://node.testnet.casper.network/rpc
-CASPER_EVENT_STREAM_URL=https://node.testnet.casper.network/events
+CASPER_NETWORK=mainnet
+CASPER_CHAIN_NAME=casper
+CASPER_NODE_RPC_URL=https://casper-mainnet.gateway.tatum.io/rpc
+CASPER_EVENT_STREAM_URL=https://node.cspr.cloud/events/main
+# Optional: raw access token for an authenticated RPC provider (e.g. CSPR.cloud).
+# Free no-auth endpoints (Tatum gateway above) leave this unset. No "Bearer " prefix.
+# CASPER_NODE_RPC_AUTH=<your cspr.cloud access token>
 CASPER_TREASURY_PUBLIC_KEY=<your treasury public key>
 CASPER_TREASURY_PRIVATE_KEY_PATH=<ignored local key path if needed later>
 CSPR402_API_KEY=<optional for curl/agent debug; portal provisions one after wallet login>
@@ -57,12 +60,13 @@ const steps = [
       <>
         <p>
           Treasury is the configured recipient public key the backend verifies against. Agent is a
-          separate local keypair that sends the Casper testnet transfer. Faucet both on{' '}
-          <code>casper-test</code> before you run the smoke flow.
+          separate local keypair that sends the Casper mainnet transfer. Fund both on mainnet (buy
+          CSPR on an exchange and send via <code>cspr.live/transfer</code> — mainnet has no faucet)
+          before you run the smoke flow.
         </p>
         <p>
           Reuse any local keypair files you already generated with this repo. No trustline setup is
-          needed for the CSPR402 demo — settlement is native CSPR on Casper testnet.
+          needed for the CSPR402 demo — settlement is native CSPR on Casper mainnet.
         </p>
       </>
     ),
@@ -102,8 +106,8 @@ const steps = [
       <>
         <p>
           Once the transfer lands, submit the deploy hash back to the backend. A successful verify
-          returns a Casper receipt and a mock card payload. Do it in the portal, or by HTTP with the
-          curl below.
+          returns a Casper receipt and a virtual card payload. Do it in the portal, or by HTTP with
+          the curl below.
         </p>
         <CopyCodeBlock label="Manual verify">{verifyCurl}</CopyCodeBlock>
       </>
@@ -127,9 +131,9 @@ export default function QuickstartPage() {
         className="type-body"
         style={{ maxWidth: 680, fontSize: '1rem', color: 'var(--fg-muted)' }}
       >
-        Five minutes from a cold clone to a verified Casper testnet deploy. You will set local env,
-        faucet two testnet keys, boot the backend and web, create an order, send exact CSPR, then
-        verify the deploy for a mock card. For the interactive path, open{' '}
+        Five minutes from a cold clone to a verified Casper mainnet deploy. You will set local env,
+        fund two mainnet keys, boot the backend and web, create an order, send exact CSPR, then
+        verify the deploy for a virtual card. For the interactive path, open{' '}
         <Link href="/portal" style={{ color: 'var(--fg)' }}>
           /portal
         </Link>{' '}
@@ -189,7 +193,7 @@ export default function QuickstartPage() {
           {[
             'Backend starts without missing-env errors.',
             'Portal can log in with Casper Wallet and create an order without API key paste.',
-            'Agent sends a real Casper testnet deploy.',
+            'Agent sends a real Casper mainnet deploy.',
             'verify-payment returns ok: true and a receipt.',
             'Order becomes delivered exactly once.',
           ].map((item) => (

@@ -7,6 +7,7 @@
 import { use, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useDashboard } from '../../_lib/DashboardProvider';
+import { agentCsprBalance } from '../../_lib/network';
 import { KpiTile, KpiRow } from '../../_ui/KpiTile';
 import { Card } from '../../_ui/Card';
 import { Pill } from '../../_ui/Pill';
@@ -86,7 +87,7 @@ export default function AgentDetailPage({ params }: PageProps) {
   // defined below don't need to deal with the widened type.
   const liveAgent = agent;
   const state = (liveAgent.agent?.state ?? 'minted') as AgentStateName;
-  const balCspr = walletBalances[liveAgent.id]?.cspr || '0';
+  const balCspr = agentCsprBalance(liveAgent.agent?.detail);
   const balUsdc = walletBalances[liveAgent.id]?.usdc || '0';
   const comboUsd =
     parseFloat(balUsdc) + parseFloat(balCspr) * 0.2; /* rough CSPR/USD heuristic (mock) */

@@ -62,7 +62,7 @@ export default function PlatformTreasuryPage() {
           <KpiRow>
             <KpiTile label="Provider" value={data.payment_provider || 'casper'} />
             <KpiTile label="Network" value={data.network} />
-            <KpiTile label="Chain" value={data.chain_name || 'casper-test'} />
+            <KpiTile label="Chain" value={data.chain_name || 'casper'} />
             <KpiTile label="Telemetry" value="Config only" hint="live balance not wired yet" />
           </KpiRow>
 

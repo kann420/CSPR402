@@ -17,6 +17,7 @@ import { PageContainer } from '../_ui/PageContainer';
 import { PageHeader } from '../_ui/PageHeader';
 import { formatUsd, parseTimestamp, timeAgo, truncateAddress } from '../_lib/format';
 import { AGENT_STATE_LABEL, AGENT_STATE_TONE } from '../_lib/constants';
+import { agentCsprBalance } from '../_lib/network';
 import type { ApiKey, AgentStateName } from '../_lib/types';
 import { CreateAgentDrawer } from '../_shell/CreateAgentDrawer';
 import { useAgentGroups, useGroupsStorageSync } from '../_lib/groups';
@@ -200,7 +201,7 @@ export default function AgentsPage() {
                   key={a.id}
                   agent={a}
                   group={groups[a.id] || null}
-                  balanceCspr={walletBalances[a.id]?.cspr || '0'}
+                  balanceCspr={agentCsprBalance(a.agent?.detail)}
                   balanceUsdc={walletBalances[a.id]?.usdc || '0'}
                   spent7d={spend7d.get(a.id) || 0}
                 />
