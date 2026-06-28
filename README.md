@@ -65,7 +65,7 @@ flowchart LR
   class casper,treasury,rpc chain;
   class sqlite,vault,receipt store;
 ```
-For the full system design, see [`./ARCHITECTURE.md`](./ARCHITECTURE.md).
+
 ---
 
 ## Repository structure
