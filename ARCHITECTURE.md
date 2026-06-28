@@ -18,8 +18,9 @@ There is **no on-chain smart contract in the active path**. Payment verification
 is pull-based: the backend queries the Casper node RPC (`info_get_transaction`
 with `info_get_deploy` fallback) when the agent calls the verify endpoint.
 Fulfillment is simulated — a sealed virtual card is written to the database at the
-moment payment is verified. A real virtual-card fulfillment service is out of
-scope for the MVP.
+moment payment is verified, but the card is not yet spendable at merchants. The
+next phase integrates a real Visa virtual-card issuer so a verified Casper payment
+yields a genuine, spendable Visa card; the MVP scope is the on-chain CSPR payment and deploy verification, not card spendability.
 
 The product identity: npm package `cspr402`, web domain `https://cspr402.xyz`,
 API base `https://api.cspr402.xyz/v1`, CLI binary `cspr402`. The repository
@@ -218,6 +219,12 @@ bad-key floods cannot saturate bcrypt.
 - `/dashboard/*` — operator API (agents, orders, approvals, alerts,
   treasury/margins, webhooks, audit log). Session-authenticated via the auth
   router; backed by the `dashboards` + `users` + `sessions` tables.
+- `GET /dashboard/cards` — tenant-scoped list of delivered virtual cards as a
+  dashboard-safe masked projection (`brand`, `last4`, `expiry`, `amount_usdc`,
+  linked `order_id`, `status`, `created_at`). Never returns PAN or CVV; each row
+  is projected through `maskCard()` (see card-vault) with a per-row try/catch so
+  one undecryptable row cannot fail the whole list. Scoped to the authenticated
+  dashboard like `GET /dashboard/orders`; powers the dashboard "Virtual cards" page.
 - `/dashboard/platform/*` — platform-owner cross-tenant surface, gated by
   `requirePlatformOwner`.
 - `/internal/*` — internal helpers.
@@ -335,6 +342,9 @@ rest. A `jobsRunning` mutex prevents overlapping `runJobs` ticks. Active jobs:
   are AES-256-GCM sealed at rest; `seal()` throws in production when no key is
   configured. Fields are byte-length capped (64 bytes). `openCard()` decrypts
   only on authorized read; the brand is normalized before reaching the agent.
+  `maskCard()` projects a sealed row into a dashboard-safe shape (`last4`,
+  `expiry`, `brand`) for `GET /dashboard/cards` — it never surfaces the full PAN
+  or CVV and throws on GCM failure like `openCard`.
 - **SSRF guard** (`lib/ssrf.js`): `assertSafeUrl()` resolves DNS and checks
   every resolved address against a private-IP blocklist (RFC 1918, loopback,
   link-local, CGNAT, cloud metadata, 6to4/Teredo/NAT64/IPv4-mapped IPv6).
@@ -419,7 +429,7 @@ variables:
 | `CASPER_TREASURY_PRIVATE_KEY_PATH` | Path to treasury signing key material (kept out of git).                                                    |
 | `CASPER_MIN_CONFIRMATIONS`         | Minimum confirmations for verification policy.                                                              |
 | `CASPER_PAYMENT_TIMEOUT_MS`        | Payment verification timeout.                                                                               |
-| `MOCK_USDC_ENABLED`                | `true` enables `mock_usdc_cep18` orders.                                                                    |
+| `MOCK_USDC_ENABLED`                | `true` enables `mock_usdc_cep18` orders (testnet-only; `false` on mainnet).                                 |
 | `MOCK_USDC_CONTRACT_PACKAGE_HASH`  | Required when `MOCK_USDC_ENABLED=true`; verified against the deploy's stored package hash.                  |
 | `MOCK_USDC_CONTRACT_HASH`          | Optional display/query metadata.                                                                            |
 | `MOCK_USDC_DECIMALS`               | CEP-18 decimals (default 6).                                                                                |

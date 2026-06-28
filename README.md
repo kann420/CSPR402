@@ -1,12 +1,11 @@
 # CSPR402
 
-CSPR402 issues virtual cards to AI agents in exchange for verified Casper payments (native CSPR or CEP-18 mockUSDC). An agent pays the face value on Casper and receives a card number, CVV, and expiry back. The MVP runs with `PAYMENT_PROVIDER=casper` and `MOCK_CARD_MODE=true`.
+CSPR402 is an **x402-inspired** payment protocol built on Casper. An AI agent makes one verified on-chain CSPR transfer and receives a virtual card number, CVV, and expiry in return — no custodial wallet sitting between the agent and the chain. The MVP runs with `PAYMENT_PROVIDER=casper` and `MOCK_CARD_MODE=true`.
 
 - **Web:** https://cspr402.xyz
-- **API:** https://api.cspr402.xyz/v1
 - **CLI:** `cspr402` (npm package [`cspr402`](https://www.npmjs.com/package/cspr402))
 
-The active payment path uses **no on-chain smart contract**. The backend verifies Casper deploys directly from the Casper node JSON-RPC — it is pull-based: the agent submits a `deploy_hash`, the backend fetches the deploy from the node and checks chain, sender, recipient, and amount.
+The active payment path uses **no on-chain smart contract**. The backend verifies Casper deploys directly from the Casper node JSON-RPC — it is pull-based: the agent submits a `deploy_hash`, the backend fetches the deploy from the node and checks chain, sender, recipient, and amount. CSPR402 borrows the x402 "pay onchain, get access" idea but is **not** an x402-conformant facilitator: verification is a pull-based deploy check, not a signed-authorization payment flow.
 
 ---
 
@@ -21,7 +20,7 @@ examples/  Node, Python, and LangChain agent examples
 scripts/   API validation, smoke tests, admin-key generation
 ```
 
-A real virtual-card fulfillment service is out of scope for the MVP. When a Casper payment verifies, the backend writes a sealed virtual card and returns it; integration with a real issuer is a later milestone.
+Today the cards are **simulated** — when a Casper payment verifies, the backend writes a sealed virtual card (PAN/CVV/expiry) and returns it, but the card is not yet spendable at merchants. **Upcoming phase:** integrate a real Visa virtual-card issuer so a verified Casper payment yields a genuine, spendable Visa card the agent can use to pay. The MVP scope is the on-chain CSPR payment and deploy verification; card spendability lands with the issuer integration.
 
 For the full system design, see [`./ARCHITECTURE.md`](./ARCHITECTURE.md).
 
@@ -31,7 +30,7 @@ For the full system design, see [`./ARCHITECTURE.md`](./ARCHITECTURE.md).
 
 Node.js/Express service. Responsibilities:
 
-- **Casper deploy verification** (pull-based via Casper node RPC) for native CSPR transfers and CEP-18 mockUSDC `transfer(...)` calls.
+- **Casper deploy verification** (pull-based via Casper node RPC) for native CSPR transfers.
 - **Order state machine** — `awaiting_approval` → `pending_payment` → `delivered` (or `expired` / `rejected` / `failed`), with idempotency keys and SSE phase streaming.
 - **Policy engine** — per-key spend limits, daily limits, approval flows, and time windows.
 - **Agent auth** — bcrypt-hashed API keys with a prefix index for constant-time lookup.
@@ -49,14 +48,13 @@ npm run dev                     # http://localhost:4000
 npm test
 ```
 
-Storage is SQLite in WAL mode via `better-sqlite3`; migrations run automatically on startup. See `backend/.env.casper.example` for every configurable value (server port, Casper node RPC URL, treasury keys, CSPR USD rate, min transfer motes, mockUSDC CEP-18 settings, webhook/CORS origins, and the secret-box key used to seal cards at rest).
+Storage is SQLite in WAL mode via `better-sqlite3`; migrations run automatically on startup. See `backend/.env.casper.example` for every configurable value (server port, Casper node RPC URL, treasury keys, CSPR USD rate, min transfer motes, webhook/CORS origins, and the secret-box key used to seal cards at rest).
 
 ### Payment details
 
 - **Native CSPR** — the order quote carries a monotonic `transfer_id` and an `amount_motes` figure. 1 CSPR = 1e9 motes. USD → motes is derived from `CSPR_USD_RATE`; the minimum transfer defaults to 2.5 CSPR (`CASPER_MIN_TRANSFER_MOTES`).
-- **mockUSDC (CEP-18)** — the quote is a `transfer(...)` call to a configured CEP-18 package hash (`MOCK_USDC_CONTRACT_PACKAGE_HASH`), enabled only when `MOCK_USDC_ENABLED=true`. Decimals default to 6.
 
-Verification checks the chain (`casper`), sender, recipient (account-hash / main purse), amount, and — for native CSPR — the `transfer_id`. A deploy hash can only be claimed once.
+Verification checks the chain (`casper`), sender, recipient (account-hash / main purse), amount, and the `transfer_id`. A deploy hash can only be claimed once.
 
 ---
 
@@ -101,13 +99,13 @@ npm run build
    ```bash
    npx -y cspr402@latest onboard --claim <code>
    ```
-3. **Fund the Casper wallet** with CSPR (or mockUSDC if the backend has it enabled) on `casper`.
+3. **Fund the Casper wallet** with CSPR on Casper mainnet.
 4. **Purchase** — create an order, pay, verify, and receive the virtual card:
    ```bash
    npx -y cspr402@latest purchase --amount 10
    ```
 
-Programmatic alternative using the SDK HTTP client: call `POST /v1/orders` to create an order and receive payment instructions, then `POST /v1/orders/:id/verify-payment` with the Casper `deploy_hash` (and `sender_public_key` for mockUSDC) to verify and collect the card. Both endpoints accept an `Idempotency-Key` for safe retries.
+Programmatic alternative using the SDK HTTP client: call `POST /v1/orders` to create an order and receive payment instructions, then `POST /v1/orders/:id/verify-payment` with the Casper `deploy_hash` to verify and collect the card. Both endpoints accept an `Idempotency-Key` for safe retries.
 
 ---
 
