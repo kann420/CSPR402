@@ -151,4 +151,34 @@ function safeOpen(fieldName, value) {
   }
 }
 
-module.exports = { sealCard, openCard, vaultEnabled: hasKey };
+/**
+ * Project a card row into a dashboard-safe masked shape. Returns only
+ * `last4`, `expiry`, and `brand` — NEVER the full PAN or CVV. Used by the
+ * `GET /dashboard/cards` list endpoint so a tenant can see which cards they
+ * own without the response carrying reloadable card credentials.
+ *
+ * `expiry` (MM/YY) is not a usable credential on its own and is standard to
+ * surface in any card-list UI (wallet apps show it), so it is included.
+ * `last4` is derived from the decrypted PAN. `brand` is passed through
+ * `normalizeCardBrand` by the caller, not here, to keep this helper free of
+ * the catalog-normalisation dependency.
+ *
+ * Like `openCard`, this throws on GCM failure — callers wrapping a list
+ * should try/catch per row so one undecryptable row doesn't fail the whole
+ * response.
+ *
+ * @param {Record<string, any>} row
+ * @returns {{last4: string|null, expiry: string|null, brand: string|null}|null}
+ */
+function maskCard(row) {
+  const card = openCard(row);
+  if (!card) return null;
+  const digits = card.number ? String(card.number).replace(/\D/g, '') : '';
+  return {
+    last4: digits.length >= 4 ? digits.slice(-4) : digits || null,
+    expiry: card.expiry ?? null,
+    brand: card.brand ?? null,
+  };
+}
+
+module.exports = { sealCard, openCard, maskCard, vaultEnabled: hasKey };

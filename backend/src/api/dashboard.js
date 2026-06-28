@@ -352,6 +352,57 @@ router.get('/orders', (req, res) => {
   res.json(rows);
 });
 
+// GET /dashboard/cards
+// Lists the tenant's issued virtual cards as a dashboard-safe masked
+// projection (brand / last4 / expiry / amount / linked order / status /
+// created). Never returns PAN or CVV — see lib/card-vault.js maskCard.
+// Scoped to the authenticated dashboard exactly like GET /dashboard/orders.
+router.get('/cards', (req, res) => {
+  const { normalizeCardBrand } = require('../lib/normalize-card');
+  const { maskCard } = require('../lib/card-vault');
+  const { limit = 50 } = /** @type {Record<string, any>} */ (req.query);
+  const rows = /** @type {any[]} */ (
+    db
+      .prepare(
+        `
+        SELECT o.id AS order_id, o.status, o.amount_usdc,
+               o.card_brand, o.card_number, o.card_expiry,
+               o.created_at, o.updated_at
+        FROM orders o
+        JOIN api_keys k ON o.api_key_id = k.id
+        WHERE k.dashboard_id = ?
+          AND o.status = 'delivered'
+          AND o.card_number IS NOT NULL
+        ORDER BY o.updated_at DESC
+        LIMIT ?
+      `,
+      )
+      .all(req.dashboard.id, Math.min(parseInt(String(limit)) || 50, 500))
+  );
+  const cards = [];
+  for (const row of rows) {
+    let masked = null;
+    try {
+      masked = maskCard(row);
+    } catch (err) {
+      // One undecryptable row (GCM tag mismatch, key rotation gap) must
+      // not 500 the whole list — surface brand only and log server-side.
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`dashboard/cards: maskCard failed for order ${row.order_id}: ${msg}`);
+    }
+    cards.push({
+      order_id: row.order_id,
+      brand: normalizeCardBrand(masked?.brand ?? row.card_brand),
+      last4: masked?.last4 ?? null,
+      expiry: masked?.expiry ?? null,
+      amount_usdc: row.amount_usdc,
+      status: row.status,
+      created_at: row.created_at,
+    });
+  }
+  res.json(cards);
+});
+
 // ── API Keys ──────────────────────────────────────────────────────────────────
 
 function validateApiKeyFields({
