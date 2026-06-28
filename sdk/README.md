@@ -1,10 +1,9 @@
 # cspr402
 
-> Simulated virtual cards for AI agents — pay with native CSPR (or mockUSDC
-> via CEP-18) on Casper mainnet, get a virtual card number, CVV, and expiry
-> after the deploy is verified. The active MVP path is Casper mainnet CSPR
-> order creation and deploy verification, with optional mockUSDC CEP-18
-> test-token payments.
+> Simulated virtual cards for AI agents — pay with native CSPR on Casper
+> mainnet, get a virtual card number, CVV, and expiry after the deploy is
+> verified. The active MVP path is Casper mainnet CSPR order creation and
+> deploy verification.
 
 CSPR402 is an x402-inspired API: an AI agent pays on Casper mainnet, the
 backend verifies the Casper deploy, and returns a simulated virtual card.
@@ -32,14 +31,14 @@ console.log('Fund this Casper mainnet public key:', address);
 
 // 2. Pause here until the address has mainnet CSPR. Re-run to check:
 const bal = await getCasperBalance('my-agent');
-console.log(`CSPR: ${bal.cspr}  mockUSDC: ${bal.mockUsdc}`);
+console.log(`CSPR: ${bal.cspr}`);
 
 // 3. Purchase a card — only do this when the user explicitly asks.
 const card = await purchaseCardCasper({
   apiKey: process.env.CARDS402_API_KEY!,
   agentName: 'my-agent',
   amountUsdc: '10.00',
-  paymentAsset: 'cspr', // or 'mock_usdc' (CEP-18 test token)
+  paymentAsset: 'cspr',
 });
 
 console.log(card.number, card.cvv, card.expiry);
@@ -48,7 +47,7 @@ console.log(card.number, card.cvv, card.expiry);
 `purchaseCardCasper` handles the whole flow:
 
 1. `POST /v1/orders` with the amount
-2. Sign + submit the Casper native CSPR (or mockUSDC CEP-18) transfer from your agent key
+2. Sign + submit the Casper native CSPR transfer from your agent key
 3. Subscribe to the SSE stream at `/v1/orders/:id/stream`
 4. Return the virtual card details as soon as the `ready` event arrives (deploy verified)
 
@@ -61,9 +60,6 @@ Casper mainnet accounts are usable as soon as they hold CSPR:
 - **Pay with native CSPR:** send enough mainnet CSPR to cover the order at the
   current CSPR/USD rate (shown in `payment.cspr.amount` when you create an
   order). Fund from an exchange — Casper mainnet has no faucet.
-- **Pay with mockUSDC (CEP-18):** a Casper mainnet mock token rail, not
-  official USDC. Only use it once the backend has a deployed mockUSDC CEP-18
-  package hash configured and the operator has funded you with the mock token.
 
 ## Step-by-step API (for more control)
 
@@ -88,20 +84,6 @@ await client.verifyCasperPayment(order.order_id, deployHash, { senderPublicKey }
 const card = await client.waitForCard(order.order_id, { timeoutMs: 120000 });
 console.log(card.number, card.cvv, card.expiry);
 ```
-
-### Casper mainnet flow (mockUSDC CEP-18)
-
-```typescript
-const mockUsdcOrder = await client.createOrder({
-  amount_usdc: '10.00',
-  payment_asset: 'mock_usdc_cep18',
-  payer_public_key: senderPublicKey,
-});
-// Submit mockUsdcOrder.payment as a CEP-18 transfer, then verify with the same method.
-await client.verifyCasperPayment(mockUsdcOrder.order_id, deployHash, { senderPublicKey });
-```
-
-`mock_usdc_cep18` is a Casper mainnet mock token rail for demos, not official USDC.
 
 ## MCP server — for Claude Desktop, Cursor, and other MCP clients
 

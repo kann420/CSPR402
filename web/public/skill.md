@@ -1,8 +1,9 @@
 # cspr402 — Simulated Virtual Cards for AI Agents
 
-Get a simulated virtual card and receipt by paying with CSPR (or mockUSDC) on
-Casper mainnet. The backend verifies the Casper deploy, then returns a mock
-card receipt after the deploy is confirmed.
+CSPR402 is an **x402-inspired** payment protocol on Casper: your agent makes
+one verified on-chain CSPR transfer and receives a virtual card (PAN/CVV/expiry) and receipt in return. The backend verifies the Casper deploy directly — no
+custodial wallet between you and the chain — then returns the virtual card once
+the deploy is confirmed.
 
 ## What your operator gives you
 
@@ -80,11 +81,8 @@ When your user asks you to buy a card, run:
 npx cspr402 purchase --amount <USD>
 ```
 
-**Pay with the asset you actually have.** By default `cspr402 purchase`
-checks your Casper mainnet balance and auto-picks: mockUSDC (CEP-18) if
-you have enough to cover the order, otherwise native CSPR. Do **not**
-override the asset unless you have a specific reason. If you must check
-first:
+**Pay with native CSPR.** `cspr402 purchase` pays from your Casper mainnet
+CSPR balance. Check it first if you want:
 
 ```bash
 npx cspr402 wallet balance
@@ -92,14 +90,13 @@ npx cspr402 wallet balance
 
 Optional flags:
 
-- `--asset cspr|mock_usdc` — force a specific asset. Default: auto (recommended).
 - `--wallet-name <name>` — override the agent label from config.
 
 `cspr402 purchase` reads `~/.cspr402/config.json` for the api key
 and agent label, so you do not need to pass either. The command:
 
 1. Creates an order at `POST /v1/orders`
-2. Signs and submits the Casper native CSPR (or mockUSDC CEP-18) transfer
+2. Signs and submits the Casper native CSPR transfer
    from the local agent key
 3. Subscribes to the SSE stream `/v1/orders/:id/stream`
 4. Returns when the deploy is verified and the virtual card is ready
@@ -130,7 +127,7 @@ $ npx cspr402 purchase --amount 10
 
 ```bash
 npx cspr402 wallet address   # print your Casper mainnet public key
-npx cspr402 wallet balance   # show CSPR (+ mockUSDC) balance on Casper mainnet
+npx cspr402 wallet balance   # show your CSPR balance on Casper mainnet
 ```
 
 Useful for:
@@ -155,11 +152,9 @@ Useful for:
   if your policy requires it, or clone the repo and use the local
   source via `npx /path/to/CSPR402/sdk/dist/cli.js onboard --claim …`.
 
-**Fund in the right order: mainnet CSPR first.** Native CSPR is the
-simplest path — a Casper mainnet account is usable as soon as it
-holds CSPR. mockUSDC (CEP-18) is an optional test-token rail for
-demos, not official USDC; only use it after the backend has a
-deployed mockUSDC package hash configured.
+**Fund with mainnet CSPR.** Native CSPR is the only asset in the active
+path — a Casper mainnet account is usable as soon as it holds CSPR. Fund from
+an exchange; Casper mainnet has no faucet.
 
 ```
 Step 1: Operator sends mainnet CSPR  ──▶  agent wallet funded
@@ -169,18 +164,15 @@ Step 3: Backend returns virtual card + receipt
 
 ### Funding notes
 
-- **Native CSPR** is the default payment asset. Send enough mainnet
-  CSPR to cover the order at the current CSPR/USD rate (shown in
+- **Native CSPR** is the default (and active) payment asset. Send enough
+  mainnet CSPR to cover the order at the current CSPR/USD rate (shown in
   `payment.cspr.amount` when you create an order).
-- **mockUSDC (CEP-18)** is a Casper mainnet mock token rail, not
-  official USDC. Only use it when the operator has funded you with
-  mockUSDC and the backend has the mockUSDC package hash configured.
 
 ### Checking state at any time
 
 ```javascript
 const balance = await getCasperBalance('my-agent');
-console.log(`CSPR: ${balance.cspr}  mockUSDC: ${balance.mockUsdc}`);
+console.log(`CSPR: ${balance.cspr}`);
 ```
 
 When you make your first successful purchase, the backend automatically
@@ -242,19 +234,17 @@ import { purchaseCardCasper, getCasperBalance } from 'cspr402';
 // The SDK auto-loads ~/.cspr402/config.json (written by onboard), so
 // apiKey / baseUrl / agentName below are optional overrides — you only
 // need them when running outside the onboarding machine.
-// Check what the wallet actually has BEFORE picking the asset. If you
-// pay in an asset you don't hold the call will fail at the Casper
-// transfer step and waste a deploy fee.
+// Optional: confirm the wallet has enough mainnet CSPR before purchasing.
 const bal = await getCasperBalance('my-agent');
-const wantUsdc = '<amount the user requested>';
-const paymentAsset = parseFloat(bal.mockUsdc) >= parseFloat(wantUsdc) ? 'mock_usdc' : 'cspr';
+console.log(`CSPR available: ${bal.cspr}`);
 
+const wantUsdc = '<amount the user requested>';
 const card = await purchaseCardCasper({
   apiKey: process.env.CARDS402_API_KEY,
   baseUrl: process.env.CARDS402_BASE_URL,
   agentName: 'my-agent',
   amountUsdc: wantUsdc,
-  paymentAsset,
+  paymentAsset: 'cspr',
 });
 
 console.log('Card:', card.number, 'CVV:', card.cvv, 'Exp:', card.expiry);
