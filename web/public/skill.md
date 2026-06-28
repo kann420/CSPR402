@@ -91,16 +91,24 @@ npx cspr402 wallet balance
 Optional flags:
 
 - `--wallet-name <name>` — override the agent label from config.
+- `--pay` — explicitly auto-pay + verify after create (the default once a
+  key + RPC URL are configured).
+- `--no-pay` — skip auto-pay and print manual payment instructions instead.
 
 `cspr402 purchase` reads `~/.cspr402/config.json` for the api key
-and agent label, so you do not need to pass either. The command:
+and agent label, so you do not need to pass either. Auto-pay activates
+when the agent key from `cspr402 onboard` exists **and** `CASPER_NODE_RPC_URL`
+is set (a Casper mainnet JSON-RPC endpoint, e.g.
+`http://node.cspr.community:7777/rpc`). With auto-pay the command:
 
 1. Creates an order at `POST /v1/orders`
-2. Signs and submits the Casper native CSPR transfer
-   from the local agent key
-3. Subscribes to the SSE stream `/v1/orders/:id/stream`
-4. Returns when the deploy is verified and the virtual card is ready
-5. Prints the virtual card number, CVV, and expiry to stdout
+2. Signs and submits the Casper native CSPR transfer from the local agent key
+3. Verifies the deploy (polling the backend until Casper mainnet finalizes it)
+4. Prints the virtual card number, CVV, and expiry to stdout
+
+Without a key/RPC URL (or with `--no-pay`), it prints payment instructions
+for you to pay manually and verify with
+`cspr402 purchase --order <id> --verify <deploy-hash>`.
 
 **Treat the output as secrets.** Save the PAN/CVV/expiry to a
 secrets store immediately. Do not log them, do not echo them back
@@ -265,18 +273,35 @@ If your runtime is an MCP client, add this to your config:
     "cspr402": {
       "command": "npx",
       "args": ["-y", "cspr402"],
-      "env": { "CARDS402_API_KEY": "cards402_<your key>" }
+      "env": {
+        "CARDS402_API_KEY": "cards402_<your key>",
+        "CASPER_NODE_RPC_URL": "http://node.cspr.community:7777/rpc"
+      }
     }
   }
 }
 ```
 
-The MCP server exposes four tools: `setup_wallet`, `check_budget`,
-`check_order`, and `purchase_vcc`. Run `setup_wallet` first to see
-your agent's Casper mainnet public key for funding; only call
-`purchase_vcc` when the user explicitly asks for a card. The server
-auto-loads `~/.cspr402/config.json`, so `CARDS402_API_KEY` above is an
-optional override used only when no onboarding config is present.
+The MCP server exposes six tools: `setup_wallet`, `check_budget`,
+`check_order`, `purchase_vcc`, `verify_payment`, and `pay_order`. Run
+`setup_wallet` first to see your agent's Casper mainnet public key for
+funding; only call `purchase_vcc` when the user explicitly asks for a
+card. When `CASPER_NODE_RPC_URL` and an onboarded agent key are present,
+follow `purchase_vcc` with `pay_order { order_id }` — the server signs and
+submits the exact transfer the backend supplies (recipient, amount, and
+transfer_id come from the backend order over HTTPS, never from the
+prompt), then verifies it and returns the card (masked — brand only;
+retrieve full PAN/CVV via the CLI on the agent's own machine). A submitted
+transfer is recorded to `~/.cspr402/inflight.json` so a retry or server
+restart re-verifies instead of paying twice; on any verify failure keep
+the order id and re-run `pay_order` (or `verify_payment`) — never
+re-create the order. Optionally pin approved recipients with
+`CSPR402_TREASURY_PUBLIC_KEYS` (comma-separated public keys) so the signer
+refuses to pay an unexpected recipient. Without a key/RPC URL,
+`purchase_vcc` returns manual payment instructions and you call
+`verify_payment` after paying externally. The server auto-loads
+`~/.cspr402/config.json`, so `CARDS402_API_KEY` above is an optional
+override used only when no onboarding config is present.
 
 ## Setup — non-Node agents (Python, Go, shell, etc.)
 

@@ -6,6 +6,7 @@ import {
   type VerifyCasperPaymentResponse,
 } from '../client';
 import { loadCards402Config } from '../config';
+import { payAndVerifyOrder, signingConfigured, SignerError } from '../casper-signer';
 
 type PaymentAsset = 'cspr_casper' | 'mock_usdc_cep18';
 
@@ -18,6 +19,10 @@ interface PurchaseArgs {
   verifyDeployHash?: string;
   senderPublicKey?: string;
   noWait?: boolean;
+  /** Force auto-pay (sign+submit+verify) after create; errors if signing isn't configured. */
+  pay?: boolean;
+  /** Force the legacy manual flow even when signing is configured. */
+  noPay?: boolean;
   help?: boolean;
 }
 
@@ -53,6 +58,8 @@ function parseArgs(argv: string[]): PurchaseArgs {
     else if (arg === '--verify') out.verifyDeployHash = argv[++i];
     else if (arg.startsWith('--verify=')) out.verifyDeployHash = arg.slice('--verify='.length);
     else if (arg === '--no-wait') out.noWait = true;
+    else if (arg === '--pay') out.pay = true;
+    else if (arg === '--no-pay') out.noPay = true;
   }
   return out;
 }
@@ -112,14 +119,18 @@ function usage(): void {
   cspr402 purchase --amount <USD> --asset mock_usdc_cep18 --payer-public-key <hex>
   cspr402 purchase --order <order-id> --verify <deploy-hash> [--sender-public-key <hex>]
 
-Creates a CSPR402 order and prints Casper mainnet payment instructions. The CLI
-does not store private key material or sign transfers. Pay from Casper Wallet,
-CSPR.click, casper-client, or your own agent runtime, then verify the deploy hash.
+Creates a CSPR402 order. When an agent key (from 'cspr402 onboard') and
+CASPER_NODE_RPC_URL are configured, the order is auto-paid + verified in one
+command (use --no-pay to force the manual flow). Otherwise it prints Casper
+mainnet payment instructions for you to pay from Casper Wallet, CSPR.click,
+casper-client, or your own agent runtime, then verify the deploy hash.
 
 Options:
   -a, --amount <USD>              Virtual card value, for example 25.00
   --asset <asset>                 cspr_casper (default) or mock_usdc_cep18
   --payer-public-key <hex>        Casper mainnet public key to bind the order
+  --pay                           Auto-pay + verify after create (requires key + RPC)
+  --no-pay                        Force manual payment instructions (skip auto-pay)
   --order <order-id>              Existing order to verify
   --verify <deploy-hash>          Casper deploy hash to verify
   --sender-public-key <hex>       Sender public key for verify; defaults to payer/config key
@@ -269,13 +280,87 @@ export async function purchaseCommand(argv: string[]): Promise<number> {
       );
     }
 
+    // Validate --pay/--no-pay BEFORE creating an order so a flag error
+    // fails fast without leaving an orphan pending_payment order on the
+    // backend. Mutual exclusion is checked first so the more specific
+    // message wins when both are passed.
+    if (args.noPay && args.pay) {
+      throw new Error('--pay and --no-pay are mutually exclusive.');
+    }
+    if (args.pay && !signingConfigured()) {
+      throw new Error(
+        '--pay requires signing to be configured: set CASPER_NODE_RPC_URL and run ' +
+          "'cspr402 onboard --claim <code>' so an agent key exists.",
+      );
+    }
+
     const order = await client.createOrder({
       amount_usdc: amount,
       payment_asset: paymentAsset,
       ...(payerPublicKey ? { payer_public_key: payerPublicKey } : {}),
     });
-    printOrder(order);
-    return 0;
+
+    // Auto-pay resolves: --no-pay forces manual; --pay forces auto; the
+    // default auto-pays when an agent key + RPC URL are present (the
+    // post-onboard "1 command = card" flow), and falls back to manual
+    // instructions otherwise.
+    const autoPay = !args.noPay && (args.pay || signingConfigured());
+
+    if (!autoPay) {
+      printOrder(order);
+      return 0;
+    }
+
+    // Auto-pay: sign + submit the backend-supplied transfer, then verify.
+    process.stdout.write(`Order ${order.order_id} created. Paying on Casper mainnet…\n`);
+    try {
+      const result = await payAndVerifyOrder(client, order.order_id, {
+        onPending: (attempt) => {
+          process.stdout.write(
+            `Payment still pending on Casper mainnet, retrying verify (attempt ${attempt})...\n`,
+          );
+        },
+      });
+      const verified = result.verified;
+      process.stdout.write(`\nPayment verified for ${verified.order.order_id}\n`);
+      process.stdout.write(`Status: ${verified.order.status} (phase: ${verified.order.phase})\n`);
+      process.stdout.write(`Receipt: ${verified.receipt.type}\n`);
+      process.stdout.write(`Deploy:  ${verified.receipt.deploy_hash}\n`);
+      if (verified.order.card) {
+        // Full card details on the agent's own stdout — same trust
+        // boundary as examples/node-agent. Treat as secrets: don't log,
+        // echo into transcripts, or pipe to telemetry.
+        const c = verified.order.card;
+        process.stdout.write('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+        process.stdout.write(' Virtual card delivered (treat as secret)\n');
+        process.stdout.write('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+        process.stdout.write(`  Number: ${c.number}\n`);
+        process.stdout.write(`  CVV:    ${c.cvv}\n`);
+        process.stdout.write(`  Expiry: ${c.expiry}\n`);
+        process.stdout.write(`  Brand:  ${c.brand || 'CSPR402 Virtual Card'}\n`);
+        process.stdout.write(`  Order:  ${verified.order.order_id}\n`);
+        process.stdout.write('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+      }
+      return 0;
+    } catch (err) {
+      // Any SignerError carrying a deploy hash means the transfer WAS
+      // submitted but verify didn't complete (timeout, transient 5xx,
+      // network blip). The ledger already recorded the hash so a retry
+      // re-verifies instead of re-submitting — but the operator must
+      // finish with the explicit verify path. Do NOT re-run `purchase
+      // --amount` (that creates + pays a NEW order).
+      if (err instanceof SignerError && err.deployHash) {
+        process.stderr.write(
+          `\nVerification did not complete, but the transfer WAS submitted.\n` +
+            `  Deploy: ${err.deployHash}\n` +
+            `Do NOT re-run 'purchase --amount' (that would create + pay a new order).\n` +
+            `Finish with:\n` +
+            `  cspr402 purchase --order ${order.order_id} --verify ${err.deployHash}\n`,
+        );
+        return 1;
+      }
+      throw err;
+    }
   } catch (err) {
     process.stderr.write(`error: ${err instanceof Error ? err.message : String(err)}\n`);
     return 1;

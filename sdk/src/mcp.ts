@@ -1,11 +1,14 @@
 // MCP server entry. Exposed via `cspr402 mcp` and dispatched through ./cli.
-// The server is intentionally Casper-native: it creates/verifies CSPR402
-// orders, but it does not read wallet private keys or sign transactions.
+// The server creates/verifies CSPR402 orders and, when an agent key +
+// CASPER_NODE_RPC_URL are configured, can sign and submit Casper native
+// transfers via the `pay_order` tool. Private keys are loaded lazily from
+// disk by casper-signer, never logged, and never returned in tool output.
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { CSPR402Client, type PaymentInstructions } from './client';
 import { loadCards402Config } from './config';
+import { payAndVerifyOrder, signingConfigured, SignerError } from './casper-signer';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const PKG_VERSION = require('../package.json').version as string;
@@ -147,6 +150,26 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       },
     },
     {
+      name: 'pay_order',
+      description:
+        'Pay and verify a pending CSPR402 Casper CSPR order using this agent’s local key. ' +
+        'Re-fetches the order from the backend and signs EXACTLY the backend-supplied ' +
+        'recipient, amount, transfer_id, and chain_name (transported over HTTPS) — it ' +
+        'never accepts a destination or amount from the caller, so it cannot be steered ' +
+        'to pay a different address by prompt injection. Optional treasury allowlist ' +
+        '(CSPR402_TREASURY_PUBLIC_KEYS) further refuses unapproved recipients. ' +
+        'Requires CASPER_NODE_RPC_URL and an agent key written by `cspr402 onboard`. ' +
+        'Call after purchase_vcc to auto-complete the card without manual on-chain work. ' +
+        'Returns the deploy hash and a masked card (brand only — never PAN/CVV).',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          order_id: { type: 'string', description: 'CSPR402 order id to pay and verify' },
+        },
+        required: ['order_id'],
+      },
+    },
+    {
       name: 'check_order',
       description: 'Check the status of a CSPR402 order.',
       inputSchema: {
@@ -187,7 +210,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               'CSPR402 wallet context',
               '',
               `Casper public key: ${publicKey || 'not configured'}`,
-              `Key-file path:     ${config?.casper_key_path || process.env.CSPR402_CASPER_KEY_PATH || 'not configured'}`,
+              // Mask the key file: never surface the absolute PEM path into
+              // the LLM transcript — that would pre-stage the exact exfil
+              // target for a later prompt-injection. Show only whether it's
+              // configured; the operator views the full path on their own
+              // machine via 'cspr402 wallet key-path'.
+              `Key file:         ${
+                config?.casper_key_path || process.env.CSPR402_CASPER_KEY_PATH
+                  ? 'configured (path hidden; use CLI ' + "'wallet key-path' to view)"
+                  : 'not configured'
+              }`,
               `API URL:           ${config?.api_url || process.env.CSPR402_BASE_URL || 'not configured'}`,
               '',
               'To finish setup, run:',
@@ -197,7 +229,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               "public key to your operator's dashboard. Add --casper-public-key <hex>",
               'only if you want to reuse a pre-existing key.',
               '',
-              'This MCP server does not sign transfers. Pay through Casper Wallet/CSPR.click or your own signer, then call verify_payment.',
+              signingConfigured()
+                ? 'Auto-pay is ON. After purchase_vcc, call pay_order { order_id } to sign, submit, and verify the Casper transfer with this agent’s key — no manual on-chain step.'
+                : 'Auto-pay is OFF. Set CASPER_NODE_RPC_URL (and run onboard so an agent key exists) to enable pay_order; otherwise pay via Casper Wallet/CSPR.click and call verify_payment.',
             ].join('\n'),
           },
         ],
@@ -240,8 +274,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               '',
               ...paymentText(order.payment),
               '',
-              'After the Casper transfer finalizes, call:',
-              `verify_payment { order_id: "${order.order_id}", deploy_hash: "<hash>" }`,
+              ...(signingConfigured()
+                ? [
+                    'This agent can auto-pay. Complete the card with:',
+                    `pay_order { order_id: "${order.order_id}" }`,
+                  ]
+                : [
+                    'After the Casper transfer finalizes, call:',
+                    `verify_payment { order_id: "${order.order_id}", deploy_hash: "<hash>" }`,
+                  ]),
             ].join('\n'),
           },
         ],
@@ -285,6 +326,49 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         content: [
           { type: 'text', text: `Error verifying payment: ${safeMessage(err, 'verify failed')}` },
         ],
+        isError: true,
+      };
+    }
+  }
+
+  if (name === 'pay_order') {
+    try {
+      const orderId = parseOrderId(args.order_id);
+      const result = await payAndVerifyOrder(client(), orderId, {
+        onPending: (attempt) => {
+          // Best-effort progress line — swallowed if the client isn't
+          // streaming. Kept off the final tool result so the result stays
+          // a clean card-fulfilled block.
+          process.stderr.write(
+            `Payment still pending on Casper mainnet, retrying verify (attempt ${attempt})...\n`,
+          );
+        },
+      });
+      const verified = result.verified;
+      const lines = [
+        `Order: ${verified.order.order_id}`,
+        `Status: ${verified.order.status} (phase: ${verified.order.phase})`,
+        `Receipt: ${verified.receipt.type}`,
+        `Deploy: ${verified.receipt.deploy_hash}`,
+        verified.note ? `Note: ${verified.note}` : null,
+        // Masked only — PAN/CVV never enter the LLM transcript. The
+        // operator retrieves full card details via the dashboard or the
+        // CLI/node-agent on the agent's own machine.
+        verified.order.card
+          ? `Virtual card: ${verified.order.card.brand || 'CSPR402 Virtual Card'} (masked)`
+          : null,
+        result.submitted
+          ? 'Funded by a fresh on-chain transfer.'
+          : 'Re-verified an existing transfer.',
+      ].filter(Boolean) as string[];
+      return { content: [{ type: 'text', text: lines.join('\n') }] };
+    } catch (err) {
+      const message =
+        err instanceof SignerError
+          ? `${err.message}${err.deployHash ? ` (deploy ${err.deployHash})` : ''}`
+          : safeMessage(err, 'pay failed');
+      return {
+        content: [{ type: 'text', text: `Error paying order: ${message}` }],
         isError: true,
       };
     }

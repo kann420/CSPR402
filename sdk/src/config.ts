@@ -39,7 +39,7 @@ export interface Cards402Config {
   created_at: string;
 }
 
-function defaultConfigDir(): string {
+export function defaultConfigDir(): string {
   return (
     process.env.CSPR402_CONFIG_DIR ||
     process.env.CARDS402_CONFIG_DIR ||
