@@ -57,6 +57,7 @@ export function CommandPalette() {
               o: '/dashboard/overview',
               a: '/dashboard/agents',
               r: '/dashboard/orders',
+              c: '/dashboard/cards',
               p: '/dashboard/approvals',
               s: '/dashboard/settings',
               d: '/dashboard/developer',
@@ -96,6 +97,14 @@ export function CommandPalette() {
         hint: 'g r',
         section: 'Go to',
         run: () => router.push('/dashboard/orders'),
+        permission: 'order:read',
+      },
+      {
+        id: 'nav-cards',
+        title: 'Go to Cards',
+        hint: 'g c',
+        section: 'Go to',
+        run: () => router.push('/dashboard/cards'),
         permission: 'order:read',
       },
       {

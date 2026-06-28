@@ -247,16 +247,21 @@ function OrderDrawer({
         )}
         {order.casper_deploy_hash && (
           <Row label="Casper deploy hash">
-            <span
+            <a
+              href={`https://cspr.live/transaction/${order.casper_deploy_hash}`}
+              target="_blank"
+              rel="noreferrer"
               style={{
                 fontFamily: 'var(--font-mono)',
                 fontSize: '0.72rem',
                 color: 'var(--green)',
+                textDecoration: 'none',
                 wordBreak: 'break-all',
               }}
             >
-              {order.casper_deploy_hash}
-            </span>
+              {order.casper_deploy_hash.slice(0, 10)}...
+              {order.casper_deploy_hash.slice(-8)} ↗
+            </a>
           </Row>
         )}
         {order.casper_sender_public_key && (

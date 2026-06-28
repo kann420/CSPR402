@@ -6,6 +6,7 @@ import {
   AUTH_BASE,
   type ApiKey,
   type ApprovalRequest,
+  type Card,
   type DashboardInfo,
   type NewKeyData,
   type Order,
@@ -86,6 +87,10 @@ export async function fetchOrders(limit = 200): Promise<{ orders: Order[] }> {
     'orders',
   );
   return { orders };
+}
+
+export async function fetchCards(limit = 200): Promise<Card[]> {
+  return jsonList<Card>(await fetch(`${API_BASE}/dashboard/cards?limit=${limit}`), 'cards');
 }
 
 export async function fetchApprovals(): Promise<{ approval_requests: ApprovalRequest[] }> {

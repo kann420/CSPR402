@@ -71,6 +71,14 @@ const SECTIONS: Section[] = [
         permission: 'order:read',
       },
       {
+        href: '/dashboard/cards',
+        label: 'Cards',
+        icon: (
+          <Icon d="M3 5h18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM1 10h22M5 15h4" />
+        ),
+        permission: 'order:read',
+      },
+      {
         href: '/dashboard/approvals',
         label: 'Approvals',
         icon: <Icon d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />,

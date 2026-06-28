@@ -59,6 +59,18 @@ export interface Order {
   api_key_label: string | null;
 }
 
+// Dashboard-safe masked projection of a delivered order's virtual card.
+// Never carries PAN or CVV — only last4, expiry, brand, and order context.
+export interface Card {
+  order_id: string;
+  brand: string | null;
+  last4: string | null;
+  expiry: string | null;
+  amount_usdc: string;
+  status: string;
+  created_at: string;
+}
+
 export interface CasperCSPRReceipt {
   type: 'casper_cspr_receipt';
   payment_asset: 'cspr_casper';
