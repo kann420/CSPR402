@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { NavLinks } from './NavLinks';
 import { Wordmark } from './Wordmark';
+import { XSocialLink } from './XSocialLink';
 import { useEffect, useState } from 'react';
 import type { MouseEvent, ReactNode } from 'react';
 
@@ -183,6 +184,7 @@ export function MarketingChrome({ children }: { children: ReactNode }) {
             <span>Verified on-chain Casper payments for AI agents.</span>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '1.1rem' }}>
+              <XSocialLink size={15} />
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <span
                   className="pulse-green"
