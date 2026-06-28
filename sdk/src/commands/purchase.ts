@@ -71,7 +71,7 @@ function parseArgs(argv: string[]): PurchaseArgs {
 // --verify` by hand every block — which is where the multi-minute purchase
 // latency came from. Mirror node-agent's verifyPaymentWithRetry instead.
 const VERIFY_TIMEOUT_MS = parsePositiveEnv('CSPR402_VERIFY_TIMEOUT_MS', 300000);
-const VERIFY_POLL_MS = parsePositiveEnv('CSPR402_VERIFY_POLL_MS', 5000);
+const VERIFY_POLL_MS = parsePositiveEnv('CSPR402_VERIFY_POLL_MS', 2000);
 
 function parsePositiveEnv(name: string, fallback: number): number {
   const raw = process.env[name];
@@ -137,7 +137,7 @@ Options:
   --no-wait                       Verify once and exit on 425 pending instead of polling
   -h, --help                      Show this message
 
-Verify polls the backend every CSPR402_VERIFY_POLL_MS (default 5000) until the
+Verify polls the backend every CSPR402_VERIFY_POLL_MS (default 2000) until the
 deploy finalizes, up to CSPR402_VERIFY_TIMEOUT_MS (default 300000). Casper
 mainnet finality is ~16s/block, so a pending deploy normally clears in well
 under the 5-minute budget. Use --no-wait for the old one-shot behavior.

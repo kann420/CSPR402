@@ -20,6 +20,10 @@ import {
   resolveSigningConfig,
   signingConfigured,
   loadAgentPrivateKey,
+  submitCasperTransfer,
+  probeCandidateNodes,
+  parseInfoGetStatus,
+  resolveCandidateNodes,
   SignerError,
   __resetInflightLedgerForTests,
   type LoadedAgentKey,
@@ -67,6 +71,9 @@ const ENV_NAMES = [
   'CASPER_AGENT_KEY_ALGORITHM',
   'CSPR402_TREASURY_PUBLIC_KEYS',
   'CARDS402_TREASURY_PUBLIC_KEYS',
+  'CSPR402_CASPER_NODE_DEFAULTS',
+  'CSPR402_PROBE_TIMEOUT_MS',
+  'CSPR402_SUBMIT_TIMEOUT_MS',
 ];
 
 beforeEach(() => {
@@ -202,7 +209,7 @@ describe('resolveSigningConfig / signingConfigured', () => {
     setEnv('CSPR402_KEY_PATH', keyPath);
     const cfg = resolveSigningConfig();
     expect(cfg).not.toBeNull();
-    expect(cfg?.rpcUrl).toBe('http://test-rpc:7777/rpc');
+    expect(cfg?.rpcUrls).toEqual(['http://test-rpc:7777/rpc']);
     expect(cfg?.keyPath).toBe(path.resolve(keyPath));
   });
 });
@@ -513,5 +520,265 @@ describe('loadAgentPrivateKey', () => {
     const cfg = resolveSigningConfig()!;
     cfg.expectedSenderPublicKeyHex = OTHER_HEX; // config claims a different key
     expect(() => loadAgentPrivateKey(cfg)).toThrow(/match onboard/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Multi-node probe + failover (submitCasperTransfer rewrite). These exercise
+// the probe parser, candidate resolution, and the failover/timeout loop with
+// injected fetch + putToNode — no live RPC. The build+sign+local-hash path
+// uses a real Ed25519 key (NativeTransferBuilder needs a real PrivateKey).
+// ---------------------------------------------------------------------------
+
+const FIXED_BLOCK_TS = '2026-01-01T00:00:00.000Z';
+const FIXED_BLOCK_MS = Date.parse(FIXED_BLOCK_TS);
+
+function statusResponse(height: number, apiVersion = '1.5.0', chainName = 'casper'): Response {
+  return {
+    ok: true,
+    json: async () => ({
+      jsonrpc: '2.0',
+      id: 1,
+      result: {
+        chainspec_name: chainName,
+        api_version: apiVersion,
+        last_added_block_info: { height, timestamp: FIXED_BLOCK_TS },
+      },
+    }),
+  } as unknown as Response;
+}
+
+function fetchMap(responses: Record<string, Response | (() => Response)>): typeof fetch {
+  return ((url: string) => {
+    const v = responses[url];
+    if (!v) return Promise.reject(new Error(`unexpected fetch ${url}`));
+    const res = typeof v === 'function' ? (v as () => Response)() : v;
+    return Promise.resolve(res);
+  }) as unknown as typeof fetch;
+}
+
+const SUBMIT_PAYMENT = {
+  recipient: '01' + 'f'.repeat(64),
+  amount_motes: '11111111111',
+  transfer_id: 100006,
+  chain_name: 'casper',
+};
+
+function setupSubmitCfg(opts: { submitTimeoutMs?: number } = {}): {
+  cfg: ReturnType<typeof resolveSigningConfig>;
+  privateKey: LoadedAgentKey['privateKey'];
+} {
+  const { pem } = generateCasperEd25519Key();
+  const { path: keyPath } = writeCasperKeyFile('submit-agent', pem);
+  setEnv('CSPR402_KEY_PATH', keyPath);
+  // Two operator nodes, defaults OFF so the candidate list is deterministic.
+  setEnv('CASPER_NODE_RPC_URL', 'http://n1:7777/rpc,http://n2:7777/rpc');
+  setEnv('CSPR402_CASPER_NODE_DEFAULTS', '0');
+  if (opts.submitTimeoutMs) setEnv('CSPR402_SUBMIT_TIMEOUT_MS', String(opts.submitTimeoutMs));
+  const cfg = resolveSigningConfig()!;
+  const loaded = loadAgentPrivateKey(cfg);
+  return { cfg, privateKey: loaded.privateKey };
+}
+
+describe('resolveCandidateNodes', () => {
+  it('merges operator URLs with the default pool (operator first) and dedupes', () => {
+    setEnv('CSPR402_CASPER_NODE_DEFAULTS', undefined); // default ON
+    const cfg = resolveSigningConfig()!;
+    cfg.rpcUrls = ['http://operator:7777/rpc'];
+    const nodes = resolveCandidateNodes(cfg);
+    expect(nodes[0]).toBe('http://operator:7777/rpc');
+    expect(nodes.length).toBe(1 + 16);
+    expect(new Set(nodes).size).toBe(nodes.length); // no dupes
+  });
+
+  it('respects CSPR402_CASPER_NODE_DEFAULTS=0 (operator URLs only)', () => {
+    setEnv('CSPR402_CASPER_NODE_DEFAULTS', '0');
+    const cfg = resolveSigningConfig()!;
+    cfg.rpcUrls = ['http://operator:7777/rpc'];
+    expect(resolveCandidateNodes(cfg)).toEqual(['http://operator:7777/rpc']);
+  });
+});
+
+describe('parseInfoGetStatus', () => {
+  it('parses a valid mainnet status', () => {
+    const node = parseInfoGetStatus(
+      {
+        result: {
+          chainspec_name: 'casper',
+          api_version: '1.5.0',
+          last_added_block_info: { height: 123, timestamp: FIXED_BLOCK_TS },
+        },
+      },
+      'http://n:7777/rpc',
+    );
+    expect(node).not.toBeNull();
+    expect(node?.chainName).toBe('casper');
+    expect(node?.apiVersion).toBe('1.5.0');
+    expect(node?.height).toBe(123);
+    expect(node?.blockTimestampMs).toBe(FIXED_BLOCK_MS);
+  });
+
+  it('returns null when api_version is missing', () => {
+    expect(
+      parseInfoGetStatus(
+        {
+          result: {
+            chainspec_name: 'casper',
+            last_added_block_info: { height: 1, timestamp: FIXED_BLOCK_TS },
+          },
+        },
+        'u',
+      ),
+    ).toBeNull();
+  });
+
+  it('returns null on a JSON-RPC error payload', () => {
+    expect(parseInfoGetStatus({ error: { code: -32000 } }, 'u')).toBeNull();
+  });
+
+  it('returns null when the block timestamp is unparseable', () => {
+    expect(
+      parseInfoGetStatus(
+        {
+          result: {
+            chainspec_name: 'casper',
+            api_version: '1.5.0',
+            last_added_block_info: { height: 1, timestamp: 'not-a-date' },
+          },
+        },
+        'u',
+      ),
+    ).toBeNull();
+  });
+});
+
+describe('probeCandidateNodes', () => {
+  it('keeps only nodes on the requested chain, sorted by height desc', async () => {
+    const fetchImpl = fetchMap({
+      'http://n1:7777/rpc': statusResponse(100),
+      'http://n2:7777/rpc': statusResponse(200),
+      'http://n3:7777/rpc': statusResponse(999, '1.5.0', 'casper-test'),
+    });
+    const probed = await probeCandidateNodes(
+      ['http://n1:7777/rpc', 'http://n2:7777/rpc', 'http://n3:7777/rpc'],
+      'casper',
+      fetchImpl,
+      5000,
+    );
+    // n3 is on casper-test -> filtered out; remaining sorted by height desc.
+    expect(probed.map((p) => p.url)).toEqual(['http://n2:7777/rpc', 'http://n1:7777/rpc']);
+  });
+
+  it('skips nodes that throw', async () => {
+    const fetchImpl = (() => Promise.reject(new Error('net'))) as unknown as typeof fetch;
+    const probed = await probeCandidateNodes(['http://dead:7777/rpc'], 'casper', fetchImpl, 50);
+    expect(probed).toEqual([]);
+  });
+});
+
+describe('submitCasperTransfer probe + failover', () => {
+  it('fails over from a rejecting node to a healthy one and returns the local deploy hash', async () => {
+    const { cfg, privateKey } = setupSubmitCfg();
+    // n2 has the higher height -> chosen first (best). It rejects; n1 accepts.
+    const fetchImpl = fetchMap({
+      'http://n1:7777/rpc': statusResponse(100),
+      'http://n2:7777/rpc': statusResponse(200),
+    });
+    const calls: string[] = [];
+    const putToNode = async (url: string): Promise<void> => {
+      calls.push(url);
+      if (url === 'http://n2:7777/rpc') throw new Error('node rejected');
+    };
+    const hash = await submitCasperTransfer(SUBMIT_PAYMENT, privateKey, cfg, {
+      fetchImpl,
+      putToNode,
+    });
+    expect(calls).toEqual(['http://n2:7777/rpc', 'http://n1:7777/rpc']); // best first, then failover
+    expect(hash).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('never throws after signing: returns the local hash even if every node fails', async () => {
+    const { cfg, privateKey } = setupSubmitCfg();
+    const fetchImpl = fetchMap({
+      'http://n1:7777/rpc': statusResponse(100),
+      'http://n2:7777/rpc': statusResponse(200),
+    });
+    const putToNode = async (): Promise<void> => {
+      throw new Error('all nodes down');
+    };
+    // Must RESOLVE (not reject) — the deploy may have been accepted by a
+    // node whose response was lost, so the caller records the hash in the
+    // ledger and a retry re-verifies instead of re-submitting.
+    const hash = await submitCasperTransfer(SUBMIT_PAYMENT, privateKey, cfg, {
+      fetchImpl,
+      putToNode,
+    });
+    expect(hash).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('throws no_synced_node BEFORE signing when no candidate is on the chain', async () => {
+    const { cfg, privateKey } = setupSubmitCfg();
+    const fetchImpl = fetchMap({
+      // n1 is on the wrong chain; n2 is omitted -> fetchMap rejects -> unreachable.
+      'http://n1:7777/rpc': statusResponse(100, '1.5.0', 'casper-test'),
+    });
+    let putCalled = false;
+    await expect(
+      submitCasperTransfer(SUBMIT_PAYMENT, privateKey, cfg, {
+        fetchImpl,
+        putToNode: async () => {
+          putCalled = true;
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'no_synced_node' });
+    expect(putCalled).toBe(false); // did not sign/submit
+  });
+
+  it('filters failover targets by api_version major (same deploy format for all targets)', async () => {
+    const { cfg, privateKey } = setupSubmitCfg();
+    // n1 is 1.x (height 200 -> best); n2 is 2.x (height 100). Only 1.x
+    // nodes are valid failover targets for the buildFor1_5() deploy.
+    const fetchImpl = fetchMap({
+      'http://n1:7777/rpc': statusResponse(200, '1.5.0'),
+      'http://n2:7777/rpc': statusResponse(100, '2.0.0'),
+    });
+    const calls: string[] = [];
+    const putToNode = async (url: string): Promise<void> => {
+      calls.push(url);
+      throw new Error('reject'); // force exhausting the target list
+    };
+    const hash = await submitCasperTransfer(SUBMIT_PAYMENT, privateKey, cfg, {
+      fetchImpl,
+      putToNode,
+    });
+    // n2 (2.x) must NOT be tried — the 1.x deploy format is invalid for it.
+    expect(calls).toEqual(['http://n1:7777/rpc']);
+    expect(hash).toMatch(/^[0-9a-f]{64}$/); // still returns local hash
+  });
+
+  it('times out a hung node and fails over to the next', async () => {
+    const { cfg, privateKey } = setupSubmitCfg({ submitTimeoutMs: 50 });
+    const fetchImpl = fetchMap({
+      'http://n1:7777/rpc': statusResponse(100),
+      'http://n2:7777/rpc': statusResponse(200),
+    });
+    const calls: string[] = [];
+    const putToNode = async (url: string): Promise<void> => {
+      calls.push(url);
+      if (url === 'http://n2:7777/rpc') {
+        // Hang forever — withTimeout must abort this and move to n1.
+        await new Promise(() => {});
+      }
+    };
+    const start = Date.now();
+    const hash = await submitCasperTransfer(SUBMIT_PAYMENT, privateKey, cfg, {
+      fetchImpl,
+      putToNode,
+    });
+    const elapsed = Date.now() - start;
+    expect(calls).toEqual(['http://n2:7777/rpc', 'http://n1:7777/rpc']);
+    expect(hash).toMatch(/^[0-9a-f]{64}$/);
+    // ~50ms timeout + n1 accept; well under a multi-second hang.
+    expect(elapsed).toBeLessThan(2000);
   });
 });

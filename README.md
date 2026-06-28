@@ -9,6 +9,65 @@ The active payment path uses **no on-chain smart contract**. The backend verifie
 
 ---
 
+## Architecture overview
+
+```mermaid
+%%{init: {"theme": "dark", "themeVariables": {"background": "#0d1117", "primaryColor": "#161b22", "primaryTextColor": "#e6edf3", "primaryBorderColor": "#8b949e", "lineColor": "#8b949e", "tertiaryColor": "#0d1117"}}}%%
+flowchart LR
+  operator["Operator"] --> web["Next.js web app<br/>docs + dashboard"]
+  operator --> claim["Claim codes<br/>agent onboarding"]
+
+  web --> adminProxy["/api/admin-proxy<br/>server-side session"]
+  adminProxy --> dashboardRoutes["Dashboard API<br/>/dashboard + /auth"]
+
+  claim --> agent["AI agent / user"]
+  agent --> sdk["CSPR402 SDK / CLI / MCP"]
+  sdk --> create["POST /v1/orders<br/>create order"]
+  sdk --> status["GET /v1/orders/:id<br/>poll or SSE stream"]
+
+  create --> api["Express backend<br/>authenticated /v1 API"]
+  status --> api
+  dashboardRoutes --> api
+
+  api --> policy["Policy engine<br/>limits + approvals"]
+  policy --> sqlite["SQLite state<br/>orders, keys, audit"]
+  api --> sqlite
+
+  api --> payment["Casper payment builder<br/>amount_motes + transfer_id"]
+  payment --> instructions["Payment instructions<br/>Casper mainnet CSPR"]
+  instructions --> sdk
+
+  sdk --> casper["Casper mainnet<br/>native CSPR transfer"]
+  casper --> treasury["Treasury public key"]
+  sdk --> verify["POST /v1/orders/:id/verify-payment<br/>deploy_hash"]
+  verify --> api
+
+  api --> verifier["Casper deploy verifier<br/>chain, sender, recipient,<br/>amount, transfer_id"]
+  verifier --> rpc["Casper node JSON-RPC<br/>info_get_transaction / info_get_deploy"]
+  rpc --> verifier
+  verifier --> sqlite
+
+  verifier --> vault["Simulated card vault<br/>sealed PAN / CVV / expiry"]
+  vault --> receipt["Card + receipt<br/>deploy hash included"]
+  receipt --> sdk
+  receipt --> web
+
+  api --> webhooks["Signed webhooks<br/>retry queue + circuit breaker"]
+  webhooks --> agent
+
+  classDef box fill:#161b22,stroke:#8b949e,color:#e6edf3,stroke-width:1px;
+  classDef route fill:#1b1f24,stroke:#8b949e,color:#e6edf3,stroke-width:1px;
+  classDef chain fill:#101820,stroke:#58a6ff,color:#e6edf3,stroke-width:1px;
+  classDef store fill:#141b14,stroke:#7ee787,color:#e6edf3,stroke-width:1px;
+
+  class operator,agent,web,sdk,claim box;
+  class adminProxy,dashboardRoutes,create,status,api,payment,instructions,verify,verifier,webhooks,policy route;
+  class casper,treasury,rpc chain;
+  class sqlite,vault,receipt store;
+```
+
+---
+
 ## Repository structure
 
 ```

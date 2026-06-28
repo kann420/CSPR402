@@ -99,12 +99,25 @@ Optional flags:
 and agent label, so you do not need to pass either. Auto-pay activates
 when the agent key from `cspr402 onboard` exists **and** `CASPER_NODE_RPC_URL`
 is set (a Casper mainnet JSON-RPC endpoint, e.g.
-`http://node.cspr.community:7777/rpc`). With auto-pay the command:
+`http://node.cspr.community:7777/rpc`; comma-separated for several). With
+auto-pay the command:
 
 1. Creates an order at `POST /v1/orders`
-2. Signs and submits the Casper native CSPR transfer from the local agent key
+2. Probes the configured node(s) plus a built-in public mainnet node pool,
+   picks the most-synced one, signs the Casper native CSPR transfer from the
+   local agent key, and submits it — failing over to the next node on timeout
+   or rejection so a single slow/dead node can no longer stall the pay
 3. Verifies the deploy (polling the backend until Casper mainnet finalizes it)
 4. Prints the virtual card number, CVV, and expiry to stdout
+
+`CASPER_NODE_RPC_URL` accepts a comma-separated list (your nodes are tried
+first). A built-in pool of public Casper mainnet nodes is merged in as
+failover targets so a single dead endpoint doesn't hang submit for minutes;
+set `CSPR402_CASPER_NODE_DEFAULTS=0` to use only your own URLs. The probe and
+each submit are bounded by `CSPR402_PROBE_TIMEOUT_MS` (default 8000) and
+`CSPR402_SUBMIT_TIMEOUT_MS` (default 20000). Broadcasting a signed deploy to
+any synced mainnet node is safe — the signature binds the recipient/amount/
+transfer_id, and the backend re-verifies the deploy hash independently.
 
 Without a key/RPC URL (or with `--no-pay`), it prints payment instructions
 for you to pay manually and verify with
@@ -276,6 +289,12 @@ If your runtime is an MCP client, add this to your config:
       "env": {
         "CARDS402_API_KEY": "cards402_<your key>",
         "CASPER_NODE_RPC_URL": "http://node.cspr.community:7777/rpc"
+        // Optional: comma-separate several nodes for failover, e.g.
+        // "http://node.cspr.community:7777/rpc,http://another-node:7777/rpc".
+        // A built-in public-node failover pool is merged in unless you set
+        // CSPR402_CASPER_NODE_DEFAULTS=0. Tune per-call bounds with
+        // CSPR402_PROBE_TIMEOUT_MS (default 8000) and
+        // CSPR402_SUBMIT_TIMEOUT_MS (default 20000).
       }
     }
   }
@@ -291,8 +310,12 @@ follow `purchase_vcc` with `pay_order { order_id }` — the server signs and
 submits the exact transfer the backend supplies (recipient, amount, and
 transfer_id come from the backend order over HTTPS, never from the
 prompt), then verifies it and returns the card (masked — brand only;
-retrieve full PAN/CVV via the CLI on the agent's own machine). A submitted
-transfer is recorded to `~/.cspr402/inflight.json` so a retry or server
+retrieve full PAN/CVV via the CLI on the agent's own machine). Submit
+probes your `CASPER_NODE_RPC_URL` node(s) plus a built-in public mainnet
+node pool and fails over across them, so one slow/dead node no longer
+stalls the pay (disable the pool with `CSPR402_CASPER_NODE_DEFAULTS=0`;
+tune bounds with `CSPR402_PROBE_TIMEOUT_MS` / `CSPR402_SUBMIT_TIMEOUT_MS`).
+A submitted transfer is recorded to `~/.cspr402/inflight.json` so a retry or server
 restart re-verifies instead of paying twice; on any verify failure keep
 the order id and re-run `pay_order` (or `verify_payment`) — never
 re-create the order. Optionally pin approved recipients with
