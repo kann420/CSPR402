@@ -21,13 +21,19 @@ import {
   signingConfigured,
   loadAgentPrivateKey,
   submitCasperTransfer,
+  safeTimestampMs,
+  withOrderLock,
   probeCandidateNodes,
   parseInfoGetStatus,
   resolveCandidateNodes,
   SignerError,
   __resetInflightLedgerForTests,
+  __orderLockPathForTests,
+  __peekInflightLedgerForTests,
+  __setInflightTsForTests,
   type LoadedAgentKey,
 } from '../casper-signer';
+import type { Transaction } from 'casper-js-sdk';
 import {
   generateCasperEd25519Key,
   writeCasperKeyFile,
@@ -780,5 +786,151 @@ describe('submitCasperTransfer probe + failover', () => {
     expect(hash).toMatch(/^[0-9a-f]{64}$/);
     // ~50ms timeout + n1 accept; well under a multi-second hang.
     expect(elapsed).toBeLessThan(2000);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Adversarial-verification fixes: the four double-spend / liveness bugs the
+// submit+failover rewrite introduced (or widened). These lock in the fixes:
+//   - ledger-before-broadcast (crash-during-failover window)
+//   - cross-process per-order lock (cross-process TOCTOU)
+//   - no blind TTL eviction (TTL double-submit)
+//   - backdate from MIN across targets (lagging-target liveness)
+// ---------------------------------------------------------------------------
+
+describe('safeTimestampMs (bug 4 — backdate from MIN across targets)', () => {
+  it('uses the MIN target time, not the best node time', () => {
+    // best (highest height) has the later time t2; a lagging target has t1.
+    // Dating from the best would put the deploy in t2's future for the
+    // lagging target; dating from the min (t1) is past for both.
+    const t1 = FIXED_BLOCK_MS;
+    const t2 = FIXED_BLOCK_MS + 60_000;
+    expect(safeTimestampMs([{ blockTimestampMs: t1 }, { blockTimestampMs: t2 }])).toBe(t1 - 30_000);
+  });
+
+  it('falls back to now-30s when there are no targets', () => {
+    const before = Date.now();
+    const ms = safeTimestampMs([]);
+    const after = Date.now();
+    expect(ms).toBeGreaterThanOrEqual(before - 30_000);
+    expect(ms).toBeLessThanOrEqual(after - 30_000);
+  });
+});
+
+describe('payAndVerifyOrder crash-window + TTL fixes', () => {
+  it('records the deploy hash in the ledger BEFORE broadcasting (crash window closed)', async () => {
+    // Bug 2 fix: ledgerSet must happen before any putToNode. We inject the
+    // split path and inspect the ledger from inside broadcastTransfer — if
+    // the hash is already there, a crash during broadcast leaves it
+    // populated and a retry re-verifies instead of re-signing.
+    const order = mockOrder({ transfer_id: 200030 });
+    const client = fakeClient(order);
+    const deployHash = 'crsh'.padEnd(64, '0');
+    let ledgerHashAtBroadcast: string | undefined;
+    await expect(
+      payAndVerifyOrder(client, 'ord_crash', {
+        loadKey: () => fakeKey(),
+        prepareTransfer: async () => ({
+          transaction: {} as unknown as Transaction,
+          deployHash,
+          targets: [],
+        }),
+        broadcastTransfer: async () => {
+          ledgerHashAtBroadcast = __peekInflightLedgerForTests('ord_crash')?.deployHash;
+        },
+        verify: async () => {
+          throw new SignerError('t', 'verify_timeout', deployHash);
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'verify_timeout' });
+    expect(ledgerHashAtBroadcast).toBe(deployHash);
+  });
+
+  it('keeps a stale ledger entry instead of evicting (no TTL double-submit)', async () => {
+    // Bug 3 fix: a blind TTL eviction would let a retry submit a NEW deploy
+    // for an order whose old deploy may be on chain. Age the entry past the
+    // old 1h TTL and assert the next call re-verifies (not resubmits).
+    const order = mockOrder({ transfer_id: 200020 });
+    const client = fakeClient(order);
+    const oldHash = 'old0'.padEnd(64, '0');
+    await expect(
+      payAndVerifyOrder(client, 'ord_ttl', {
+        loadKey: () => fakeKey(),
+        submit: async () => oldHash,
+        verify: async () => {
+          throw new SignerError('t', 'verify_timeout', oldHash);
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'verify_timeout' });
+    // Age the entry well past the old 1h TTL.
+    __setInflightTsForTests('ord_ttl', Date.now() - 2 * 60 * 60 * 1000);
+    let submitCalls = 0;
+    const res = await payAndVerifyOrder(client, 'ord_ttl', {
+      loadKey: () => fakeKey(),
+      submit: async () => {
+        submitCalls += 1;
+        return 'newh'.padEnd(64, '0');
+      },
+      verify: async () => mockVerified(oldHash),
+    });
+    expect(submitCalls).toBe(0); // did NOT submit a new transfer
+    expect(res.submitted).toBe(false);
+    expect(res.deployHash).toBe(oldHash); // re-verified the aged entry
+  });
+});
+
+describe('withOrderLock (bug 1 — cross-process per-order lock)', () => {
+  it('serializes concurrent holders for the same order', async () => {
+    const order = 'ord_lock1';
+    const log: string[] = [];
+    const a = withOrderLock(order, 10_000, 10_000, async () => {
+      log.push('a-start');
+      await new Promise((r) => setTimeout(r, 30));
+      log.push('a-end');
+    });
+    const b = withOrderLock(order, 10_000, 10_000, async () => {
+      log.push('b-start');
+      await new Promise((r) => setTimeout(r, 10));
+      log.push('b-end');
+    });
+    await Promise.all([a, b]);
+    // a fully precedes b — no interleaving of the critical sections.
+    expect(log).toEqual(['a-start', 'a-end', 'b-start', 'b-end']);
+  });
+
+  it('steals a stale lock (prior holder crashed mid-submit)', async () => {
+    const order = 'ord_lock2';
+    const p = __orderLockPathForTests(order);
+    fs.mkdirSync(path.dirname(p), { recursive: true });
+    fs.writeFileSync(p, 'stale\n');
+    const old = new Date(Date.now() - 10_000);
+    fs.utimesSync(p, old, old); // 10s old → stale vs maxHoldMs=1000
+    let ran = false;
+    await withOrderLock(order, 1000, 5000, async () => {
+      ran = true;
+    });
+    expect(ran).toBe(true);
+    expect(fs.existsSync(p)).toBe(false); // released after fn
+  });
+
+  it('throws lock_timeout when a fresh live lock outlasts the acquire window', async () => {
+    const order = 'ord_lock3';
+    const p = __orderLockPathForTests(order);
+    fs.mkdirSync(path.dirname(p), { recursive: true });
+    fs.writeFileSync(p, 'fresh\n');
+    fs.utimesSync(p, new Date(), new Date()); // fresh — not stealable yet
+    // maxHoldMs=10000 (lock stays fresh during the wait, never stolen);
+    // acquireTimeoutMs=300 so the waiter gives up quickly.
+    await expect(
+      withOrderLock(order, 10_000, 300, async () => {
+        /* unreachable */
+      }),
+    ).rejects.toMatchObject({ code: 'lock_timeout' });
+    // cleanup so afterEach can remove the dir
+    try {
+      fs.unlinkSync(p);
+    } catch {
+      /* ignore */
+    }
   });
 });

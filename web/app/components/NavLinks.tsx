@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { XSocialLink } from './XSocialLink';
 
 const PRIMARY: { href: string; label: string }[] = [
   { href: '/docs', label: 'Docs' },
@@ -56,6 +57,9 @@ export function NavLinks() {
             {l.label}
           </Link>
         ))}
+        <span className="nav-menu-social">
+          <XSocialLink size={15} />
+        </span>
       </div>
 
       <Link href="/dashboard" className="nav-cta">
@@ -123,6 +127,12 @@ export function NavLinks() {
           white-space: nowrap;
         }
         .nav-menu-link[data-active] { color: var(--fg); }
+        .nav-menu-social {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0.45rem 0.7rem;
+        }
 
         .nav-cta {
           margin-left: 0.6rem;
@@ -191,6 +201,11 @@ export function NavLinks() {
             border-bottom: 1px solid var(--border);
             border-radius: 0;
             white-space: normal;
+          }
+          .nav-menu-social {
+            justify-content: flex-start;
+            padding: 1rem 0;
+            border-bottom: 1px solid var(--border);
           }
         }
       `}</style>

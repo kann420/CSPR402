@@ -30,7 +30,24 @@
 // ledger entry (a transient 5xx/network blip does NOT clear it) so a
 // retry re-verifies the in-flight transfer instead of broadcasting a
 // second one — the only path that clears the ledger is a successful
-// verify.
+// verify. There is NO time-based eviction: a blind TTL eviction would
+// let a retry submit a NEW deploy (new timestamp → new hash) for an
+// order whose OLD deploy is still on chain = double-spend.
+//
+// Two extra layers close the windows a single-process ledger can't:
+//   - Ledger-before-broadcast: the deploy hash is written to the ledger
+//     BEFORE any node is contacted (prepareCasperTransfer builds + signs
+//     and returns the hash; ledgerSet records it; only then does
+//     broadcastSignedTransfer contact nodes). A crash during the failover
+//     loop leaves the ledger populated, so a retry re-verifies that hash
+//     instead of re-signing a new timestamp → new hash.
+//   - Cross-process per-order lockfile (withOrderLock): the in-process
+//     mutex only serializes ONE process. Two separate processes (a CLI
+//     re-run while an MCP server is mid-submit) share no memory, so a
+//     per-order lockfile is held across ledgerGet → build+sign → ledgerSet
+//     → broadcast. The second process waits for the first to record its
+//     hash, then its ledgerGet sees the recorded hash and re-verifies
+//     instead of submitting a second transfer.
 //
 // Key handling: the agent key is a PEM on disk written by `cspr402
 // onboard` (chmod 0600). We load it lazily, sign, and null the reference
@@ -126,12 +143,16 @@ const DEFAULT_CASPER_NODE_IPS = [
   '152.53.144.92',
 ];
 
-// Ledger entry TTL — an in-flight payment older than this is considered
-// abandoned and a new submit is allowed. 1 hour is well beyond the
-// backend's 2h order-expiry window divided by the typical verify loop,
-// and short enough that a genuinely stuck entry doesn't block a legit
-// retry forever.
-const LEDGER_TTL_MS = 60 * 60 * 1000;
+// No ledger TTL: entries are retained until a successful verify clears
+// them (ledgerClear). A blind TTL eviction would let a retried call
+// submit a NEW deploy (new timestamp → new hash) for an order whose OLD
+// deploy is still pending or already on chain — the exact double-spend
+// the ledger exists to prevent. The cost (a stuck entry blocks
+// auto-resubmit for that order) is the SAFE behavior: the operator
+// recovery path re-verifies the recorded hash via
+// `cspr402 purchase --order <id> --verify <hash>`, and a genuinely stuck
+// deploy is handled by creating a fresh order (new order_id → new ledger
+// key, no conflict) rather than by auto-broadcasting a second transfer.
 
 export interface SigningConfig {
   /** Absolute path to the agent's Casper secret-key PEM. */
@@ -503,10 +524,14 @@ async function defaultPutToNode(url: string, transaction: Transaction): Promise<
   await rpcClient.putTransaction(transaction);
 }
 
-/** Test/override hooks for submitCasperTransfer. Not part of the public API. */
-export interface SubmitInternalOpts {
+/** Test/override hooks for the probe step. */
+export interface PrepareInternalOpts {
   /** Override the fetch used for node probing (tests). */
   fetchImpl?: typeof fetch;
+}
+
+/** Test/override hooks for the broadcast step. */
+export interface BroadcastInternalOpts {
   /**
    * Override the per-node submit step (tests). Resolves on accept, rejects
    * on error — the deploy hash is computed locally, so this need not
@@ -515,9 +540,47 @@ export interface SubmitInternalOpts {
   putToNode?: (url: string, transaction: Transaction) => Promise<void>;
 }
 
+/** Test/override hooks for the combined submitCasperTransfer. */
+export interface SubmitInternalOpts {
+  fetchImpl?: typeof fetch;
+  putToNode?: (url: string, transaction: Transaction) => Promise<void>;
+}
+
+/** A signed native transfer ready to broadcast, plus its failover targets. */
+export interface PreparedTransfer {
+  transaction: Transaction;
+  /** Locally-computed deploy hash (transaction.hash.toHex()), lowercased. */
+  deployHash: string;
+  /** Filtered failover targets (same api_version major as the best node). */
+  targets: ProbedNode[];
+}
+
 /**
- * Sign and submit the backend-attested native CSPR transfer, with multi-node
- * probe + per-call timeout + failover. Returns the deploy hash.
+ * Compute the deploy timestamp from the MINIMUM consensus time across all
+ * failover targets, minus a 30s margin. The best (highest-height) node has
+ * the latest time, but a lagging failover target can be a block or two
+ * behind it (~32s/block on mainnet). Dating from the best node only could
+ * put the deploy in the FUTURE for a lagging target and get it rejected
+ * there (liveness degradation, not a safety break). Dating from the min
+ * target time guarantees every target sees a past timestamp, so the one
+ * signed deploy is valid for all of them. Casper only rejects future
+ * timestamps; a slightly older one is fine.
+ */
+export function safeTimestampMs(targets: readonly { blockTimestampMs: number }[]): number {
+  if (targets.length === 0) return Date.now() - 30_000;
+  let minMs = Number.POSITIVE_INFINITY;
+  for (const t of targets) if (t.blockTimestampMs < minMs) minMs = t.blockTimestampMs;
+  return minMs - 30_000;
+}
+
+/**
+ * Probe candidate nodes, pick the most-synced, filter failover targets by
+ * api_version major, then build + sign the native transfer ONCE. Returns
+ * the signed transaction, its locally-computed deploy hash, and the target
+ * list. Throws ONLY before signing (no_node_configured / no_synced_node) —
+ * safe to retry. Split from broadcastSignedTransfer so the caller can
+ * record the deploy hash in the inflight ledger BEFORE any node is
+ * contacted, closing the crash-during-failover double-submit window.
  *
  * Safety properties (see the file header for the full threat model):
  *   - Build + sign ONCE. The same signed deploy is reused across every
@@ -525,25 +588,16 @@ export interface SubmitInternalOpts {
  *     chain (dedup by hash). We never re-sign per node — different
  *     timestamps would yield different hashes and risk a double transfer if
  *     two nodes both accepted.
- *   - After signing, NEVER throw: the deploy hash is computed locally
- *     (transaction.hash.toHex()) and returned even if every node times out.
- *     The caller records it in the inflight ledger, so a retry re-VERIFIES
- *     that hash instead of submitting a second transfer. This closes the
- *     double-spend window that a throw-on-timeout would open (a node may
- *     have accepted the deploy even though its response was lost).
  *   - Failover targets are filtered to the best node's api_version major
  *     (1.x vs 2.x) so the single built transaction format is valid for all
  *     of them.
- *
- * Throws only BEFORE signing — 'no_node_configured' / 'no_synced_node' —
- * when nothing can be submitted, which is safe to retry.
  */
-export async function submitCasperTransfer(
+export async function prepareCasperTransfer(
   payment: AttestedPayment,
   privateKey: PrivateKey,
   cfg: SigningConfig,
-  internal: SubmitInternalOpts = {},
-): Promise<string> {
+  internal: PrepareInternalOpts = {},
+): Promise<PreparedTransfer> {
   const candidates = resolveCandidateNodes(cfg);
   if (candidates.length === 0) {
     throw new SignerError(
@@ -579,12 +633,10 @@ export async function submitCasperTransfer(
   const bestMajor = best.apiVersion.charAt(0);
   const targets = probed.filter((p) => p.apiVersion.charAt(0) === bestMajor);
 
-  // Build + sign ONCE. Backdate 30s from the best node's last-block
-  // (consensus) time to avoid "timestamp in future" rejection at the
-  // mempool — same guard node-agent uses. The best node has the highest
-  // height, so its consensus time is the most current; lagging failover
-  // targets are within a block or two and covered by the 30s backdate.
-  const safeTimestamp = new Timestamp(new Date(best.blockTimestampMs - 30_000));
+  // Build + sign ONCE. Date the deploy from the MIN target time (see
+  // safeTimestampMs) so a lagging failover target doesn't reject it as
+  // "timestamp in the future".
+  const safeTimestamp = new Timestamp(new Date(safeTimestampMs(targets)));
   const builder = new NativeTransferBuilder()
     .from(privateKey.publicKey)
     .target(PublicKey.fromHex(payment.recipient))
@@ -596,12 +648,30 @@ export async function submitCasperTransfer(
   const transaction = best.apiVersion.startsWith('1') ? builder.buildFor1_5() : builder.build();
   transaction.sign(privateKey);
 
-  // Compute the deploy hash LOCALLY (before any submit) so we can record it
-  // even if every node times out. The hash is a deterministic function of
-  // the deploy body and is independent of the approval signature, so this
-  // matches what the node returns and what the backend will see on chain.
+  // Compute the deploy hash LOCALLY (before any submit) so the caller can
+  // record it even if every node times out. The hash is a deterministic
+  // function of the deploy body and is independent of the approval
+  // signature, so this matches what the node returns and what the backend
+  // will see on chain.
   const deployHash = normalizeDeployHash(transaction.hash.toHex());
+  return { transaction, deployHash, targets };
+}
 
+/**
+ * Broadcast the already-signed transaction across the failover targets.
+ * Never throws: each target is tried with a per-call timeout, and on
+ * timeout/rejection we move to the next. The deploy hash was already
+ * recorded by the caller BEFORE this runs, so even if every target fails
+ * (or the process crashes mid-loop) a retry re-verifies the recorded hash
+ * instead of re-signing a new timestamp → new hash. The signed deploy is
+ * idempotent by hash, so re-broadcasting to another node is safe.
+ */
+export async function broadcastSignedTransfer(
+  transaction: Transaction,
+  targets: ProbedNode[],
+  cfg: SigningConfig,
+  internal: BroadcastInternalOpts = {},
+): Promise<void> {
   const putToNode = internal.putToNode ?? defaultPutToNode;
   for (const node of targets) {
     try {
@@ -610,16 +680,46 @@ export async function submitCasperTransfer(
         cfg.submitTimeoutMs,
         `submit to ${node.url}`,
       );
-      return deployHash;
+      return;
     } catch {
       // Timeout or explicit reject — the signed deploy is idempotent by
       // hash, so it is safe to try the next node with the SAME deploy.
     }
   }
-  // Every node failed or timed out. The deploy MAY still have been accepted
-  // by a node whose response was lost, so do NOT throw — return the local
-  // hash. The caller records it in the ledger and verifies; a retry then
-  // re-verifies this hash instead of broadcasting a second transfer.
+  // Every target failed or timed out. The deploy MAY still have been
+  // accepted by a node whose response was lost; the caller already recorded
+  // the hash, so a retry re-verifies instead of re-submitting. Do not throw.
+}
+
+/**
+ * Sign and submit the backend-attested native CSPR transfer, with multi-node
+ * probe + per-call timeout + failover. Returns the deploy hash. Thin
+ * wrapper over prepareCasperTransfer + broadcastSignedTransfer — the
+ * production path (doPayAndVerifyOrder) calls those two directly so it can
+ * record the hash in the ledger BETWEEN them; this combined form exists for
+ * tests and direct callers that don't need the split.
+ *
+ * After signing, NEVER throw: the deploy hash is computed locally and
+ * returned even if every node times out. The caller records it in the
+ * inflight ledger, so a retry re-VERIFIES that hash instead of submitting a
+ * second transfer.
+ *
+ * Throws only BEFORE signing — 'no_node_configured' / 'no_synced_node' —
+ * when nothing can be submitted, which is safe to retry.
+ */
+export async function submitCasperTransfer(
+  payment: AttestedPayment,
+  privateKey: PrivateKey,
+  cfg: SigningConfig,
+  internal: SubmitInternalOpts = {},
+): Promise<string> {
+  const { transaction, deployHash, targets } = await prepareCasperTransfer(
+    payment,
+    privateKey,
+    cfg,
+    { fetchImpl: internal.fetchImpl },
+  );
+  await broadcastSignedTransfer(transaction, targets, cfg, { putToNode: internal.putToNode });
   return deployHash;
 }
 
@@ -709,14 +809,11 @@ function hydrateLedger(): void {
     if (!fs.existsSync(p)) return;
     const raw = fs.readFileSync(p, 'utf8');
     const parsed = JSON.parse(raw) as { [orderId: string]: InflightEntry };
-    const now = Date.now();
     for (const [orderId, entry] of Object.entries(parsed)) {
-      if (
-        entry &&
-        typeof entry.deployHash === 'string' &&
-        typeof entry.ts === 'number' &&
-        now - entry.ts <= LEDGER_TTL_MS
-      ) {
+      // No TTL filter: see the LEDGER_TTL comment above. Every well-formed
+      // entry is reloaded so a fresh process re-verifies instead of
+      // re-submitting, regardless of age.
+      if (entry && typeof entry.deployHash === 'string' && typeof entry.ts === 'number') {
         inflightPayments.set(orderId, {
           deployHash: entry.deployHash,
           senderPublicKeyHex:
@@ -728,7 +825,7 @@ function hydrateLedger(): void {
   } catch {
     // Corrupt/unreadable ledger is non-fatal — fall back to an empty
     // ledger. We'd rather risk a duplicate than hard-fail an agent that
-    // just restarted. The TTL + verify-before-submit still bounds it.
+    // just restarted. Keeping entries until verify-success still bounds it.
   }
 }
 
@@ -754,14 +851,9 @@ function persistLedger(): void {
 
 function ledgerGet(orderId: string): InflightEntry | undefined {
   hydrateLedger();
-  const entry = inflightPayments.get(orderId);
-  if (!entry) return undefined;
-  if (Date.now() - entry.ts > LEDGER_TTL_MS) {
-    inflightPayments.delete(orderId);
-    persistLedger();
-    return undefined;
-  }
-  return entry;
+  // No TTL eviction: an aged entry is kept and re-verified, never silently
+  // dropped to allow a new submit (see the LEDGER_TTL comment above).
+  return inflightPayments.get(orderId);
 }
 
 function ledgerSet(orderId: string, deployHash: string, senderPublicKeyHex: string): void {
@@ -773,6 +865,112 @@ function ledgerClear(orderId: string): void {
   if (!inflightPayments.has(orderId)) return;
   inflightPayments.delete(orderId);
   persistLedger();
+}
+
+/** Test-only: read a ledger entry directly. */
+export function __peekInflightLedgerForTests(orderId: string): InflightEntry | undefined {
+  hydrateLedger();
+  const e = inflightPayments.get(orderId);
+  return e ? { ...e } : undefined;
+}
+
+/** Test-only: mutate an entry's timestamp (to simulate ageing past a TTL). */
+export function __setInflightTsForTests(orderId: string, ts: number): void {
+  const e = inflightPayments.get(orderId);
+  if (!e) return;
+  inflightPayments.set(orderId, { ...e, ts });
+  persistLedger();
+}
+
+// ---------------------------------------------------------------------------
+// Cross-process per-order lock (see the file header). The in-process mutex
+// (inflightOrderLocks) serializes calls within ONE process; this lockfile
+// serializes SEPARATE processes so a concurrent CLI/MCP call for the same
+// order_id waits for the first to record its deploy hash, then re-verifies
+// it instead of submitting a second transfer.
+// ---------------------------------------------------------------------------
+
+function orderLockPath(orderId: string): string {
+  // orderId comes from the backend order — sanitize so it can't escape the
+  // inflight dir via path separators or traversal.
+  const safe = orderId.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 128);
+  return path.join(defaultConfigDir(), 'inflight', `${safe}.lock`);
+}
+
+/**
+ * Run `fn` while holding an exclusive per-order lockfile. `maxHoldMs` is the
+ * longest a legitimate holder can run (probe + N*submit + slack); a lock
+ * whose mtime is older than that is treated as stale (the prior process
+ * crashed mid-submit) and stolen. `acquireTimeoutMs` is how long to wait for
+ * a prior (fresh, still-live) holder to release before throwing
+ * lock_timeout — it must be > maxHoldMs so a waiter lives long enough to
+ * steal a stale lock. The lock is released in finally. Returns fn's result.
+ */
+export async function withOrderLock<T>(
+  orderId: string,
+  maxHoldMs: number,
+  acquireTimeoutMs: number,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const p = orderLockPath(orderId);
+  ensurePrivateDir(path.dirname(p));
+  const staleMs = maxHoldMs;
+  let release: (() => void) | undefined;
+  const deadline = Date.now() + acquireTimeoutMs;
+  for (;;) {
+    try {
+      const fd = fs.openSync(p, 'wx'); // O_EXCL — fails if the file exists
+      try {
+        fs.writeSync(fd, `${process.pid}\n${Date.now()}\n`);
+      } finally {
+        fs.closeSync(fd);
+      }
+      release = () => {
+        try {
+          fs.unlinkSync(p);
+        } catch {
+          /* already removed */
+        }
+      };
+      break;
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code;
+      if (code !== 'EEXIST') throw e;
+      // Lock exists — steal it if it's stale (prior holder crashed).
+      try {
+        const st = fs.statSync(p);
+        if (Date.now() - st.mtimeMs > staleMs) {
+          try {
+            fs.unlinkSync(p);
+          } catch {
+            /* raced with another stealer — retry create below */
+          }
+          continue;
+        }
+      } catch {
+        // vanished between open and stat — retry create
+        continue;
+      }
+    }
+    if (Date.now() >= deadline) {
+      throw new SignerError(
+        `Timed out acquiring order lock for ${orderId}. Another process may be stuck submitting; ` +
+          `if not, remove ${p} and retry.`,
+        'lock_timeout',
+      );
+    }
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  try {
+    return await fn();
+  } finally {
+    release?.();
+  }
+}
+
+/** Test-only: resolve the lockfile path for a given order. */
+export function __orderLockPathForTests(orderId: string): string {
+  return orderLockPath(orderId);
 }
 
 /** Test-only: reset the ledger between tests. Not exported from the package. */
@@ -816,12 +1014,29 @@ export interface PayOrderResult {
 export interface PayAndVerifyOpts {
   /** Override the key loader (tests). */
   loadKey?: (cfg: SigningConfig) => LoadedAgentKey;
-  /** Override the submit step (tests). */
+  /**
+   * Legacy combined submit override (tests). When set, the ledger is written
+   * AFTER submit returns — the crash-window guarantee does NOT apply on this
+   * path. Production leaves this unset so the split prepare→ledgerSet→
+   * broadcast path runs (ledger recorded BEFORE any node is contacted).
+   */
   submit?: (
     payment: AttestedPayment,
     privateKey: PrivateKey,
     cfg: SigningConfig,
   ) => Promise<string>;
+  /** Override the prepare step (tests): build + sign + return hash + targets. */
+  prepareTransfer?: (
+    payment: AttestedPayment,
+    privateKey: PrivateKey,
+    cfg: SigningConfig,
+  ) => Promise<PreparedTransfer>;
+  /** Override the broadcast step (tests): failover across targets. */
+  broadcastTransfer?: (
+    transaction: Transaction,
+    targets: ProbedNode[],
+    cfg: SigningConfig,
+  ) => Promise<void>;
   /** Override the verify-retry step (tests). */
   verify?: (
     client: CSPR402Client,
@@ -917,44 +1132,82 @@ async function doPayAndVerifyOrder(
     }
   }
 
-  // Double-submit guard: if we already submitted a transfer for this
-  // order (in this process, or persisted from a prior process), re-verify
-  // that hash instead of paying again. The recorded sender public key is
-  // reused for verify so we never have to re-load the private key on the
-  // re-verify path.
-  const existing = ledgerGet(orderId);
-  let deployHash: string;
-  let submitted = false;
-  // `senderPublicKeyHex` is needed for verify; the private key is not —
-  // so the key is loaded inside the `if` block below and block-scoped out
-  // before verify runs, dropping the only reachable reference to the raw
-  // key bytes. That limits the key's lifetime to the submit step instead
-  // of the whole (possibly minutes-long) verify window.
-  let senderPublicKeyHex: string | undefined = existing?.senderPublicKeyHex;
-  if (existing) {
-    deployHash = existing.deployHash;
-  } else {
-    const { privateKey, senderPublicKeyHex: hex } = (opts.loadKey ?? loadAgentPrivateKey)(cfg);
+  // Double-submit guard, two layers (see the file header):
+  //   1. Cross-process per-order lockfile (withOrderLock) serializes the
+  //      ledgerGet → build+sign → ledgerSet → broadcast section across
+  //      SEPARATE processes, so a concurrent CLI/MCP call for the same id
+  //      waits for the first to record its hash, then re-verifies it
+  //      instead of submitting a second transfer.
+  //   2. Ledger-before-broadcast (production split path): the deploy hash
+  //      is written to the ledger BEFORE any node is contacted, so a crash
+  //      during the failover loop leaves the ledger populated and a retry
+  //      re-verifies that hash instead of re-signing a new one.
+  //
+  // The lock's stale threshold must cover the longest legitimate hold:
+  // probe + one submit per candidate + slack. Sized from cfg so an
+  // operator who raises CSPR402_SUBMIT_TIMEOUT_MS doesn't get their live
+  // submit stolen.
+  const lockMaxHoldMs =
+    cfg.probeTimeoutMs + resolveCandidateNodes(cfg).length * cfg.submitTimeoutMs + 60_000;
+  const lockAcquireMs = lockMaxHoldMs + 60_000;
+  const { deployHash, submitted, senderPublicKeyHex } = await withOrderLock(
+    orderId,
+    lockMaxHoldMs,
+    lockAcquireMs,
+    async () => {
+      const existing = ledgerGet(orderId);
+      if (existing) {
+        // Re-verify the previously-submitted hash. The recorded sender
+        // public key is reused so we never re-load the private key here.
+        return {
+          deployHash: existing.deployHash,
+          submitted: false,
+          senderPublicKeyHex: existing.senderPublicKeyHex,
+        };
+      }
+      const { privateKey, senderPublicKeyHex: hex } = (opts.loadKey ?? loadAgentPrivateKey)(cfg);
 
-    // Sender binding: if the order was created bound to a specific sender
-    // (purchase_vcc/CLI pass payer_public_key), our key must match it. If
-    // it was created unbound we can still pay — but the order is ours
-    // (scoped by api key above), so paying it is legitimate.
-    if (payment.sender_public_key && payment.sender_public_key.toLowerCase() !== hex) {
-      throw new SignerError(
-        `Order ${orderId} is bound to sender ${payment.sender_public_key}, but this agent's key ` +
-          `is ${hex}. Refusing to pay an order bound to a different sender.`,
-        'sender_mismatch',
-      );
-    }
-    senderPublicKeyHex = hex;
+      // Sender binding: if the order was created bound to a specific sender
+      // (purchase_vcc/CLI pass payer_public_key), our key must match it. If
+      // it was created unbound we can still pay — but the order is ours
+      // (scoped by api key above), so paying it is legitimate.
+      if (payment.sender_public_key && payment.sender_public_key.toLowerCase() !== hex) {
+        throw new SignerError(
+          `Order ${orderId} is bound to sender ${payment.sender_public_key}, but this agent's key ` +
+            `is ${hex}. Refusing to pay an order bound to a different sender.`,
+          'sender_mismatch',
+        );
+      }
 
-    deployHash = await (opts.submit ?? submitCasperTransfer)(payment, privateKey, cfg);
-    ledgerSet(orderId, deployHash, hex);
-    submitted = true;
-    // `privateKey` goes out of scope here — verify below uses only
-    // `deployHash` + `senderPublicKeyHex`.
-  }
+      let hash: string;
+      if (opts.submit) {
+        // Legacy combined override (tests). Ledger written AFTER submit —
+        // the crash-window guarantee does not apply on this test-only path.
+        hash = await opts.submit(payment, privateKey, cfg);
+        ledgerSet(orderId, hash, hex);
+      } else {
+        // Production split path: build + sign, record the hash, THEN
+        // broadcast. A crash between ledgerSet and the end of broadcast
+        // leaves the ledger populated with this hash, so a retry
+        // re-verifies it instead of re-signing a new timestamp.
+        const prepared = await (opts.prepareTransfer ?? prepareCasperTransfer)(
+          payment,
+          privateKey,
+          cfg,
+        );
+        hash = prepared.deployHash;
+        ledgerSet(orderId, hash, hex);
+        await (opts.broadcastTransfer ?? broadcastSignedTransfer)(
+          prepared.transaction,
+          prepared.targets,
+          cfg,
+        );
+      }
+      // `privateKey` goes out of scope here — verify below uses only
+      // `hash` + `hex`.
+      return { deployHash: hash, submitted: true, senderPublicKeyHex: hex };
+    },
+  );
 
   // Verify the submitted (or previously-submitted) deploy. Crucially, a
   // failure here does NOT clear the ledger — the transfer is in flight on

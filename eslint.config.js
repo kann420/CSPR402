@@ -15,6 +15,7 @@ export default [
       'sdk/dist/**',
       'sdk/coverage/**',
       'web/.next/**',
+      '**/.claude/**',
     ],
   },
 
