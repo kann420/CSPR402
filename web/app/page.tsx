@@ -30,7 +30,7 @@ export default function HomePage() {
       <section
         className="home-hero"
         style={{
-          padding: '6.5rem 1.35rem 5.5rem',
+          padding: '2rem 1.35rem 5.5rem',
           position: 'relative',
           overflow: 'hidden',
           isolation: 'isolate',
@@ -89,9 +89,8 @@ export default function HomePage() {
               color: 'var(--fg-muted)',
             }}
           >
-            AI agents need to spend money, but getting them a card usually means custodial wallets,
-            off-chain trust, and reconciliation by hand. CSPR402 verifies a single on-chain Casper
-            payment and returns a virtual card — no middleman holding funds, no manual matching.
+            Verify one on-chain Casper payment, get a virtual card your agent can spend. No
+            custodial wallet, no middleman, no manual matching.
           </p>
 
           <div
