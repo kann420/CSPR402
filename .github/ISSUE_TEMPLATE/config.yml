@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/kann420/CSPR402/security/policy
+    about: Report security issues privately. Do not post secrets, keys, or exploit details in public issues.
+  - name: Documentation and demo site
+    url: https://cspr402.xyz
+    about: Read the current public CSPR402 docs and demo copy before filing a documentation issue.

@@ -598,16 +598,7 @@ components:
     CasperCSPRPaymentReceipt:
       type: object
       required:
-        [
-          type,
-          order_id,
-          payment_asset,
-          network,
-          chain_name,
-          deploy_hash,
-          transfer_id,
-          card_mode,
-        ]
+        [type, order_id, payment_asset, network, chain_name, deploy_hash, transfer_id, card_mode]
       properties:
         type:
           type: string

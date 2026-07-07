@@ -21,7 +21,13 @@ regexes = [
 # Historic finding: backend/test-scraper.js (deleted in a later commit)
 # contained a JWT redemption token for a $0.02 gift card that was
 # consumed during live E2E testing. The token is non-reusable.
+#
+# Historic false positives: generated PEM boundary assertion, UI local-storage
+# key names, Casper public-key placeholders, and test public keys.
 commits = [
   "6d24d5ce82ea19fd9f234aae26bb813695e36da6",
   "22599043625d9bcde9432b3fcdab0cbe8092961c",
+  "a65f4f476c236423f6de6b9a4bb8052a93a559cf",
+  "75e936161a911373f3b0c728a3e9abdf74d5ba20",
+  "a35ccfc6c49e70f36499df773a15bb2a1e379ad0",
 ]

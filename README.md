@@ -81,7 +81,6 @@ scripts/   API validation, smoke tests, admin-key generation
 
 Today the cards are **simulated** — when a Casper payment verifies, the backend writes a sealed virtual card (PAN/CVV/expiry) and returns it, but the card is not yet spendable at merchants. **Upcoming phase:** integrate a real Visa virtual-card issuer so a verified Casper payment yields a genuine, spendable Visa card the agent can use to pay. The MVP scope is the on-chain CSPR payment and deploy verification; card spendability lands with the issuer integration.
 
-
 ---
 
 ## Backend
