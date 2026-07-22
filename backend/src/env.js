@@ -204,6 +204,11 @@ const EnvSchema = z
     CASPER_NODE_RPC_AUTH: z.string().optional(),
     CASPER_TREASURY_PUBLIC_KEY: casperPublicKey('CASPER_TREASURY_PUBLIC_KEY').optional(),
     CSPR_USD_RATE: positiveDecimal('CSPR_USD_RATE').optional(),
+    // Live CSPR/USD price feed (CoinGecko, cached 60s in cspr-price.js).
+    // 'true' (default) quotes orders at the live market rate and keeps
+    // CSPR_USD_RATE as the fail-safe fallback; 'false' pins pricing to
+    // CSPR_USD_RATE only (deterministic — what tests use).
+    CSPR_PRICE_FEED_ENABLED: z.enum(['true', 'false']).optional().default('true'),
     CASPER_MIN_TRANSFER_MOTES: z
       .string()
       .regex(/^\d+$/, 'CASPER_MIN_TRANSFER_MOTES must be a positive integer')

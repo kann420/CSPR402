@@ -89,8 +89,11 @@ CasperCard402/
      immediately (`status='delivered'`, phase `ready`).
    - **Real mode, `cspr_casper`**: `allocateTransferId()` pulls a monotonic
      counter from `system_state` key `casper_next_transfer_id` (starts at
-     `100000`); `buildCasperPayment()` converts USD → motes via `CSPR_USD_RATE`
-     using ceil-division (`usdToMotes`), enforces `CASPER_MIN_TRANSFER_MOTES`
+     `100000`); `buildCasperPayment()` converts USD → motes using ceil-division
+     (`usdToMotes`) at the live CoinGecko CSPR/USD price (`payments/cspr-price.js`,
+     cached 60s, resolved before the transaction; falls back stale-cache →
+     `CSPR_USD_RATE` env pin so order creation never depends on the price API),
+     enforces `CASPER_MIN_TRANSFER_MOTES`
      (default `2_500_000_000` = 2.5 CSPR), recipient =
      `CASPER_TREASURY_PUBLIC_KEY`, TTL `CASPER_PAYMENT_TTL_MINUTES` (default 60).
      The payment instruction has `type: 'casper_cspr_transfer'` with `network`,
@@ -406,37 +409,38 @@ virtual card retrieval, all against `https://api.cspr402.xyz/v1`. Repository
 See `backend/.env.casper.example` for the canonical list. The Casper-active
 variables:
 
-| Variable                           | Purpose                                                                                                     |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `PORT`                             | HTTP listen port (default 4000).                                                                            |
-| `NODE_ENV`                         | `production` enables HTTPS enforcement, sealed-vault requirement, JSON logging.                             |
-| `DB_PATH`                          | SQLite path (default `cardcasper402.db`).                                                                   |
-| `PAYMENT_PROVIDER`                 | `casper` for the active MVP path.                                                                           |
-| `MOCK_CARD_MODE`                   | `true` — mock card fulfillment.                                                                             |
-| `VIRTUAL_CARD_PROVIDER`            | `mock`.                                                                                                     |
-| `CASPER_NETWORK`                   | `mainnet`.                                                                                                  |
-| `CASPER_CHAIN_NAME`                | `casper` (verified against the deploy's `chain_name`).                                                      |
-| `CASPER_NODE_RPC_URL`              | Casper node JSON-RPC endpoint used by `verifyCasperDeployPayment` / `verifyCasperCep18Payment`.             |
-| `CASPER_EVENT_STREAM_URL`          | Casper node event stream URL (configured for completeness; the active path is pull-based, no watcher runs). |
-| `CSPR_USD_RATE`                    | USD-per-CSPR rate used by `usdToMotes` (ceil-division).                                                     |
-| `CASPER_MIN_TRANSFER_MOTES`        | Minimum native transfer amount (default `2500000000` = 2.5 CSPR).                                           |
-| `CASPER_PAYMENT_TTL_MINUTES`       | Payment instruction TTL (default 60).                                                                       |
-| `CASPER_TREASURY_PUBLIC_KEY`       | Treasury recipient public key.                                                                              |
-| `CASPER_TREASURY_PRIVATE_KEY_PATH` | Path to treasury signing key material (kept out of git).                                                    |
-| `CASPER_MIN_CONFIRMATIONS`         | Minimum confirmations for verification policy.                                                              |
-| `CASPER_PAYMENT_TIMEOUT_MS`        | Payment verification timeout.                                                                               |
-| `MOCK_USDC_ENABLED`                | `true` enables `mock_usdc_cep18` orders (testnet-only; `false` on mainnet).                                 |
-| `MOCK_USDC_CONTRACT_PACKAGE_HASH`  | Required when `MOCK_USDC_ENABLED=true`; verified against the deploy's stored package hash.                  |
-| `MOCK_USDC_CONTRACT_HASH`          | Optional display/query metadata.                                                                            |
-| `MOCK_USDC_DECIMALS`               | CEP-18 decimals (default 6).                                                                                |
-| `VCC_API_BASE`                     | Mocked fulfillment service base URL.                                                                        |
-| `CORS_ORIGINS`                     | Comma-separated bare origins, validated at boot.                                                            |
-| `VCC_CALLBACK_SECRET`              | Shared HMAC secret for the (mocked) callback channel.                                                       |
-| `PUBLIC_API_BASE_URL`              | Public API base returned to agents (default `https://api.cspr402.xyz/v1`).                                  |
-| `AUTH_FAILURE_LIMIT_PER_WINDOW`    | Pre-auth failure limiter budget (default 60 / 15min).                                                       |
-| `APPROVAL_TTL_MINUTES`             | Approval request TTL (default 120).                                                                         |
-| `MAX_SSE_STREAMS_PER_KEY`          | Per-key concurrent SSE cap (default 20).                                                                    |
-| `MAX_SSE_STREAMS_TOTAL`            | Global concurrent SSE cap (default 1000).                                                                   |
+| Variable                           | Purpose                                                                                                           |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `PORT`                             | HTTP listen port (default 4000).                                                                                  |
+| `NODE_ENV`                         | `production` enables HTTPS enforcement, sealed-vault requirement, JSON logging.                                   |
+| `DB_PATH`                          | SQLite path (default `cardcasper402.db`).                                                                         |
+| `PAYMENT_PROVIDER`                 | `casper` for the active MVP path.                                                                                 |
+| `MOCK_CARD_MODE`                   | `true` — mock card fulfillment.                                                                                   |
+| `VIRTUAL_CARD_PROVIDER`            | `mock`.                                                                                                           |
+| `CASPER_NETWORK`                   | `mainnet`.                                                                                                        |
+| `CASPER_CHAIN_NAME`                | `casper` (verified against the deploy's `chain_name`).                                                            |
+| `CASPER_NODE_RPC_URL`              | Casper node JSON-RPC endpoint used by `verifyCasperDeployPayment` / `verifyCasperCep18Payment`.                   |
+| `CASPER_EVENT_STREAM_URL`          | Casper node event stream URL (configured for completeness; the active path is pull-based, no watcher runs).       |
+| `CSPR_USD_RATE`                    | Fallback/pinned USD-per-CSPR rate used by `usdToMotes` when the live feed is off or unreachable.                  |
+| `CSPR_PRICE_FEED_ENABLED`          | `true` (default) quotes orders at the live CoinGecko CSPR/USD price (60s cache); `false` pins to `CSPR_USD_RATE`. |
+| `CASPER_MIN_TRANSFER_MOTES`        | Minimum native transfer amount (default `2500000000` = 2.5 CSPR).                                                 |
+| `CASPER_PAYMENT_TTL_MINUTES`       | Payment instruction TTL (default 60).                                                                             |
+| `CASPER_TREASURY_PUBLIC_KEY`       | Treasury recipient public key.                                                                                    |
+| `CASPER_TREASURY_PRIVATE_KEY_PATH` | Path to treasury signing key material (kept out of git).                                                          |
+| `CASPER_MIN_CONFIRMATIONS`         | Minimum confirmations for verification policy.                                                                    |
+| `CASPER_PAYMENT_TIMEOUT_MS`        | Payment verification timeout.                                                                                     |
+| `MOCK_USDC_ENABLED`                | `true` enables `mock_usdc_cep18` orders (testnet-only; `false` on mainnet).                                       |
+| `MOCK_USDC_CONTRACT_PACKAGE_HASH`  | Required when `MOCK_USDC_ENABLED=true`; verified against the deploy's stored package hash.                        |
+| `MOCK_USDC_CONTRACT_HASH`          | Optional display/query metadata.                                                                                  |
+| `MOCK_USDC_DECIMALS`               | CEP-18 decimals (default 6).                                                                                      |
+| `VCC_API_BASE`                     | Mocked fulfillment service base URL.                                                                              |
+| `CORS_ORIGINS`                     | Comma-separated bare origins, validated at boot.                                                                  |
+| `VCC_CALLBACK_SECRET`              | Shared HMAC secret for the (mocked) callback channel.                                                             |
+| `PUBLIC_API_BASE_URL`              | Public API base returned to agents (default `https://api.cspr402.xyz/v1`).                                        |
+| `AUTH_FAILURE_LIMIT_PER_WINDOW`    | Pre-auth failure limiter budget (default 60 / 15min).                                                             |
+| `APPROVAL_TTL_MINUTES`             | Approval request TTL (default 120).                                                                               |
+| `MAX_SSE_STREAMS_PER_KEY`          | Per-key concurrent SSE cap (default 20).                                                                          |
+| `MAX_SSE_STREAMS_TOTAL`            | Global concurrent SSE cap (default 1000).                                                                         |
 
 The secret-box encryption key and the public base URL used for receipts/verify
 URLs are configured under keys whose names contain a brand token; their

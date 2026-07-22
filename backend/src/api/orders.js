@@ -18,6 +18,7 @@ const {
   allocateTransferId,
   buildCasperPayment,
 } = require('../payments/casper');
+const { getCsprUsdRate } = require('../payments/cspr-price');
 const {
   CasperPaymentVerificationError,
   verifyCasperCep18Payment,
@@ -253,7 +254,7 @@ function buildBudget(apiKey) {
 //      key both saw "no cache", both did the work, both wrote orphan
 //      order rows.
 //
-// All async work (assertSafeUrl) happens BEFORE the txn; the
+// All async work (assertSafeUrl, getCsprUsdRate) happens BEFORE the txn; the
 // txn is pure DB reads + writes so it can stay synchronous. Side-effect
 // notifications (approval email / Discord ping / spend-alert email)
 // fire AFTER commit out-of-band.
@@ -462,6 +463,16 @@ router.post('/', orderCreateLimiter, async (req, res) => {
   }
 
   const boundCasperPayerPublicKey = normalizedPayerPublicKey;
+
+  // ── Async pre-work (must happen BEFORE the db.transaction) ─────────────────
+  // Live CSPR/USD rate (CoinGecko, cached) with fail-safe fallback to
+  // the CSPR_USD_RATE env pin — never throws in casper mode. The
+  // transaction body below must stay synchronous, so the rate is
+  // resolved here and passed into buildCasperPayment.
+  let liveCsprUsdRate = null;
+  if (requestedPaymentAsset !== 'mock_usdc_cep18') {
+    liveCsprUsdRate = (await getCsprUsdRate()).rate;
+  }
 
   // ── Atomic DB work — closes the spend/policy/idempotency TOCTOUs ───────────
   //
@@ -689,6 +700,7 @@ router.post('/', orderCreateLimiter, async (req, res) => {
           amountUsdc: String(amount),
           transferId: casperTransferId,
           senderPublicKey: boundCasperPayerPublicKey,
+          csprUsdRate: liveCsprUsdRate,
         });
       } catch (err) {
         if (err instanceof CasperPaymentAmountError) {

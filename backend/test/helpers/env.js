@@ -15,6 +15,9 @@ process.env.CASPER_CHAIN_NAME = 'casper-test';
 process.env.CASPER_NODE_RPC_URL = 'https://node.testnet.casper.network/rpc';
 process.env.CASPER_TREASURY_PUBLIC_KEY = '01' + 'a'.repeat(64);
 process.env.CSPR_USD_RATE = '0.01';
+// Pin pricing to CSPR_USD_RATE in tests — no live CoinGecko fetches.
+// cspr-price.test.js flips this per-test with a mocked fetch.
+process.env.CSPR_PRICE_FEED_ENABLED = 'false';
 process.env.CASPER_PAYMENT_TTL_MINUTES = '60';
 
 // Stellar — fake but shape-valid strkeys for the outbound CTX

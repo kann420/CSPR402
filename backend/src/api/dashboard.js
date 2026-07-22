@@ -14,6 +14,7 @@ const { assertSafeUrl } = require('../lib/ssrf');
 const { recordDecision } = require('../policy');
 const { buildMockUsdcPayment } = require('../payments/casper-cep18');
 const { allocateTransferId, buildCasperPayment } = require('../payments/casper');
+const { getCsprUsdRate, getCachedCsprUsdRate } = require('../payments/cspr-price');
 const requireAuth = require('../middleware/requireAuth');
 const requireDashboard = require('../middleware/requireDashboard');
 const { event: bizEvent } = require('../lib/logger');
@@ -252,12 +253,12 @@ router.get('/', (req, res) => {
     payment_provider: process.env.PAYMENT_PROVIDER || 'casper',
     // CSPR/USD rate the backend uses for order pricing (usdToMotes in
     // casper.js). Exposed so the dashboard can convert an agent's CSPR
-    // balance to USD for display without a hardcoded heuristic. Null when
-    // PAYMENT_PROVIDER !== 'casper' or CSPR_USD_RATE is unset.
+    // balance to USD for display without a hardcoded heuristic. Reads the
+    // cached live price when the feed has one (sync accessor — this
+    // handler must not block on a fetch), else the CSPR_USD_RATE env pin;
+    // null when unset.
     cspr_usd_rate:
-      (process.env.PAYMENT_PROVIDER || 'casper') === 'casper'
-        ? process.env.CSPR_USD_RATE || null
-        : null,
+      (process.env.PAYMENT_PROVIDER || 'casper') === 'casper' ? getCachedCsprUsdRate().rate : null,
     mock_card_mode: process.env.MOCK_CARD_MODE !== 'false',
     mock_usdc: {
       enabled: process.env.MOCK_USDC_ENABLED === 'true',
@@ -926,6 +927,14 @@ router.post(
       }
     }
 
+    // Live CSPR/USD rate — resolved BEFORE the synchronous transaction
+    // below, mirroring the order-creation path. Falls back to the env
+    // pin inside buildCasperPayment when null.
+    let liveCsprUsdRate = null;
+    if (approval.order_payment_asset !== 'mock_usdc_cep18') {
+      liveCsprUsdRate = (await getCsprUsdRate()).rate;
+    }
+
     const now = new Date().toISOString();
     const decisionNote = shortString(req.body.note, 1000);
 
@@ -978,6 +987,7 @@ router.post(
             amountUsdc: String(approval.amount_usdc),
             transferId: casperTransferId,
             senderPublicKey: casperExpectedSenderPublicKey,
+            csprUsdRate: liveCsprUsdRate,
           });
         }
         const orderChanged = db

@@ -109,14 +109,18 @@ function allocateTransferId() {
 }
 
 /**
- * @param {{ orderId: string, amountUsdc: string, transferId: number, senderPublicKey?: string | null, now?: Date }} opts
+ * `csprUsdRate` is the pre-resolved live rate from cspr-price.js —
+ * callers fetch it BEFORE their db.transaction (this function is called
+ * inside synchronous transactions and must not await). Falls back to
+ * the CSPR_USD_RATE env pin when not provided.
+ * @param {{ orderId: string, amountUsdc: string, transferId: number, senderPublicKey?: string | null, csprUsdRate?: string | null, now?: Date }} opts
  */
 function buildCasperPayment(opts) {
   const ttlMinutes = parseInt(process.env.CASPER_PAYMENT_TTL_MINUTES || '60', 10);
   if (!Number.isFinite(ttlMinutes) || ttlMinutes <= 0) {
     throw new Error('CASPER_PAYMENT_TTL_MINUTES must be a positive integer');
   }
-  const rate = process.env.CSPR_USD_RATE;
+  const rate = opts.csprUsdRate || process.env.CSPR_USD_RATE;
   if (!rate) throw new Error('CSPR_USD_RATE is required');
   const recipient = process.env.CASPER_TREASURY_PUBLIC_KEY;
   if (!recipient) throw new Error('CASPER_TREASURY_PUBLIC_KEY is required');
