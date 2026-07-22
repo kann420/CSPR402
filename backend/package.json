@@ -1,7 +1,7 @@
 {
-  "name": "cards402-backend",
+  "name": "cspr402-backend",
   "version": "0.1.0",
-  "description": "cards402.com backend — USDC-to-VCC fulfillment engine",
+  "description": "CSPR402 backend — Casper-paid virtual card issuing API (x402-inspired)",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
