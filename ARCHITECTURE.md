@@ -231,10 +231,6 @@ bad-key floods cannot saturate bcrypt.
 - `/vcc-callback` — HMAC v3 callback channel, 120/min/IP. Mocked in the MVP
   (`VIRTUAL_CARD_PROVIDER=mock`); the per-order callback nonce and per-order
   secret are wired but no real fulfillment service calls back.
-- Optional MPP (Machine Payments Protocol): `/v1/.well-known/mpp`,
-  `/v1/cards/:product/:amount`, `/v1/mpp/receipts/:id`, gated by
-  `MPP_ENABLED=true`. Mounted before the auth chain so the unauthenticated
-  discovery endpoints are reachable.
 
 ## Data model
 
@@ -441,7 +437,6 @@ variables:
 | `APPROVAL_TTL_MINUTES`             | Approval request TTL (default 120).                                                                         |
 | `MAX_SSE_STREAMS_PER_KEY`          | Per-key concurrent SSE cap (default 20).                                                                    |
 | `MAX_SSE_STREAMS_TOTAL`            | Global concurrent SSE cap (default 1000).                                                                   |
-| `MPP_ENABLED`                      | `true` enables the MPP discovery endpoints.                                                                 |
 
 The secret-box encryption key and the public base URL used for receipts/verify
 URLs are configured under keys whose names contain a brand token; their
@@ -451,8 +446,8 @@ throws in production if it is unset.
 
 ## Process entry points
 
-- `backend/src/index.js` — boots `startJobs()`, then `app.listen(PORT)`. In
-  casper mode no chain watcher runs. Registers `SIGINT`/`SIGTERM`/`SIGHUP`
+- `backend/src/index.js` — boots `startJobs()`, then `app.listen(PORT)`. No
+  chain watcher runs — payment verification is pull-based. Registers `SIGINT`/`SIGTERM`/`SIGHUP`
   graceful-shutdown handlers and `uncaughtException`/`unhandledRejection`
   handlers with structured logging.
 - `backend/src/app.js` — builds the Express app (request ID, helmet, CORS,

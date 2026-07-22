@@ -4,9 +4,10 @@ CSPR402 is an x402-inspired API where an AI agent or user pays on Casper
 mainnet, the backend verifies the Casper deploy, then returns a simulated
 virtual card and receipt.
 
-The active payment path is Casper-only. Remaining Stellar/Soroban files in
-the repo are legacy and slated for removal; do not assume their payment
-behavior is current.
+The payment intake path is Casper-only; the legacy Stellar/Soroban intake
+(watcher, MPP, Soroban contract) has been removed. The only remaining
+Stellar code is the outbound `xlm-sender` rail that pays the CTX gift-card
+supplier in the non-mock fulfillment flow.
 
 ## Non-negotiable Rules
 
