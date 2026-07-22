@@ -14,7 +14,7 @@ on:
   #     - 'backend/src/api/vcc-callback.js'
   #     - 'backend/src/fulfillment.js'
   #     - 'backend/src/payment-handler.js'
-  #     - 'contract/api/vcc-internal.openapi.yaml'
+  #     - 'api/vcc-internal.openapi.yaml'
 
 concurrency:
   group: e2e-${{ github.ref }}

@@ -16,7 +16,7 @@
     "typecheck": "npm run typecheck -w web --if-present && npm run typecheck -w sdk --if-present",
     "test": "npm run test --workspaces --if-present",
     "build": "npm run build -w sdk && npm run build -w web",
-    "api:generate": "openapi-typescript contract/api/agent-api.openapi.yaml -o contract/api/agent-api.d.ts && openapi-typescript contract/api/vcc-internal.openapi.yaml -o contract/api/vcc-internal.d.ts",
+    "api:generate": "openapi-typescript api/agent-api.openapi.yaml -o api/agent-api.d.ts && openapi-typescript api/vcc-internal.openapi.yaml -o api/vcc-internal.d.ts",
     "api:validate": "node ./scripts/api-validate.mjs",
     "verify": "./scripts/verify.sh",
     "prepare": "husky"

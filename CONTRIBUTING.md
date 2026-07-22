@@ -1,13 +1,12 @@
 # Contributing
 
-Thanks for wanting to improve CSPR402. This repo has four main pieces:
+Thanks for wanting to improve CSPR402. This repo has three main pieces:
 
-| Path        | Language                           | What it does                                          |
-| ----------- | ---------------------------------- | ----------------------------------------------------- |
-| `backend/`  | Node.js + Express + better-sqlite3 | The 402-payment API that agents talk to               |
-| `sdk/`      | TypeScript                         | `cspr402` npm package + MCP server                    |
-| `web/`      | Next.js + TypeScript               | Owner dashboard (admin + per-agent views)             |
-| `contract/` | Rust / Soroban                     | Legacy reference contract, not used by the Casper MVP |
+| Path       | Language                           | What it does                              |
+| ---------- | ---------------------------------- | ----------------------------------------- |
+| `backend/` | Node.js + Express + better-sqlite3 | The 402-payment API that agents talk to   |
+| `sdk/`     | TypeScript                         | `cspr402` npm package + MCP server        |
+| `web/`     | Next.js + TypeScript               | Owner dashboard (admin + per-agent views) |
 
 And one sibling repo at `../vcc` which does the fulfillment (virtual card issuer + scraper).
 
@@ -19,7 +18,7 @@ cp backend/.env.example backend/.env
 cp web/.env.local.example web/.env.local
 # fill in the env files — see inline comments for what each var does
 
-npm run dev               # starts backend + web; contract is separate
+npm run dev               # starts backend + web
 ```
 
 For end-to-end testing you also need vcc running:
@@ -39,7 +38,6 @@ npm run dev               # starts on :5000
 | Backend unit + integration | `cd backend && npm test`    | 1,038  |
 | SDK (vitest)               | `cd sdk && npm test`        | 114    |
 | Web (vitest)               | `cd web && npm test`        | 57     |
-| Contract (cargo)           | `cd contract && cargo test` | —      |
 | All workspaces             | `npm test` (from repo root) | ~1,209 |
 
 Tests should be fast (whole backend suite ~1.5s, in-memory SQLite) and

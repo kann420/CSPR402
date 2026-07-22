@@ -69,5 +69,5 @@ slated for removal, not the Casper demo path.
 
 ## API Reference
 
-See [`contract/api/agent-api.openapi.yaml`](../contract/api/agent-api.openapi.yaml)
+See [`api/agent-api.openapi.yaml`](../api/agent-api.openapi.yaml)
 for the agent-facing API contract.

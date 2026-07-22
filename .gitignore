@@ -40,7 +40,6 @@ web/test-results/
 web/playwright-report/
 
 # Rust build artifacts
-contract/target/
 **/target/
 
 # OS files

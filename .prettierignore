@@ -4,9 +4,8 @@ build
 .next
 *.lock
 **/package-lock.json
-contract/target
 sdk/coverage
 web/test-results
 web/playwright-report
-contract/api/*.d.ts
+api/*.d.ts
 web/next-env.d.ts

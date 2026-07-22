@@ -57,7 +57,7 @@ jobs:
       - name: Regenerate types and check for drift
         run: |
           npm run api:generate
-          git diff --exit-code contract/api/*.d.ts || {
+          git diff --exit-code api/*.d.ts || {
             echo "::error::Generated types are out of date. Run 'npm run api:generate' and commit."
             exit 1
           }
@@ -127,26 +127,6 @@ jobs:
       - name: Check all backend JS syntax
         # Globs every .js under backend/src — no file needs to be manually added here
         run: find backend/src -name '*.js' -print0 | xargs -0 node --check
-
-  contract-build:
-    name: Contract build & test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-      - name: Cache Rust
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: contract
-      - name: Test contract (native target)
-        working-directory: contract
-        run: cargo test
-      - name: Build contract (WASM)
-        working-directory: contract
-        run: cargo build --target wasm32-unknown-unknown --release
 
   e2e:
     name: E2E Tests (Playwright)
@@ -218,7 +198,7 @@ jobs:
     name: Notify
     runs-on: ubuntu-latest
     needs:
-      [lint, typecheck, test, audit, build, backend-smoke, contract-build, e2e, secret-scan, sast]
+      [lint, typecheck, test, audit, build, backend-smoke, e2e, secret-scan, sast]
     if: always()
     steps:
       - name: Discord notification
@@ -232,4 +212,4 @@ jobs:
         run: |
           curl -s -X POST "$DISCORD_WEBHOOK" \
             -H "Content-Type: application/json" \
-            -d "{\"embeds\":[{\"title\":\"cards402 CI — $STATUS\",\"description\":\"Branch: \`$REF\` · Actor: $ACTOR\",\"url\":\"$RUN_URL\",\"color\":$([ \"$STATUS\" = \"✅ Passed\" ] && echo 3066993 || echo 15158332)}]}"
+            -d "{\"embeds\":[{\"title\":\"CSPR402 CI — $STATUS\",\"description\":\"Branch: \`$REF\` · Actor: $ACTOR\",\"url\":\"$RUN_URL\",\"color\":$([ \"$STATUS\" = \"✅ Passed\" ] && echo 3066993 || echo 15158332)}]}"

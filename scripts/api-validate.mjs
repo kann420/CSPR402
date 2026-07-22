@@ -11,8 +11,8 @@ const openapiPackageJson = require.resolve('openapi-typescript/package.json');
 const cliPath = path.join(path.dirname(openapiPackageJson), 'bin', 'cli.js');
 const tmpDir = mkdtempSync(path.join(tmpdir(), 'cards402-openapi-'));
 const specs = [
-  ['contract/api/agent-api.openapi.yaml', 'agent-api.d.ts'],
-  ['contract/api/vcc-internal.openapi.yaml', 'vcc-internal.d.ts'],
+  ['api/agent-api.openapi.yaml', 'agent-api.d.ts'],
+  ['api/vcc-internal.openapi.yaml', 'vcc-internal.d.ts'],
 ];
 
 try {

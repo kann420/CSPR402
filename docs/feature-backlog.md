@@ -35,7 +35,7 @@ The iteration-by-iteration detail is in the commit history; this
 list is the summary for any future session picking up the project.
 
 **Loop 16 note on OpenAPI:** the repo already ships an OpenAPI
-spec at `contract/api/agent-api.openapi.yaml` which I discovered
+spec at `api/agent-api.openapi.yaml` which I discovered
 in loop 16. It was drifted against the backend in three places
 (webhook payload enum, amount cap, intro copy) and I fixed those
 in loop 16 — but the bigger backlog item is: **wire the spec
@@ -70,8 +70,8 @@ The `_status.md` memory that describes the correct flow is
 now the single source in MEMORY.md.
 
 Remaining low-value drift surfaces I've checked in this loop
-and believe are clean: `contract/README.md`,
-`contract/api/vcc-internal.openapi.yaml`, `ARCHITECTURE.md §vcc
+and believe are clean:
+`api/vcc-internal.openapi.yaml`, `ARCHITECTURE.md §vcc
 interface + §security model`.
 
 **Loop 19 note — agent-onboarding root-cause fix:** the dashboard

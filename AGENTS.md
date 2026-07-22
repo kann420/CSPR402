@@ -44,9 +44,9 @@ MVP on finding an official Casper mainnet USDC path.
   verification (native CSPR + CEP-18 mockUSDC).
 - `sdk/`: Casper payment helpers and an agent-friendly client.
 - `web/`: dashboard/demo surface with Casper-native product copy.
-- `contract/`: legacy reference only. The active CSPR402 path has no on-chain
-  contract; native CSPR transfer with `transfer_id` is preferred for
-  day-one speed.
+- `api/`: OpenAPI specs + generated types for the agent-facing and vcc-internal
+  APIs. The active CSPR402 path has no on-chain contract; native CSPR transfer
+  with `transfer_id` is preferred for day-one speed.
 - `examples/`: keep one Node agent demo and one simple HTTP/curl flow working.
 
 ## Casper Payment Design
