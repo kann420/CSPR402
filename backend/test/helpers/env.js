@@ -17,19 +17,16 @@ process.env.CASPER_TREASURY_PUBLIC_KEY = '01' + 'a'.repeat(64);
 process.env.CSPR_USD_RATE = '0.01';
 process.env.CASPER_PAYMENT_TTL_MINUTES = '60';
 
-// Stellar — fake but shape-valid strkeys. Each must be a 56-char
-// base32 strkey starting with the type prefix (G / S / C). The env
-// schema's F1-env hardening (adversarial audit 2026-04-16) enforces
-// the full shape, so the historical 55-char XLM fake and the 58-char
-// contract fake containing '0' (not in the base32 alphabet) no longer
-// pass boot validation. These are NOT valid checksums — just shape-
-// valid — and nothing in the test suite decodes them via the Stellar
-// SDK at load time (every sender call site mocks xlm-sender via
-// patchCache).
+// Stellar — fake but shape-valid strkeys for the outbound CTX
+// settlement rail (xlm-sender). Each must be a 56-char base32 strkey
+// starting with the type prefix (G / S). The env schema's F1-env
+// hardening (adversarial audit 2026-04-16) enforces the full shape.
+// These are NOT valid checksums — just shape-valid — and nothing in
+// the test suite decodes them via the Stellar SDK at load time (every
+// sender call site mocks xlm-sender via patchCache).
 process.env.STELLAR_NETWORK = 'testnet';
 process.env.STELLAR_XLM_SECRET = 'S' + 'A'.repeat(55);
 process.env.STELLAR_USDC_ISSUER = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
-process.env.RECEIVER_CONTRACT_ID = 'C' + 'A'.repeat(55);
 
 // VCC fulfillment service
 process.env.VCC_API_BASE = 'https://vcc.ctx.com';
@@ -56,11 +53,3 @@ process.env.RETRY_BACKOFF_MS = '0';
 // test for the limiter (which lowers it explicitly via its own
 // helpers) exercises the cap.
 process.env.AUTH_FAILURE_LIMIT_PER_WINDOW = '10000';
-
-// Machine Payments Protocol — feature-flagged in production. Tests
-// always exercise the flag-on path so the routes are mounted and
-// reachable. A separate tiny unit test verifies the flag-off behavior.
-process.env.MPP_ENABLED = 'true';
-// Generous challenge rate limit in tests — the limiter has its own
-// dedicated regression test that lowers it explicitly.
-process.env.MPP_CHALLENGE_RATE_LIMIT = '10000';

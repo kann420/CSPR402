@@ -1,5 +1,5 @@
 // @ts-check
-// Express application — importable without starting the Stellar watcher or jobs.
+// Express application — importable without starting the background jobs.
 // index.js is the entry point that wires everything up for production.
 
 const crypto = require('crypto');
@@ -541,55 +541,13 @@ app.get('/status', statusLimiter, (req, res) => {
   const terminal24h = delivered24h + failed24h + refunded24h;
   const successRate24h = terminal24h > 0 ? delivered24h / terminal24h : null;
 
-  // Stellar watcher freshness. `stellar_start_ledger` advances as the
-  // watcher persists its cursor; `stellar_start_ledger_at` captures the
-  // wall clock of that update. Both rows are upserted together in
-  // saveStartLedger.
-  //
-  // Staleness threshold: the watcher polls every POLL_MS=1500ms and
-  // backs off to 4× on errors (~6s max between cursor advances under
-  // error conditions). 120s is 20× the error-backoff window — any
-  // gap longer than that almost certainly means the watcher has
-  // silently died. Adversarial audit F1-status: before this the `ok`
-  // flag did not incorporate watcher staleness, so a crashed watcher
-  // would keep reporting ok:true to every ops alerting system that
-  // scraped /status.
-  const STELLAR_WATCHER_MAX_AGE_SECONDS = 120;
-  const lastLedger = sysStateInt('stellar_start_ledger');
-  const lastLedgerAtRow = /** @type {any} */ (
-    db.prepare(`SELECT value FROM system_state WHERE key = 'stellar_start_ledger_at'`).get()
-  );
-  const lastLedgerAt = lastLedgerAtRow?.value || null;
-  const lastLedgerAgeSeconds = lastLedgerAt
-    ? Math.round((Date.now() - new Date(lastLedgerAt).getTime()) / 1000)
-    : null;
-  // Treat null age as "unknown" rather than "stalled" so fresh
-  // installs and tests (where the watcher isn't started) don't
-  // flip ok to false. Production deployments that have been
-  // running for any length of time will have a non-null value —
-  // if the watcher dies after its first cursor save, the age
-  // grows past the threshold and ok flips as intended.
-  const stellarWatcherStalled =
-    lastLedgerAgeSeconds !== null && lastLedgerAgeSeconds > STELLAR_WATCHER_MAX_AGE_SECONDS;
-
   // Silent-failure visibility counters (audit topic: observability).
-  //
-  // stellar_dead_letter: on-chain events the watcher couldn't parse.
-  // Non-zero means the watcher saw an event that won't match any
-  // pending order — someone (ops) needs to investigate the raw_event
-  // rows and either reconcile manually or refund.
   //
   // webhooks_failed_permanently: rows left in webhook_queue with
   // attempts >= MAX_WEBHOOK_ATTEMPTS and delivered = 0. Before the
   // /status surface, these accumulated silently and only surfaced
   // when ops happened to query the table by hand (which is how the
   // outbound-TLS bug was found). Now it's a first-class health signal.
-  const stellarDeadLetter24h =
-    /** @type {any} */ (
-      db
-        .prepare(`SELECT COUNT(*) AS n FROM stellar_dead_letter WHERE created_at >= ?`)
-        .get(since24h)
-    )?.n ?? 0;
   const webhooksFailedPermanent24h =
     /** @type {any} */ (
       db
@@ -600,11 +558,9 @@ app.get('/status', statusLimiter, (req, res) => {
         .get(MAX_WEBHOOK_ATTEMPTS_FOR_STATUS, since24h)
     )?.n ?? 0;
   const paymentProvider = process.env.PAYMENT_PROVIDER || 'casper';
-  const stellarSignalsOk =
-    paymentProvider !== 'stellar' || (stellarDeadLetter24h === 0 && !stellarWatcherStalled);
 
   res.json({
-    ok: !frozen && consecutiveFailures < 3 && webhooksFailedPermanent24h < 5 && stellarSignalsOk,
+    ok: !frozen && consecutiveFailures < 3 && webhooksFailedPermanent24h < 5,
     payment_provider: paymentProvider,
     frozen,
     consecutive_failures: consecutiveFailures,
@@ -620,15 +576,6 @@ app.get('/status', statusLimiter, (req, res) => {
       refunded: refunded24h,
       expired: expired24h,
       success_rate: successRate24h, // 0..1 or null if no terminal orders
-    },
-    stellar_watcher: {
-      enabled: paymentProvider === 'stellar',
-      last_ledger: lastLedger || null,
-      last_ledger_at: lastLedgerAt,
-      age_seconds: lastLedgerAgeSeconds,
-      stalled: stellarWatcherStalled,
-      max_age_seconds: STELLAR_WATCHER_MAX_AGE_SECONDS,
-      dead_letter_24h: stellarDeadLetter24h,
     },
     webhooks: {
       failed_permanent_24h: webhooksFailedPermanent24h,
@@ -684,20 +631,6 @@ const authFailureLimiter = rateLimit({
         'Too many failed authentication attempts from this IP. Wait a few minutes and retry with a valid key.',
     }),
 });
-
-// Mount MPP routes BEFORE the auth chain — the whole point of MPP is
-// unauthenticated payment discovery, so /v1/.well-known/mpp,
-// /v1/cards/:product/:amount, and /v1/mpp/receipts/:id must be reachable
-// without an X-Api-Key header. The router's handlers only match those
-// specific paths; any other /v1 request falls through via next() into
-// authFailureLimiter + auth below, so no other endpoint accidentally
-// loses authentication.
-//
-// Gated by MPP_ENABLED so the code can ship dark in prod before rollout.
-if ((process.env.MPP_ENABLED || 'false') === 'true') {
-  const { buildMppRouter } = require('./mpp/router');
-  app.use('/v1', buildMppRouter());
-}
 
 // Order is critical: authFailureLimiter MUST run before auth. If it
 // runs after, the bcrypt compare has already executed and the cap is

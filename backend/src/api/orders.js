@@ -12,7 +12,6 @@ const db = require('../db');
 const { isFrozen, enqueueWebhook } = require('../fulfillment');
 const { assertSafeUrl } = require('../lib/ssrf');
 const { checkPolicy, recordDecision } = require('../policy');
-const { usdToXlm } = require('../payments/xlm-price');
 const { buildMockUsdcPayment } = require('../payments/casper-cep18');
 const {
   CasperPaymentAmountError,
@@ -254,7 +253,7 @@ function buildBudget(apiKey) {
 //      key both saw "no cache", both did the work, both wrote orphan
 //      order rows.
 //
-// All async work (assertSafeUrl, usdToXlm) happens BEFORE the txn; the
+// All async work (assertSafeUrl) happens BEFORE the txn; the
 // txn is pure DB reads + writes so it can stay synchronous. Side-effect
 // notifications (approval email / Discord ping / spend-alert email)
 // fire AFTER commit out-of-band.
@@ -326,12 +325,11 @@ router.post('/', orderCreateLimiter, async (req, res) => {
   if (
     requestedPaymentAsset &&
     requestedPaymentAsset !== 'cspr_casper' &&
-    requestedPaymentAsset !== 'mock_usdc_cep18' &&
-    requestedPaymentAsset !== 'usdc'
+    requestedPaymentAsset !== 'mock_usdc_cep18'
   ) {
     return res.status(400).json({
       error: 'invalid_payment_asset',
-      message: 'payment_asset must be cspr_casper, mock_usdc_cep18, or legacy usdc',
+      message: 'payment_asset must be cspr_casper or mock_usdc_cep18',
     });
   }
   const normalizedPayerPublicKey =
@@ -463,30 +461,7 @@ router.post('/', orderCreateLimiter, async (req, res) => {
     }
   }
 
-  // ── Async pre-work (must happen BEFORE the db.transaction) ─────────────────
-  // Legacy Stellar pre-work. Casper mode builds a deterministic native
-  // transfer instruction inside the DB transaction and does not depend
-  // on the XLM price oracle.
-  const paymentProvider = process.env.PAYMENT_PROVIDER || 'casper';
-  const useLegacyStellarPayment = paymentProvider === 'stellar' || requestedPaymentAsset === 'usdc';
-  const boundCasperPayerPublicKey = !useLegacyStellarPayment ? normalizedPayerPublicKey : null;
-  if (paymentProvider === 'stellar' && requestedPaymentAsset && requestedPaymentAsset !== 'usdc') {
-    return res.status(400).json({
-      error: 'invalid_payment_asset',
-      message: 'Casper payment assets require PAYMENT_PROVIDER=casper.',
-    });
-  }
-  let xlmAmount = null;
-  let USDC_ISSUER = null;
-  if (useLegacyStellarPayment) {
-    try {
-      xlmAmount = await usdToXlm(String(amount));
-    } catch (err) {
-      console.warn(`[orders] XLM price lookup failed: ${err.message}`);
-    }
-    USDC_ISSUER =
-      process.env.STELLAR_USDC_ISSUER || 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN';
-  }
+  const boundCasperPayerPublicKey = normalizedPayerPublicKey;
 
   // ── Atomic DB work — closes the spend/policy/idempotency TOCTOUs ───────────
   //
@@ -588,8 +563,7 @@ router.post('/', orderCreateLimiter, async (req, res) => {
         webhook_url: webhook_url || null,
         metadata: metadataStr,
         request_id: req.id || null,
-        payment_asset:
-          requestedPaymentAsset || (paymentProvider === 'stellar' ? 'usdc' : 'cspr_casper'),
+        payment_asset: requestedPaymentAsset || 'cspr_casper',
         casper_expected_sender_public_key: boundCasperPayerPublicKey,
       });
 
@@ -694,37 +668,12 @@ router.post('/', orderCreateLimiter, async (req, res) => {
       return { kind: 'order', status: 201, body: sandboxBody };
     }
 
-    // Real mode payment instructions. Casper is the default; Stellar is
-    // preserved only for explicit legacy mode.
+    // Real mode payment instructions — Casper native transfer or CEP-18.
     let paymentInstruction;
-    let expectedXlmAmount = null;
-    let paymentAsset =
-      useLegacyStellarPayment && !requestedPaymentAsset
-        ? 'usdc'
-        : requestedPaymentAsset || 'cspr_casper';
+    let paymentAsset = requestedPaymentAsset || 'cspr_casper';
     let casperTransferId = null;
     let casperExpectedSenderPublicKey = null;
-    if (useLegacyStellarPayment) {
-      if (paymentAsset !== 'usdc') {
-        return {
-          kind: 'invalid_request',
-          status: 400,
-          body: {
-            error: 'invalid_payment_asset',
-            message: 'Casper payment assets require PAYMENT_PROVIDER=casper.',
-          },
-        };
-      }
-      paymentAsset = 'usdc';
-      expectedXlmAmount = xlmAmount || null;
-      paymentInstruction = {
-        type: 'soroban_contract',
-        contract_id: process.env.RECEIVER_CONTRACT_ID,
-        order_id: id,
-        usdc: { amount: String(amount), asset: `USDC:${USDC_ISSUER}` },
-        ...(xlmAmount && { xlm: { amount: xlmAmount } }),
-      };
-    } else if (paymentAsset === 'mock_usdc_cep18') {
+    if (paymentAsset === 'mock_usdc_cep18') {
       casperExpectedSenderPublicKey = normalizedPayerPublicKey;
       paymentInstruction = buildMockUsdcPayment({
         orderId: id,
@@ -760,7 +709,7 @@ router.post('/', orderCreateLimiter, async (req, res) => {
     insertPendingPaymentOrder({
       id,
       amount_usdc: String(amount),
-      expected_xlm_amount: expectedXlmAmount,
+      expected_xlm_amount: null,
       api_key_id: req.apiKey.id,
       webhook_url: webhook_url || null,
       metadata: metadataStr,

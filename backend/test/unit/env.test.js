@@ -49,7 +49,6 @@ function baseEnv() {
     STELLAR_NETWORK: 'testnet',
     STELLAR_XLM_SECRET: 'S' + 'A'.repeat(55),
     STELLAR_USDC_ISSUER: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
-    RECEIVER_CONTRACT_ID: 'C' + 'A'.repeat(55),
     VCC_API_BASE: 'https://vcc.ctx.com',
     CARDS402_BASE_URL: 'https://api.cards402.test',
     VCC_CALLBACK_SECRET: 'x'.repeat(32),
@@ -65,7 +64,6 @@ describe('payment provider env mode', () => {
   it('accepts Casper mode without Stellar secrets', () => {
     const e = baseEnv();
     delete e.STELLAR_XLM_SECRET;
-    delete e.RECEIVER_CONTRACT_ID;
     const r = _EnvSchema.safeParse(e);
     assert.equal(r.success, true, JSON.stringify(r.success ? null : r.error.issues));
   });
@@ -166,18 +164,6 @@ describe('Casper mainnet env support', () => {
   });
 });
 
-describe('MPP env requirements', () => {
-  it('requires Stellar vars when MPP is enabled', () => {
-    const e = { ...baseEnv(), MPP_ENABLED: 'true' };
-    delete e.STELLAR_XLM_SECRET;
-    delete e.RECEIVER_CONTRACT_ID;
-    const r = _EnvSchema.safeParse(e);
-    assert.equal(r.success, false);
-    assert.ok(issueFor(r, 'STELLAR_XLM_SECRET'));
-    assert.ok(issueFor(r, 'RECEIVER_CONTRACT_ID'));
-  });
-});
-
 // ── F1-env: Stellar strkey shape ────────────────────────────────────────────
 
 describe('F1-env: Stellar strkey validation', () => {
@@ -223,27 +209,27 @@ describe('F1-env: Stellar strkey validation', () => {
     assert.ok(issueFor(r, 'STELLAR_USDC_ISSUER'));
   });
 
-  it('rejects a contract id containing 0 (not in base32 alphabet)', () => {
+  it('rejects an issuer containing 0 (not in base32 alphabet)', () => {
     const r = _EnvSchema.safeParse({
       ...baseEnv(),
-      RECEIVER_CONTRACT_ID: 'C' + '0'.repeat(55),
+      STELLAR_USDC_ISSUER: 'G' + '0'.repeat(55),
     });
     assert.equal(r.success, false);
-    assert.ok(issueFor(r, 'RECEIVER_CONTRACT_ID'));
+    assert.ok(issueFor(r, 'STELLAR_USDC_ISSUER'));
   });
 
-  it('rejects a contract id containing 1 (not in base32 alphabet)', () => {
+  it('rejects an issuer containing 1 (not in base32 alphabet)', () => {
     const r = _EnvSchema.safeParse({
       ...baseEnv(),
-      RECEIVER_CONTRACT_ID: 'C' + '1'.repeat(55),
+      STELLAR_USDC_ISSUER: 'G' + '1'.repeat(55),
     });
     assert.equal(r.success, false);
   });
 
-  it('rejects a contract id containing lowercase letters', () => {
+  it('rejects an issuer containing lowercase letters', () => {
     const r = _EnvSchema.safeParse({
       ...baseEnv(),
-      RECEIVER_CONTRACT_ID: 'C' + 'a'.repeat(55),
+      STELLAR_USDC_ISSUER: 'G' + 'a'.repeat(55),
     });
     assert.equal(r.success, false);
   });
@@ -251,7 +237,7 @@ describe('F1-env: Stellar strkey validation', () => {
   it('rejects 57-char strkey (one too long)', () => {
     const r = _EnvSchema.safeParse({
       ...baseEnv(),
-      RECEIVER_CONTRACT_ID: 'C' + 'A'.repeat(56),
+      STELLAR_USDC_ISSUER: 'G' + 'A'.repeat(56),
     });
     assert.equal(r.success, false);
   });
@@ -423,21 +409,6 @@ describe('F4-env: http(s)-only URL fields', () => {
     });
     assert.equal(r.success, false);
     assert.ok(issueFor(r, 'VCC_API_BASE'));
-  });
-
-  it('rejects chrome-extension:// SOROBAN_RPC_URL', () => {
-    const r = _EnvSchema.safeParse({
-      ...baseEnv(),
-      SOROBAN_RPC_URL: 'chrome-extension://abc/page',
-    });
-    assert.equal(r.success, false);
-  });
-
-  it('accepts unset optional SOROBAN_RPC_URL', () => {
-    const e = baseEnv();
-    delete e.SOROBAN_RPC_URL;
-    const r = _EnvSchema.safeParse(e);
-    assert.equal(r.success, true);
   });
 });
 

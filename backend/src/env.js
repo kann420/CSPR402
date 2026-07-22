@@ -29,7 +29,7 @@
 //
 //   F4-env: URL scheme constraint. The `.url()` zod refinement accepts
 //     ANY valid URL — ftp://, file://, javascript:, chrome-extension://.
-//     CARDS402_BASE_URL, VCC_API_BASE, and SOROBAN_RPC_URL must be
+//     CARDS402_BASE_URL and VCC_API_BASE must be
 //     http(s); anything else is a deploy mistake that would otherwise
 //     surface as a cryptic fetch error at runtime.
 
@@ -183,10 +183,9 @@ const EnvSchema = z
     // Database
     DB_PATH: z.string().default('./cards402.db'),
 
-    // Payment provider. CSPR402 defaults to Casper mainnet; the
-    // original Stellar/Soroban path remains available by explicitly
-    // setting PAYMENT_PROVIDER=stellar.
-    PAYMENT_PROVIDER: z.enum(['casper', 'stellar']).optional().default('casper'),
+    // Payment provider. CSPR402 is Casper-only — the legacy
+    // Stellar/Soroban intake path has been removed.
+    PAYMENT_PROVIDER: z.enum(['casper']).optional().default('casper'),
 
     // Casper CSPR payment instructions. Defaults to mainnet (CASPER_NETWORK
     // =mainnet + CASPER_CHAIN_NAME=casper); testnet is supported by setting
@@ -222,7 +221,9 @@ const EnvSchema = z
       .optional()
       .default('6'),
 
-    // Stellar — treasury wallet used for USDC/XLM refunds to agents.
+    // Stellar — ops wallet used by xlm-sender to pay the CTX gift-card
+    // supplier (outbound settlement rail only; agent-facing payment
+    // intake is Casper-only).
     // F1-env: full Stellar StrKey format validated (56 base32 chars,
     // not just first-char check). A typo like 'S' or 'Gbadkey' fails
     // at boot instead of at first xlm-sender call.
@@ -231,10 +232,6 @@ const EnvSchema = z
       'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN',
     ),
     STELLAR_XLM_SECRET: stellarStrkey('S', 'STELLAR_XLM_SECRET').optional(),
-
-    // Soroban receiver contract — agents pay this; the watcher detects events and triggers VCC
-    RECEIVER_CONTRACT_ID: stellarStrkey('C', 'RECEIVER_CONTRACT_ID').optional(),
-    SOROBAN_RPC_URL: httpUrl('SOROBAN_RPC_URL').optional(),
 
     // VCC fulfillment service (vcc.ctx.com) — handles CTX ordering + card scraping
     // F4-env: http(s)-only, rejects ftp:// / file:// / javascript: etc.
@@ -294,27 +291,6 @@ const EnvSchema = z
     STUCK_RETRY_AFTER_MS: z.string().regex(/^\d+$/).optional(),
     STUCK_FAIL_AFTER_MS: z.string().regex(/^\d+$/).optional(),
     MAX_FULFILLMENT_ATTEMPTS: z.string().regex(/^\d+$/).optional(),
-
-    // Machine Payments Protocol (MPP). Off by default — the routes
-    // don't even mount unless MPP_ENABLED is explicitly set to 'true'.
-    // Phased rollout: ship the code dark in prod, flip the flag after
-    // staging bake.
-    MPP_ENABLED: z.enum(['true', 'false']).optional().default('false'),
-    // Challenge TTL in milliseconds. 10 minutes is tight for the
-    // Stellar confirmation timeline (~5s) but gives agents ample slack.
-    MPP_CHALLENGE_TTL_MS: z
-      .string()
-      .regex(/^\d+$/, 'MPP_CHALLENGE_TTL_MS must be a positive integer (milliseconds)')
-      .optional()
-      .default('600000'),
-    // Max seconds a 402 retry blocks waiting for card fulfillment before
-    // handing off to a 202 + Location receipt URL. Keep well under any
-    // reverse-proxy idle timeout (nginx 60s, Cloudflare 100s).
-    MPP_SYNC_WAIT_MS: z
-      .string()
-      .regex(/^\d+$/, 'MPP_SYNC_WAIT_MS must be a positive integer (milliseconds)')
-      .optional()
-      .default('10000'),
 
     // Admin UI session key — 32 bytes (64 hex) of entropy. Required if the
     // admin/ Next.js app is being served alongside the backend. Audit finding
@@ -401,25 +377,6 @@ const EnvSchema = z
           path: ['MOCK_USDC_DECIMALS'],
         });
       }
-    }
-  })
-  .superRefine((val, ctx) => {
-    const needsStellar = val.PAYMENT_PROVIDER === 'stellar' || val.MPP_ENABLED === 'true';
-    if (!needsStellar) return;
-    if (!val.STELLAR_XLM_SECRET) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'STELLAR_XLM_SECRET is required when PAYMENT_PROVIDER=stellar or MPP_ENABLED=true',
-        path: ['STELLAR_XLM_SECRET'],
-      });
-    }
-    if (!val.RECEIVER_CONTRACT_ID) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message:
-          'RECEIVER_CONTRACT_ID is required when PAYMENT_PROVIDER=stellar or MPP_ENABLED=true',
-        path: ['RECEIVER_CONTRACT_ID'],
-      });
     }
   })
   .superRefine((val, ctx) => {

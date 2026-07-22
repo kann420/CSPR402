@@ -12,7 +12,6 @@ const { PublicKey } = require('casper-js-sdk');
 const { enqueueWebhook, fireWebhook: fireWebhookRaw } = require('../fulfillment');
 const { assertSafeUrl } = require('../lib/ssrf');
 const { recordDecision } = require('../policy');
-const { usdToXlm } = require('../payments/xlm-price');
 const { buildMockUsdcPayment } = require('../payments/casper-cep18');
 const { allocateTransferId, buildCasperPayment } = require('../payments/casper');
 const requireAuth = require('../middleware/requireAuth');
@@ -927,39 +926,12 @@ router.post(
       }
     }
 
-    // Build payment instructions for the agent. Casper is the default;
-    // Stellar/Soroban is preserved only for explicit legacy mode.
-    const paymentProvider = process.env.PAYMENT_PROVIDER || 'casper';
-    const useLegacyStellarPayment =
-      paymentProvider === 'stellar' || approval.order_payment_asset === 'usdc';
-    let xlmAmount = null;
-    /** @type {any} */
-    let stellarPaymentInstruction = null;
-    if (useLegacyStellarPayment) {
-      try {
-        xlmAmount = await usdToXlm(String(approval.amount_usdc));
-      } catch (err) {
-        console.warn(`[dashboard] XLM price lookup failed: ${err.message}`);
-      }
-      const USDC_ISSUER =
-        process.env.STELLAR_USDC_ISSUER ||
-        'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN';
-      stellarPaymentInstruction = {
-        type: 'soroban_contract',
-        contract_id: process.env.RECEIVER_CONTRACT_ID,
-        order_id: approval.order_id,
-        usdc: { amount: String(approval.amount_usdc), asset: `USDC:${USDC_ISSUER}` },
-        ...(xlmAmount && { xlm: { amount: xlmAmount } }),
-      };
-    }
-
     const now = new Date().toISOString();
     const decisionNote = shortString(req.body.note, 1000);
 
     // Atomic compare-and-swap on BOTH rows. The first UPDATE guards
     // against the expireApprovalRequests job racing the approve click
-    // between the SELECT at line 646 and here (between the async
-    // usdToXlm call the window is wide enough to matter). The second
+    // between the SELECT above and here. The second
     // UPDATE guards against operating on an order that the expiry job
     // already flipped to 'rejected'. If either guard fails we bail
     // out with 410 Gone — the caller should refresh the approval
@@ -982,36 +954,31 @@ router.post(
           return { code: 410 };
         }
         /** @type {any} */
-        let paymentInstruction = stellarPaymentInstruction;
-        let paymentAsset = 'usdc';
-        let expectedXlmAmount = xlmAmount || null;
+        let paymentInstruction;
+        let paymentAsset;
         let casperTransferId = null;
         let casperExpectedSenderPublicKey = null;
-        if (!useLegacyStellarPayment) {
-          expectedXlmAmount = null;
-          if (approval.order_payment_asset === 'mock_usdc_cep18') {
-            if (!approval.order_casper_expected_sender_public_key) {
-              throw new Error('missing_mock_usdc_payer');
-            }
-            paymentAsset = 'mock_usdc_cep18';
-            casperExpectedSenderPublicKey = approval.order_casper_expected_sender_public_key;
-            paymentInstruction = buildMockUsdcPayment({
-              orderId: approval.order_id,
-              amountUsdc: String(approval.amount_usdc),
-              senderPublicKey: casperExpectedSenderPublicKey,
-            });
-          } else {
-            casperTransferId = allocateTransferId();
-            paymentAsset = 'cspr_casper';
-            casperExpectedSenderPublicKey =
-              approval.order_casper_expected_sender_public_key || null;
-            paymentInstruction = buildCasperPayment({
-              orderId: approval.order_id,
-              amountUsdc: String(approval.amount_usdc),
-              transferId: casperTransferId,
-              senderPublicKey: casperExpectedSenderPublicKey,
-            });
+        if (approval.order_payment_asset === 'mock_usdc_cep18') {
+          if (!approval.order_casper_expected_sender_public_key) {
+            throw new Error('missing_mock_usdc_payer');
           }
+          paymentAsset = 'mock_usdc_cep18';
+          casperExpectedSenderPublicKey = approval.order_casper_expected_sender_public_key;
+          paymentInstruction = buildMockUsdcPayment({
+            orderId: approval.order_id,
+            amountUsdc: String(approval.amount_usdc),
+            senderPublicKey: casperExpectedSenderPublicKey,
+          });
+        } else {
+          casperTransferId = allocateTransferId();
+          paymentAsset = 'cspr_casper';
+          casperExpectedSenderPublicKey = approval.order_casper_expected_sender_public_key || null;
+          paymentInstruction = buildCasperPayment({
+            orderId: approval.order_id,
+            amountUsdc: String(approval.amount_usdc),
+            transferId: casperTransferId,
+            senderPublicKey: casperExpectedSenderPublicKey,
+          });
         }
         const orderChanged = db
           .prepare(
@@ -1028,7 +995,7 @@ router.post(
           .run(
             JSON.stringify(paymentInstruction),
             paymentAsset,
-            expectedXlmAmount,
+            null,
             casperTransferId,
             casperExpectedSenderPublicKey,
             now,

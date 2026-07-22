@@ -1,22 +1,14 @@
 const { loadRuntimeEnv } = require('./load-env');
 loadRuntimeEnv();
-const { env } = require('./env');
+// Side effect: validates all env vars at boot and fails fast on error.
+require('./env');
 
 const app = require('./app');
 const { startJobs, stopJobs } = require('./jobs');
-const { handlePayment } = require('./payment-handler');
 const { event: bizEvent } = require('./lib/logger');
 const { formatRejection } = require('./lib/process-handlers');
 
 startJobs();
-
-let stopWatcher = null;
-if (env.PAYMENT_PROVIDER === 'stellar') {
-  const { startWatcher } = require('./payments/stellar');
-  stopWatcher = startWatcher(handlePayment);
-} else {
-  console.log('[cards402] PAYMENT_PROVIDER=casper — Stellar watcher disabled');
-}
 
 const PORT = process.env.PORT || 4000;
 const server = app.listen(PORT, () => {
@@ -31,15 +23,12 @@ const server = app.listen(PORT, () => {
 // work instead of forcing a SIGKILL when pm2's grace period elapses.
 //
 // Order of operations:
-//   1. Stop the Soroban watcher from scheduling new polls. Any
-//      in-flight poll() call is allowed to finish — the shutdownRequested
-//      flag gates only the re-scheduling setTimeout inside poll().
-//   2. Cancel every background job interval (runJobs, funding check,
+//   1. Cancel every background job interval (runJobs, funding check,
 //      alert evaluator). In-flight jobs are already guarded by their
 //      own jobsRunning mutex and will complete naturally.
-//   3. Close the HTTP server — stops accepting new connections,
+//   2. Close the HTTP server — stops accepting new connections,
 //      drains in-flight requests.
-//   4. Exit clean once server.close() callback fires. Hard-exit
+//   3. Exit clean once server.close() callback fires. Hard-exit
 //      after 15 seconds as a fallback so a stuck socket can't hold
 //      pm2 past its grace period (pm2's default is ~1600 ms, but
 //      cards402-api is configured with a longer kill_timeout in
@@ -49,11 +38,6 @@ function gracefulShutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
   console.log(`[cards402] ${signal} — draining and shutting down`);
-  try {
-    stopWatcher?.();
-  } catch (err) {
-    console.error('[cards402] stopWatcher error:', err);
-  }
   try {
     stopJobs();
   } catch (err) {
@@ -137,5 +121,5 @@ process.on('unhandledRejection', (reason) => {
 
 // Note: this file has no module.exports. It's the production
 // entrypoint — consumers that want a testable surface should import
-// from the individual modules (./app, ./jobs, ./payments/stellar,
-// ./lib/process-handlers, etc.) directly.
+// from the individual modules (./app, ./jobs, ./lib/process-handlers,
+// etc.) directly.

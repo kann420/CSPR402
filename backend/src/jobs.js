@@ -999,176 +999,14 @@ function parseRetentionDays(envVarName, defaultDays) {
   return parsed;
 }
 
-// Poll Horizon for every agent wallet sitting in 'awaiting_funding'.
-// As soon as a wallet has enough XLM to pay the base reserve + any
-// balance, transition the api_keys row to 'funded' and emit an
-// agent_state event. Keeps the main dashboard pill in sync with
-// on-chain reality without requiring the agent's CLI to keep
-// reporting — the CLI disconnects after onboarding, so this is the
-// only way the dashboard finds out funds landed.
-// F1-funding (2026-04-16): read the USDC issuer from env.js's
-// canonical STELLAR_USDC_ISSUER variable instead of hardcoding the
-// mainnet issuer. Pre-fix, this function used the mainnet Circle
-// issuer directly — so on a testnet deploy (STELLAR_NETWORK=testnet),
-// the balance check never matched any entry in the `balances` array
-// and agents who funded with USDC only (no XLM) got stuck in
-// `awaiting_funding` forever. xlm-sender.js already reads from the
-// same env var for signing; this function now matches that contract.
-// The default value is still the mainnet Circle issuer so any
-// deployment with the env var unset is unchanged.
-const MAINNET_USDC_ISSUER = 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN';
-
-// F2-funding (2026-04-16): track whether we've already emitted a
-// horizon-down alert this process lifetime so a persistent outage
-// doesn't spam the bizEvent stream with one signal per awaiting
-// wallet per 15-second tick. Cleared automatically on the next
-// successful fetch — see recordHorizonResult below.
-let _horizonOutageAlerted = false;
-
-// F2-funding-casper: mirror of _horizonOutageAlerted for the Casper RPC
-// path. A persistent Casper node outage shouldn't spam one bizEvent
-// per awaiting wallet per 15s tick; cleared on the next successful
-// fetch.
+// F2-funding-casper: track whether we've already emitted a node-down
+// alert this process lifetime so a persistent Casper node outage
+// doesn't spam one bizEvent per awaiting wallet per 15s tick; cleared
+// on the next successful fetch.
 let _casperOutageAlerted = false;
 
-// Horizon base URL picked by STELLAR_NETWORK. Testnet deployments
-// point at horizon-testnet.stellar.org; mainnet at horizon.stellar.org.
-// Pre-fix the mainnet URL was hardcoded too, which broke every testnet
-// deploy at the same point the USDC issuer bug did.
-function horizonBase() {
-  return process.env.STELLAR_NETWORK === 'testnet'
-    ? 'https://horizon-testnet.stellar.org'
-    : 'https://horizon.stellar.org';
-}
-
-// Dispatch by PAYMENT_PROVIDER. Default is 'casper' (env.js:189). The
-// stellar branch is the legacy Horizon poller; the casper branch queries
-// the Casper node RPC. On a casper deploy every wallet_public_key is a
-// Casper hex key (POST /v1/agent/status rejects cross-provider keys,
-// app.js:766-783), so branching on the deployment's configured provider
-// is correct and cheaper than per-row key-shape sniffing.
 async function checkAgentFundingStatus() {
-  const provider = process.env.PAYMENT_PROVIDER || 'casper';
-  if (provider === 'stellar') return checkAgentFundingStatusStellar();
   return checkAgentFundingStatusCasper();
-}
-
-async function checkAgentFundingStatusStellar() {
-  const usdcIssuer = process.env.STELLAR_USDC_ISSUER || MAINNET_USDC_ISSUER;
-  const awaiting = /** @type {any[]} */ (
-    db
-      .prepare(
-        `SELECT id, wallet_public_key
-         FROM api_keys
-         WHERE agent_state = 'awaiting_funding'
-           AND wallet_public_key IS NOT NULL`,
-      )
-      .all()
-  );
-  if (awaiting.length === 0) return;
-
-  const { emit: emitBusEvent } = require('./lib/event-bus');
-  const base = horizonBase();
-  for (const row of awaiting) {
-    try {
-      // 5-second per-wallet timeout. Without this, a single slow /
-      // dead Horizon response blocks the entire awaiting_funding
-      // loop until Node's default socket-level timeout (which is
-      // effectively never). A 5s cap means a Horizon incident can
-      // only stretch one funding refresh tick by (num_awaiting × 5s)
-      // worst case, and the guarded wrapper above won't stack
-      // executions if the tick runs long.
-      const res = await fetch(`${base}/accounts/${row.wallet_public_key}`, {
-        signal: AbortSignal.timeout(5000),
-      });
-      if (!res.ok) {
-        // F2-funding: differentiate 404 (expected "wallet unactivated")
-        // from server-side failures (429/500/503). Pre-fix, every
-        // non-2xx was silently `continue`d with zero ops signal — a
-        // Horizon outage made funding detection silently break for
-        // every awaiting agent with no alerting pipeline visibility.
-        if (res.status === 404) {
-          // Quiet path: unactivated wallet, retry next tick.
-          continue;
-        }
-        // Noisy path: alert once per outage window so ops sees a
-        // Horizon problem without spam on every awaiting row.
-        if (!_horizonOutageAlerted) {
-          _horizonOutageAlerted = true;
-          logger.event('funding.horizon_error', {
-            status: res.status,
-            wallet_preview: row.wallet_public_key?.slice(0, 8) ?? null,
-            awaiting_count: awaiting.length,
-          });
-          console.error(
-            `[jobs] funding check: Horizon returned HTTP ${res.status} ` +
-              `(first seen this outage; subsequent errors suppressed until recovery)`,
-          );
-        }
-        continue;
-      }
-      // Success resets the outage flag so a future outage re-alerts.
-      if (_horizonOutageAlerted) {
-        _horizonOutageAlerted = false;
-        logger.event('funding.horizon_recovered', {});
-      }
-      const data = /** @type {any} */ (await res.json());
-      const balances = Array.isArray(data.balances) ? data.balances : [];
-      const xlmStr = balances.find((b) => b.asset_type === 'native')?.balance ?? '0';
-      const usdcStr =
-        balances.find(
-          (b) =>
-            b.asset_type === 'credit_alphanum4' &&
-            b.asset_code === 'USDC' &&
-            b.asset_issuer === usdcIssuer,
-        )?.balance ?? '0';
-      const xlm = parseFloat(xlmStr);
-      const usdc = parseFloat(usdcStr);
-      // Funded = at least 1 XLM past the Stellar base reserve, OR any
-      // spendable USDC. Both cases mean the wallet can actually
-      // attempt a purchase. NaN from a malformed balance string is
-      // fail-safe here because `NaN >= 2` and `NaN > 0` are both
-      // false — a corrupt Horizon response leaves the wallet as
-      // awaiting, not mis-flipped to funded.
-      const funded = xlm >= 2 || usdc > 0;
-      if (!funded) continue;
-
-      db.prepare(
-        `UPDATE api_keys
-         SET agent_state = 'funded',
-             agent_state_at = @at,
-             agent_state_detail = @detail
-         WHERE id = @id`,
-      ).run({
-        id: row.id,
-        at: new Date().toISOString(),
-        detail: `xlm=${xlm.toFixed(4)} usdc=${usdc.toFixed(2)}`,
-      });
-      emitBusEvent('agent_state', {
-        api_key_id: row.id,
-        state: 'funded',
-        wallet_public_key: row.wallet_public_key,
-        detail: `xlm=${xlm.toFixed(4)} usdc=${usdc.toFixed(2)}`,
-      });
-    } catch (err) {
-      // Transient Horizon failure (network, timeout, JSON parse) —
-      // retry next tick. These also participate in the outage alert
-      // dedup so a persistent DNS failure doesn't spam.
-      if (!_horizonOutageAlerted) {
-        _horizonOutageAlerted = true;
-        logger.event('funding.horizon_error', {
-          status: 'exception',
-          error: err instanceof Error ? err.message : String(err),
-          awaiting_count: awaiting.length,
-        });
-      }
-      console.error(
-        `[jobs] funding check failed for ${row.id}: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-      );
-    }
-  }
 }
 
 // Casper funding poller. For each awaiting_funding agent, query the
@@ -1246,11 +1084,6 @@ async function checkAgentFundingStatusCasper() {
       detail,
     });
   }
-}
-
-// Test-only: reset the Horizon outage alert dedup state.
-function _resetFundingHorizonOutageState() {
-  _horizonOutageAlerted = false;
 }
 
 // Test-only: reset the Casper outage alert dedup state.
@@ -1433,8 +1266,5 @@ module.exports = {
   _runSubJob,
   runJobs,
   checkAgentFundingStatus,
-  _resetFundingHorizonOutageState,
   _resetFundingCasperOutageState,
-  _horizonBase: horizonBase,
-  _MAINNET_USDC_ISSUER: MAINNET_USDC_ISSUER,
 };
