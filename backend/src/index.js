@@ -13,7 +13,7 @@ startJobs();
 const PORT = process.env.PORT || 4000;
 const server = app.listen(PORT, () => {
   console.log(
-    `[cards402] backend running on port ${PORT} (${process.env.NODE_ENV || 'development'})`,
+    `[cspr402] backend running on port ${PORT} (${process.env.NODE_ENV || 'development'})`,
   );
 });
 
@@ -37,18 +37,18 @@ let shuttingDown = false;
 function gracefulShutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
-  console.log(`[cards402] ${signal} — draining and shutting down`);
+  console.log(`[cspr402] ${signal} — draining and shutting down`);
   try {
     stopJobs();
   } catch (err) {
-    console.error('[cards402] stopJobs error:', err);
+    console.error('[cspr402] stopJobs error:', err);
   }
   server.close((err) => {
     if (err) {
-      console.error('[cards402] server.close error:', err);
+      console.error('[cspr402] server.close error:', err);
       process.exit(1);
     }
-    console.log('[cards402] shutdown complete');
+    console.log('[cspr402] shutdown complete');
     process.exit(0);
   });
   // Fallback hard-exit if server.close() never fires (stuck socket,
@@ -57,7 +57,7 @@ function gracefulShutdown(signal) {
   // but short enough that pm2's kill_timeout doesn't force SIGKILL
   // before we log the "shutdown complete" line.
   setTimeout(() => {
-    console.error('[cards402] shutdown timeout — forcing exit');
+    console.error('[cspr402] shutdown timeout — forcing exit');
     process.exit(1);
   }, 15_000).unref();
 }
@@ -87,7 +87,7 @@ process.on('SIGHUP', () => gracefulShutdown('SIGHUP'));
 // the graceful shutdown path so in-flight work gets a chance to
 // complete.
 process.on('uncaughtException', (err, origin) => {
-  console.error(`[cards402] uncaughtException at ${origin}:`, err);
+  console.error(`[cspr402] uncaughtException at ${origin}:`, err);
   try {
     bizEvent('process.uncaught_exception', {
       origin,
@@ -104,7 +104,7 @@ process.on('unhandledRejection', (reason) => {
   // the logger module itself is broken, but make the message useful
   // now — pre-fix this stringified the Promise as `[object Promise]`.
   console.error(
-    `[cards402] unhandledRejection: ${payload.name}: ${payload.message}${
+    `[cspr402] unhandledRejection: ${payload.name}: ${payload.message}${
       payload.stack ? `\n${payload.stack}` : ''
     }`,
   );
