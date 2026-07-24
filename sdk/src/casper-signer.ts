@@ -425,8 +425,7 @@ export function parseInfoGetStatus(raw: unknown, url: string): ProbedNode | null
   const chainName = result.chainspec_name;
   const apiVersion = result.api_version;
   const labi = result.last_added_block_info as
-    | { timestamp?: unknown; height?: unknown }
-    | undefined;
+    { timestamp?: unknown; height?: unknown } | undefined;
   const tsRaw = labi?.timestamp;
   const height = typeof labi?.height === 'number' ? labi.height : -1;
   if (

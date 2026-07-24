@@ -3,12 +3,7 @@
 // helpers and hooks can import them without pulling in React.
 
 export type AgentStateName =
-  | 'minted'
-  | 'initializing'
-  | 'awaiting_funding'
-  | 'funded'
-  | 'active'
-  | 'unknown';
+  'minted' | 'initializing' | 'awaiting_funding' | 'funded' | 'active' | 'unknown';
 
 export interface AgentState {
   state: AgentStateName;

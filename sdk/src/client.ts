@@ -94,9 +94,7 @@ export interface MockUsdcCep18PaymentInstructions {
 }
 
 export type PaymentInstructions =
-  | SorobanPaymentInstructions
-  | CasperCSPRPaymentInstructions
-  | MockUsdcCep18PaymentInstructions;
+  SorobanPaymentInstructions | CasperCSPRPaymentInstructions | MockUsdcCep18PaymentInstructions;
 
 export interface OrderResponse {
   order_id: string;

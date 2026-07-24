@@ -181,8 +181,7 @@ async function fetchBalance(
     throw err;
   }
   const account = (accountInfo as Record<string, unknown> | undefined)?.account as
-    | Record<string, unknown>
-    | undefined;
+    Record<string, unknown> | undefined;
   const accountHash = typeof account?.account_hash === 'string' ? account.account_hash : undefined;
   if (!accountHash) {
     return { accountHash: null, motes: '0', notFound: true };
