@@ -38,21 +38,21 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          REVIEW=$(claude -p --print "Review this PR diff for the cards402 project.
+          REVIEW=$(claude -p --print "Review this PR diff for the CSPR402 project.
 
-          cards402 is an agentic VCC (virtual credit card) service: agents send a 402 HTTP challenge response,
-          pay via Stellar (USDC or XLM), and receive a virtual card. The stack is:
+          CSPR402 is an agentic VCC (virtual credit card) service: agents pay on Casper mainnet
+          (native CSPR), the backend verifies the deploy, and they receive a virtual card. The stack is:
           - Node.js/Express backend (better-sqlite3, no ORM, raw parameterised queries)
           - Next.js web frontend (TypeScript, App Router)
           - TypeScript SDK for agent integrations
-          - Soroban Rust smart contract on Stellar
+          - No on-chain contract: payment intake is pull-based Casper deploy verification via node JSON-RPC
           - VCC provider API (vcc-client.js) for card issuance
 
           Key subsystems to check carefully:
           - Sandbox mode (orders.js): any path where mode='sandbox' could trigger real VCC dispatch or charge funds
           - Policy engine (policy.js): spend limits, daily caps, approval thresholds — changes that bypass or weaken them
           - VCC callback handler (vcc-callback.js): HMAC signature verification, status transition guards
-          - Payment watcher (payments/stellar.js): double-credit, replay, or skipped payment detection
+          - Casper deploy verification (payments/casper-verify.js): double-credit, replay, or skipped payment detection
           - Spend alert debouncing (system_state table): threshold logic that could suppress or double-fire alerts
           - Auth middleware (middleware/auth.js, middleware/requireAuth.js): expiry check, key suspension, timing-safe comparison
           - Time-limited keys (middleware/auth.js): expiry check placement, clock skew edge cases
@@ -61,7 +61,7 @@ jobs:
           - Approval flow (dashboard.js): expired approval bypass, missing decided_by audit trail, atomic transactions
           - SQL column allowlist (ALLOWED_COLUMNS): any dynamic SQL that bypasses the allowlist
           - Platform API (platform.js): requirePlatformOwner on all routes, unfreeze reason validation
-          - Treasury payments (xlm-sender.js, payment-handler.js): amount validation, destination allowlist
+          - Treasury/outbound settlement (xlm-sender.js): amount validation, destination allowlist
 
           General checks:
           - Hardcoded secrets, API keys, or credentials
@@ -94,4 +94,4 @@ jobs:
 
           ${{ steps.ai_review.outputs.review }}
 
-          <sub>Powered by Claude · cards402 CI</sub>"
+          <sub>Powered by Claude · CSPR402 CI</sub>"
