@@ -1,0 +1,26 @@
+{
+  // audit-ci runs `npm audit` and fails CI on any advisory at "moderate"
+  // severity or above — EXCEPT the allowlisted ones below, which are blocked
+  // on an upstream fix and cannot be resolved locally (verified in the
+  // 2026-07-24 dependency pass). Any new or unlisted vulnerability still
+  // fails the job, so this is not a blanket suppression.
+  "moderate": true,
+  "allowlist": [
+    // postcss <=8.5.11 (XSS via </style>, file-read via sourceMappingURL) —
+    // bundled inside next@16.2.11; npm will not override next's nested copy.
+    // Remove when Next.js ships a release bundling postcss >=8.5.12.
+    "GHSA-qx2v-qp2m-jg93",
+    "GHSA-6g55-p6wh-862q",
+    // sharp <0.35.0 (libvips CVEs) — native optional dep pinned by
+    // next@16.2.11 (^0.34.5); npm refuses to swap the native module. Remove
+    // when Next.js bundles sharp >=0.35.0. Low impact: only first-party
+    // images are processed.
+    "GHSA-f88m-g3jw-g9cj",
+    // @hono/node-server <2.0.5 (Windows serve-static path traversal) — pulled
+    // in by @modelcontextprotocol/sdk, which pins hono v1; node-server v2
+    // needs a hono ^4 peer. Not reachable: our MCP server is stdio-only and
+    // never loads hono. Remove when @modelcontextprotocol/sdk adopts
+    // @hono/node-server >=2.0.5.
+    "GHSA-frvp-7c67-39w9",
+  ],
+}

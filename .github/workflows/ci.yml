@@ -93,8 +93,10 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      # Blocks on moderate+ (was: high) to catch more vulns before they reach prod
-      - run: npm audit --audit-level=moderate
+      # audit-ci blocks on moderate+ (like `npm audit --audit-level=moderate`)
+      # but allowlists advisories that are blocked on an upstream fix — see
+      # .audit-ci.jsonc. Any new or unlisted vulnerability still fails the job.
+      - run: npx --yes audit-ci@^7 --config .audit-ci.jsonc
 
   build:
     name: Build
