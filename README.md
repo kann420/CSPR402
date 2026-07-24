@@ -105,11 +105,11 @@ npm run dev                     # http://localhost:4000
 npm test
 ```
 
-Storage is SQLite in WAL mode via `better-sqlite3`; migrations run automatically on startup. See `backend/.env.casper.example` for every configurable value (server port, Casper node RPC URL, treasury keys, CSPR USD rate, min transfer motes, webhook/CORS origins, and the secret-box key used to seal cards at rest).
+Storage is SQLite in WAL mode via `better-sqlite3`; migrations run automatically on startup. See `backend/.env.casper.example` for every configurable value (server port, Casper node RPC URL, treasury keys, CSPR USD rate + live price-feed toggle, min transfer motes, webhook/CORS origins, and the secret-box key used to seal cards at rest).
 
 ### Payment details
 
-- **Native CSPR** — the order quote carries a monotonic `transfer_id` and an `amount_motes` figure. 1 CSPR = 1e9 motes. USD → motes is derived from `CSPR_USD_RATE`; the minimum transfer defaults to 2.5 CSPR (`CASPER_MIN_TRANSFER_MOTES`).
+- **Native CSPR** — the order quote carries a monotonic `transfer_id` and an `amount_motes` figure. 1 CSPR = 1e9 motes. By default (`CSPR_PRICE_FEED_ENABLED=true`) USD → motes uses the live CoinGecko CSPR/USD rate (cached 60s), with `CSPR_USD_RATE` as the fail-safe fallback when the feed is unreachable; set the flag to `false` to pin pricing to `CSPR_USD_RATE` (deterministic — what tests use). The minimum transfer defaults to 2.5 CSPR (`CASPER_MIN_TRANSFER_MOTES`).
 
 Verification checks the chain (`casper`), sender, recipient (account-hash / main purse), amount, and the `transfer_id`. A deploy hash can only be claimed once.
 
