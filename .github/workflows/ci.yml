@@ -112,7 +112,7 @@ jobs:
       - name: Build Web
         run: npm run build -w web
         env:
-          NEXT_PUBLIC_API_BASE_URL: https://api.cards402.com
+          NEXT_PUBLIC_API_BASE_URL: https://api.cspr402.xyz
 
   backend-smoke:
     name: Backend syntax check
