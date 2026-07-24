@@ -122,6 +122,10 @@ const DEFAULT_SUBMIT_TIMEOUT_MS = 20000;
 //     relays it, so there is no added privacy exposure.
 // Operators who want strict endpoint control set
 // CSPR402_CASPER_NODE_DEFAULTS=0 to rely solely on CASPER_NODE_RPC_URL.
+// Because these public IPs churn over time, operators can also replace
+// this built-in list at runtime with CSPR402_CASPER_NODE_IPS (a
+// comma-separated list of bare IPs or full RPC URLs) — no code change or
+// republish needed. See resolveDefaultNodeUrls.
 // Sourced from the known-good candidate list proven in the operator's
 // buy.js harness; dead IPs are filtered out by the probe at runtime.
 const DEFAULT_CASPER_NODE_IPS = [
@@ -271,6 +275,25 @@ function defaultNodeUrl(ip: string): string {
 }
 
 /**
+ * The built-in default node pool as RPC URLs. CSPR402_CASPER_NODE_IPS, when
+ * set, replaces the hardcoded list so operators can refresh churned public
+ * IPs via config alone. Each comma-separated entry is either a bare IP
+ * (wrapped as http://IP:7777/rpc) or a full RPC URL (used verbatim); blanks
+ * are dropped. Empty/unset falls back to DEFAULT_CASPER_NODE_IPS.
+ */
+export function resolveDefaultNodeUrls(): string[] {
+  const raw = process.env.CSPR402_CASPER_NODE_IPS;
+  if (raw && raw.trim()) {
+    return raw
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .map((entry) => (entry.includes('://') ? entry : defaultNodeUrl(entry)));
+  }
+  return DEFAULT_CASPER_NODE_IPS.map((ip) => defaultNodeUrl(ip));
+}
+
+/**
  * Build the full candidate node list for a submit: the operator's
  * CASPER_NODE_RPC_URL entries first, then the built-in public-node defaults
  * (unless CSPR402_CASPER_NODE_DEFAULTS=0), de-duplicated preserving order.
@@ -280,7 +303,7 @@ export function resolveCandidateNodes(cfg: SigningConfig): string[] {
   const out: string[] = [...cfg.rpcUrls];
   const defaultsEnabled = (process.env.CSPR402_CASPER_NODE_DEFAULTS ?? '1') !== '0';
   if (defaultsEnabled) {
-    for (const ip of DEFAULT_CASPER_NODE_IPS) out.push(defaultNodeUrl(ip));
+    for (const url of resolveDefaultNodeUrls()) out.push(url);
   }
   const seen = new Set<string>();
   return out.filter((url) => {

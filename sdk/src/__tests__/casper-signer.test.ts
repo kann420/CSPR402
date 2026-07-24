@@ -78,6 +78,7 @@ const ENV_NAMES = [
   'CSPR402_TREASURY_PUBLIC_KEYS',
   'CARDS402_TREASURY_PUBLIC_KEYS',
   'CSPR402_CASPER_NODE_DEFAULTS',
+  'CSPR402_CASPER_NODE_IPS',
   'CSPR402_PROBE_TIMEOUT_MS',
   'CSPR402_SUBMIT_TIMEOUT_MS',
 ];
@@ -599,6 +600,27 @@ describe('resolveCandidateNodes', () => {
 
   it('respects CSPR402_CASPER_NODE_DEFAULTS=0 (operator URLs only)', () => {
     setEnv('CSPR402_CASPER_NODE_DEFAULTS', '0');
+    const cfg = resolveSigningConfig()!;
+    cfg.rpcUrls = ['http://operator:7777/rpc'];
+    expect(resolveCandidateNodes(cfg)).toEqual(['http://operator:7777/rpc']);
+  });
+
+  it('CSPR402_CASPER_NODE_IPS replaces the built-in pool (bare IPs + full URLs)', () => {
+    setEnv('CSPR402_CASPER_NODE_DEFAULTS', undefined); // default ON
+    setEnv('CSPR402_CASPER_NODE_IPS', '1.2.3.4, https://rpc.example:7777/rpc , , 5.6.7.8');
+    const cfg = resolveSigningConfig()!;
+    cfg.rpcUrls = ['http://operator:7777/rpc'];
+    expect(resolveCandidateNodes(cfg)).toEqual([
+      'http://operator:7777/rpc',
+      'http://1.2.3.4:7777/rpc',
+      'https://rpc.example:7777/rpc',
+      'http://5.6.7.8:7777/rpc',
+    ]);
+  });
+
+  it('CSPR402_CASPER_NODE_DEFAULTS=0 also suppresses CSPR402_CASPER_NODE_IPS', () => {
+    setEnv('CSPR402_CASPER_NODE_DEFAULTS', '0');
+    setEnv('CSPR402_CASPER_NODE_IPS', '1.2.3.4');
     const cfg = resolveSigningConfig()!;
     cfg.rpcUrls = ['http://operator:7777/rpc'];
     expect(resolveCandidateNodes(cfg)).toEqual(['http://operator:7777/rpc']);

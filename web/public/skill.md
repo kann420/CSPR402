@@ -113,7 +113,10 @@ auto-pay the command:
 `CASPER_NODE_RPC_URL` accepts a comma-separated list (your nodes are tried
 first). A built-in pool of public Casper mainnet nodes is merged in as
 failover targets so a single dead endpoint doesn't hang submit for minutes;
-set `CSPR402_CASPER_NODE_DEFAULTS=0` to use only your own URLs. The probe and
+set `CSPR402_CASPER_NODE_DEFAULTS=0` to use only your own URLs. Because those
+public IPs churn over time, you can refresh the built-in list without a code
+change via `CSPR402_CASPER_NODE_IPS` (comma-separated bare IPs or full RPC
+URLs), which replaces the hardcoded pool. The probe and
 each submit are bounded by `CSPR402_PROBE_TIMEOUT_MS` (default 8000) and
 `CSPR402_SUBMIT_TIMEOUT_MS` (default 20000). Broadcasting a signed deploy to
 any synced mainnet node is safe — the signature binds the recipient/amount/
