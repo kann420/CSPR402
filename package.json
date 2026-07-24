@@ -23,7 +23,8 @@
   },
   "overrides": {
     "axios": "^1.15.0",
-    "postcss": "^8.5.10"
+    "postcss": "^8.5.12",
+    "js-yaml": "^4.3.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.5.2",
