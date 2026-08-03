@@ -388,12 +388,52 @@ CSPR.click wallet integration lives in `web/app/lib/csprclick-client.ts`:
   default version `2.1.0`).
 - Connects Casper Wallet, signs messages, and sends deploys on `casper`.
 - Public config is fetched from `/api/public-config` (`csprclick_app_id`,
-  `csprclick_cdn_version`, `csprclick_providers`, `casper_node_rpc_url`,
+  `csprclick_cdn_version`, `csprclick_providers`, `casper_rpc_relay_path`,
   `casper_chain_name`); the app id is resolved per domain and asserted against
   `https://accounts.cspr.click/api/application/<appId>.json` before use. On
   localhost a local sentinel app id is used.
 - Public key normalization regex `^(01[0-9a-f]{64}|02[0-9a-f]{66})$` matches the
   backend's validation.
+
+### Casper JSON-RPC relay (`web/app/api/casper-rpc`)
+
+The browser never talks to a Casper node directly. CSPR.click's core client
+submits a signed transaction with a browser `fetch` to whatever
+`clickSDKOptions.casperNode` was set to, and no public Casper JSON-RPC endpoint
+answers a cross-origin preflight (Tatum's gateway and `node.cspr.cloud` send no
+`Access-Control-Allow-Origin`; a bare `http://<ip>:7777/rpc` is also mixed
+content on an HTTPS page). Pointing `casperNode` at a node therefore made the
+portal fail with a CORS error at exactly the "send transaction" step.
+
+`casperNode` is now always the same-origin relay, which forwards server-side:
+
+- Method allowlist (submit + the reads the portal needs); batches rejected, so
+  one request can never fan out into N node calls.
+- Node pool, most-preferred first: `CASPER_NODE_RPC_URL` →
+  `CASPER_NODE_RPC_FALLBACK_IPS` (or the built-in public 2.x pool, mirroring
+  `sdk/src/casper-signer.ts`) → the public read gateway. Failover on transport
+  errors, non-2xx, and JSON-RPC `-32601` — the Tatum gateway serves reads but
+  has no `account_put_transaction`, so a Condor native transfer must land on a
+  real 2.x node. Other JSON-RPC errors are the node's real verdict and pass
+  through verbatim.
+- `CASPER_NODE_RPC_AUTH` is attached server-side and never reaches the browser.
+- `Access-Control-Allow-Origin: *` by default (narrow with
+  `CASPER_RPC_RELAY_ORIGINS`) because the caller may legitimately be the
+  CSPR.click iframe on `accounts.cspr.click` rather than our own page.
+- Per-IP rate limit and a request body cap, so the relay isn't free public RPC.
+
+Relaying a _signed_ transaction is safe for the same reason the SDK's multi-node
+failover is: the signature binds recipient / amount / transfer_id / chain_name,
+so the relay cannot redirect funds, and the backend re-verifies the deploy hash
+on chain before any card is issued.
+
+The portal's submit path (`web/app/portal/PortalDemoClient.tsx`) prefers
+`csprclick.sign()` — purely local extension messaging — and then submits through
+the relay itself, so signing and submitting are separate failure domains. If the
+submit half fails the deploy hash is still surfaced (it is a function of the
+transaction body, not the approval) and the UI steers to "verify pasted deploy
+hash" instead of a second, duplicate payment. Providers that don't implement
+`sign()` fall back to `csprclick.send()`, which now also submits via the relay.
 
 ## SDK (`sdk/`)
 

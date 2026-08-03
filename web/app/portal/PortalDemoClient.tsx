@@ -1,8 +1,21 @@
 'use client';
 
-import { NativeTransferBuilder, PublicKey, Timestamp } from 'casper-js-sdk';
+import {
+  HttpHandler,
+  NativeTransferBuilder,
+  PublicKey,
+  RpcClient,
+  Timestamp,
+  Transaction,
+} from 'casper-js-sdk';
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { connectWallet, sendTransaction, signWalletMessage } from '@/app/lib/csprclick-client';
+import {
+  casperRpcUrl,
+  connectWallet,
+  sendTransaction,
+  signTransaction,
+  signWalletMessage,
+} from '@/app/lib/csprclick-client';
 
 type OrderResponse = {
   order_id: string;
@@ -47,6 +60,38 @@ type VerifyResponse = {
 };
 
 type WalletStep = 'idle' | 'connected' | 'challenge' | 'sign' | 'verify' | 'ready';
+
+/**
+ * Raised once the transfer is SIGNED but the relay submit didn't confirm. It
+ * carries the deploy hash so the UI can offer verification instead of a
+ * second, duplicate payment.
+ */
+class SubmitError extends Error {
+  constructor(
+    message: string,
+    readonly deployHash: string,
+  ) {
+    super(message);
+    this.name = 'SubmitError';
+  }
+}
+
+/** Only a provider that can't sign() at all should fall back to send(). */
+function isSignUnsupported(err: unknown): boolean {
+  return err instanceof Error && /does not expose sign\(\)/i.test(err.message);
+}
+
+function hexToBytes(hex: string): Uint8Array {
+  const normalized = hex.trim().replace(/^0x/i, '');
+  if (normalized.length % 2 !== 0 || /[^0-9a-fA-F]/.test(normalized)) {
+    throw new Error('Wallet returned a malformed signature.');
+  }
+  const out = new Uint8Array(normalized.length / 2);
+  for (let i = 0; i < out.length; i += 1) {
+    out[i] = parseInt(normalized.slice(i * 2, i * 2 + 2), 16);
+  }
+  return out;
+}
 
 async function readJson(res: Response) {
   const body = await res.json().catch(() => ({}));
@@ -179,6 +224,60 @@ export function PortalDemoClient() {
     }
   }
 
+  function pushStatus(status: string, detail?: unknown) {
+    setStatusUpdates((prev) =>
+      [`${new Date().toLocaleTimeString()} - ${status}${statusDetail(detail)}`, ...prev].slice(
+        0,
+        8,
+      ),
+    );
+  }
+
+  /**
+   * Sign in the wallet, then submit through the CSPR402 same-origin relay
+   * (/api/casper-rpc). Signing is local extension messaging and the submit
+   * goes to our own origin, so neither step can hit the cross-origin wall
+   * that used to kill this button: no public Casper node answers a CORS
+   * preflight, so a browser POST straight to the node is always blocked.
+   *
+   * Returns the locally-computed deploy hash. That hash is a function of the
+   * transaction body only (the approval doesn't change it), so we can report
+   * and verify it even when the submit response is lost.
+   */
+  async function signAndSubmit(transaction: Transaction, publicKey: string): Promise<string> {
+    pushStatus('signing', 'approve the transfer in Casper Wallet');
+    const signed = await signTransaction(transaction.toJSON() as object, publicKey);
+
+    let submittable = transaction;
+    if (signed.signatureHex) {
+      transaction.setSignature(hexToBytes(signed.signatureHex), PublicKey.fromHex(publicKey));
+    } else if (signed.transaction) {
+      // Provider handed back an assembled signed transaction instead of a
+      // bare signature — submit that verbatim.
+      submittable = Transaction.fromJSON(signed.transaction);
+    } else {
+      throw new Error('Wallet returned no usable signature for the transfer.');
+    }
+
+    const hash = submittable.hash.toHex().toLowerCase();
+    pushStatus('submitting', `relaying deploy ${hash.slice(0, 10)}... to a Casper node`);
+    try {
+      await new RpcClient(new HttpHandler(casperRpcUrl())).putTransaction(submittable);
+    } catch (err) {
+      // The transfer may still have reached the chain (a lost response looks
+      // identical to a rejection here), so surface the hash rather than
+      // inviting a second payment.
+      throw new SubmitError(
+        `Relay could not submit the transfer: ${err instanceof Error ? err.message : String(err)}. ` +
+          `Deploy hash ${hash} — check it on cspr.live and use "Verify pasted deploy hash" ` +
+          `rather than paying again.`,
+        hash,
+      );
+    }
+    pushStatus('submitted', hash);
+    return hash;
+  }
+
   async function sendAndVerify() {
     if (!payment?.recipient || !payment.amount_motes || payment.transfer_id === undefined) {
       setError('Create an order first.');
@@ -206,20 +305,26 @@ export function PortalDemoClient() {
         .payment(100_000_000)
         .build();
 
-      const result = await sendTransaction(
-        transaction.toJSON() as object,
-        publicKey,
-        (status, data) => {
-          setStatusUpdates((prev) =>
-            [`${new Date().toLocaleTimeString()} - ${status}${statusDetail(data)}`, ...prev].slice(
-              0,
-              8,
-            ),
-          );
-        },
-      );
-      const hash = result.deployHash || result.transactionHash;
-      if (!hash) throw new Error('CSPR.click did not return a deploy hash.');
+      let hash: string;
+      try {
+        hash = await signAndSubmit(transaction, publicKey);
+      } catch (err) {
+        if (err instanceof SubmitError) {
+          // Signed and possibly broadcast — never re-sign, or the user pays
+          // twice. Pre-fill the hash so the fallback verify panel is one click.
+          setDeployHash(err.deployHash);
+          throw err;
+        }
+        if (!isSignUnsupported(err)) throw err;
+        // Provider has no sign() (older wallet / WalletConnect): fall back to
+        // CSPR.click's sign-and-send, which now submits to the same relay.
+        pushStatus('fallback', 'wallet has no sign(); using CSPR.click send');
+        const result = await sendTransaction(transaction.toJSON() as object, publicKey, pushStatus);
+        const sent = result.deployHash || result.transactionHash;
+        if (!sent) throw new Error('CSPR.click did not return a deploy hash.');
+        hash = sent;
+      }
+
       setDeployHash(hash);
       await verifyPayment(hash, publicKey);
     } catch (err) {

@@ -10,11 +10,19 @@ import path from 'node:path';
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['app/dashboard/_lib/**/*.test.ts', 'app/dashboard/_ui/**/*.test.ts'],
+    include: [
+      'app/dashboard/_lib/**/*.test.ts',
+      'app/dashboard/_ui/**/*.test.ts',
+      'app/lib/**/*.test.ts',
+    ],
     exclude: ['**/node_modules/**', '**/.next/**', '**/e2e/**'],
     coverage: {
       reporter: ['text', 'html'],
-      include: ['app/dashboard/_lib/**/*.ts', 'app/dashboard/_ui/**/*.{ts,tsx}'],
+      include: [
+        'app/dashboard/_lib/**/*.ts',
+        'app/dashboard/_ui/**/*.{ts,tsx}',
+        'app/lib/casper-rpc.ts',
+      ],
     },
   },
   resolve: {

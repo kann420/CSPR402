@@ -1,5 +1,7 @@
 'use client';
 
+import { CASPER_RPC_RELAY_PATH } from '@/app/lib/casper-rpc';
+
 type CsprClickAccount = {
   public_key?: string | null;
   provider?: string;
@@ -10,6 +12,10 @@ export type CsprClickSignResult = {
   signatureHex?: string | null;
   signature?: string | Uint8Array | number[] | null;
   error?: string | null;
+  /** Assembled signed deploy (pre-Condor format), when the provider returns one. */
+  deploy?: object | null;
+  /** Assembled signed TransactionV1, when the provider returns one. */
+  transaction?: object | null;
 };
 
 export type CsprClickSendResult = {
@@ -44,6 +50,14 @@ type CsprClickClient = {
   getActivePublicKey(): Promise<string | undefined> | string | undefined;
   getActiveAccountAsync?(options?: unknown): Promise<CsprClickAccount | null>;
   signMessage(message: string, signingPublicKey: string): Promise<CsprClickSignResult | undefined>;
+  /**
+   * Sign WITHOUT submitting. Purely local (extension messaging), so unlike
+   * `send` it can never hit a CORS wall — this is the portal's primary path.
+   */
+  sign?(
+    transactionJSON: string | object,
+    signingPublicKey: string,
+  ): Promise<CsprClickSignResult | undefined>;
   send(
     transactionJSON: string | object,
     signingPublicKey: string,
@@ -56,7 +70,6 @@ type PublicRuntimeConfig = {
   csprclick_app_id?: string | null;
   csprclick_cdn_version?: string | null;
   csprclick_providers?: string | null;
-  casper_node_rpc_url?: string | null;
   casper_chain_name?: string | null;
 };
 
@@ -131,6 +144,25 @@ function errorDataSummary(errorData: unknown): string | null {
   } catch {
     return String(errorData);
   }
+}
+
+/**
+ * The JSON-RPC endpoint the browser is allowed to talk to: our own
+ * same-origin relay (app/api/casper-rpc), never a Casper node directly.
+ *
+ * This is the CORS fix. CSPR.click's core client POSTs the signed transaction
+ * from the browser to whatever `casperNode` was initialised with, and no
+ * public Casper node answers a cross-origin preflight — so pointing it at a
+ * node URL is what made "send transaction" fail with a CORS error. Pointing it
+ * at our own origin makes the preflight moot; the relay does the node call
+ * server-side. NEXT_PUBLIC_CASPER_RPC_RELAY_URL overrides it only for
+ * deployments that host the relay elsewhere (it must still be CORS-enabled).
+ */
+export function casperRpcUrl(): string {
+  const override = process.env.NEXT_PUBLIC_CASPER_RPC_RELAY_URL?.trim();
+  if (override) return override;
+  if (typeof window === 'undefined') return CASPER_RPC_RELAY_PATH;
+  return new URL(CASPER_RPC_RELAY_PATH, window.location.origin).toString();
 }
 
 function isLocalHost(): boolean {
@@ -228,10 +260,9 @@ async function loadRuntime(): Promise<CsprClickClient> {
     appName: 'CSPR402',
     appId,
     contentMode: 'iframe',
-    casperNode:
-      config.casper_node_rpc_url?.trim() ||
-      process.env.NEXT_PUBLIC_CASPER_NODE_RPC_URL?.trim() ||
-      undefined,
+    // Always the same-origin relay — see casperRpcUrl(). A raw node URL here
+    // is exactly what produced the judge-reported CORS failure on submit.
+    casperNode: casperRpcUrl(),
     chainName:
       config.casper_chain_name?.trim() ||
       process.env.NEXT_PUBLIC_CASPER_CHAIN_NAME?.trim() ||
@@ -396,6 +427,81 @@ export async function signWalletMessage(message: string, publicKey: string): Pro
   throw new Error('Wallet did not return a signature.');
 }
 
+export type SignedTransactionResult = {
+  /** Signature hex as returned by the wallet, algorithm prefix normalised on. */
+  signatureHex: string | null;
+  /** Signed TransactionV1 JSON, when the provider assembled one for us. */
+  transaction: object | null;
+  /** Signed Deploy JSON, when the provider assembled one for us. */
+  deploy: object | null;
+};
+
+/**
+ * Whether a Casper signature hex already carries its 1-byte algorithm prefix.
+ * casper-js-sdk's `Transaction.sign` stores prefixed bytes
+ * (`PrivateKey.signAndAddAlgorithmBytes`), but wallet providers differ: some
+ * return the bare 64-byte curve signature. 64 bytes = 128 hex chars for both
+ * ed25519 and secp256k1, so a 130-char value is already prefixed.
+ */
+export function hasAlgorithmPrefix(signatureHex: string): boolean {
+  return normalizeHex(signatureHex).length > 128;
+}
+
+/**
+ * Prefix a bare signature with the algorithm tag taken from the signer's
+ * public key (`01` ed25519 / `02` secp256k1), so the approval the node sees
+ * matches what a locally-signed transaction would carry.
+ */
+export function withAlgorithmPrefix(signatureHex: string, publicKeyHex: string): string {
+  const signature = normalizeHex(signatureHex);
+  if (hasAlgorithmPrefix(signature)) return signature;
+  return `${normalizeHex(publicKeyHex).slice(0, 2)}${signature}`;
+}
+
+/**
+ * Ask the wallet to sign a transaction WITHOUT submitting it. This never
+ * touches the network, so it is immune to the CORS failure that broke
+ * `send()`; the caller submits the result through the same-origin relay.
+ */
+export async function signTransaction(
+  transactionJSON: object,
+  publicKey: string,
+): Promise<SignedTransactionResult> {
+  const click = await getCsprClick();
+  if (!click.sign) {
+    throw new Error('CSPR.click runtime does not expose sign().');
+  }
+  const result = await timeout(
+    click.sign(transactionJSON, publicKey),
+    120000,
+    'Wallet signature timed out. Check the Casper Wallet popup, unlock the extension, then try again.',
+  );
+  if (!result || result.cancelled) throw new Error('Transaction signature was cancelled.');
+  if (result.error) throw new Error(result.error);
+
+  const rawSignature = result.signatureHex
+    ? normalizeHex(result.signatureHex)
+    : result.signature
+      ? signatureToHex(result.signature)
+      : null;
+
+  if (!rawSignature && !result.transaction && !result.deploy) {
+    throw new Error('Wallet did not return a signature for the transaction.');
+  }
+
+  return {
+    signatureHex: rawSignature ? withAlgorithmPrefix(rawSignature, publicKey) : null,
+    transaction: result.transaction ?? null,
+    deploy: result.deploy ?? null,
+  };
+}
+
+/**
+ * CSPR.click's sign-and-submit. Kept as the fallback for providers that don't
+ * implement `sign()`. It submits from the browser to `casperNode`, which is
+ * now our same-origin relay (see casperRpcUrl) rather than a Casper node, so
+ * this path no longer trips CORS either.
+ */
 export async function sendTransaction(
   transactionJSON: object,
   publicKey: string,

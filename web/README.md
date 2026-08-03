@@ -19,6 +19,27 @@ npm run lint              # ESLint (run from monorepo root)
 
 In development the dashboard defaults to `http://localhost:4000` for its API base.
 
+### Casper JSON-RPC relay
+
+`/api/casper-rpc` is the only Casper endpoint the browser is allowed to call.
+A browser cannot POST a signed transaction to a Casper node — no public node
+answers the CORS preflight — so the portal posts here and the server makes the
+node call. All optional; the relay works out of the box against a built-in pool
+of public mainnet 2.x nodes.
+
+| Variable                       | Description                                                                                       |
+| ------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `CASPER_NODE_RPC_URL`          | Preferred node endpoint(s), comma-separated. Tried first.                                         |
+| `CASPER_NODE_RPC_AUTH`         | Raw access token for an authenticated provider (CSPR.cloud — no `Bearer ` prefix). Server-only.   |
+| `CASPER_NODE_RPC_FALLBACK_IPS` | Replaces the built-in failover pool. Bare IPs become `http://IP:7777/rpc`.                        |
+| `CASPER_RPC_RELAY_DEFAULTS`    | `0` disables the built-in pool for strict endpoint control.                                       |
+| `CASPER_RPC_RELAY_ORIGINS`     | CORS allowlist. Defaults to `*` — the caller may be the CSPR.click iframe, not just our own page. |
+
+> Note: the `casper-mainnet.gateway.tatum.io` gateway used in the backend's
+> `.env` examples answers reads but does **not** implement
+> `account_put_transaction`. The relay detects that (JSON-RPC `-32601`) and
+> fails over to a submit-capable node, so it is safe to keep it configured.
+
 ## Structure
 
 ```
