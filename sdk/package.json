@@ -61,8 +61,8 @@
     "axios": "^1.15.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
-    "casper-js-sdk": "^5.0.12"
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "casper-js-sdk": "^5.1.1"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
