@@ -14,12 +14,12 @@
     "@stellar/stellar-sdk": "^15.1.0",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.10.0",
-    "casper-js-sdk": "^5.0.12",
+    "casper-js-sdk": "^5.1.1",
     "cors": "^2.8.6",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
-    "express-rate-limit": "^8.3.2",
-    "helmet": "^8.2.0",
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0",
     "nodemailer": "^9.0.3",
     "uuid": "^11.0.5",
     "zod": "^3.25.76"
@@ -35,7 +35,7 @@
     "@types/node": "^25.6.0",
     "@types/nodemailer": "^8.0.0",
     "@types/uuid": "^10.0.0",
-    "supertest": "^7.2.2",
+    "supertest": "^7.3.0",
     "typescript": "^6.0.2"
   }
 }
