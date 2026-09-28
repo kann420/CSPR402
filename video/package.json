@@ -10,16 +10,16 @@
     "upgrade": "remotion upgrade"
   },
   "dependencies": {
-    "@remotion/cli": "^4.0.484",
-    "@remotion/google-fonts": "^4.0.484",
-    "@remotion/shapes": "^4.0.484",
-    "react": "19.2.5",
-    "react-dom": "19.2.5",
+    "@remotion/cli": "^4.0.529",
+    "@remotion/google-fonts": "^4.0.529",
+    "@remotion/shapes": "^4.0.529",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
     "remotion": "^4.0.484"
   },
   "devDependencies": {
-    "@types/react": "19.2.14",
-    "@types/react-dom": "19.2.3",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
     "typescript": "6.0.3"
   }
 }
