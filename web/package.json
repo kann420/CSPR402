@@ -14,29 +14,29 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@remotion/player": "^4.0.484",
-    "casper-js-sdk": "^5.0.12",
-    "geist": "^1.7.0",
-    "next": "^16.2.6",
-    "playwright-core": "^1.59.1",
-    "react": "19.2.5",
-    "react-dom": "19.2.5"
+    "@remotion/player": "^4.0.536",
+    "casper-js-sdk": "^5.3.0",
+    "geist": "^1.8.1",
+    "next": "^16.4.2",
+    "playwright-core": "^1.64.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
   },
   "optionalDependencies": {
     "@tailwindcss/oxide-linux-x64-gnu": "^4.2.2",
-    "lightningcss-darwin-arm64": "^1.32.0",
-    "lightningcss-linux-x64-gnu": "^1.32.0"
+    "lightningcss-darwin-arm64": "^1.33.0",
+    "lightningcss-linux-x64-gnu": "^1.33.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.59.1",
-    "@tailwindcss/postcss": "4.2.4",
+    "@playwright/test": "^1.64.1",
+    "@tailwindcss/postcss": "4.3.3",
     "@types/node": "20.19.39",
-    "@types/react": "19.2.14",
-    "@types/react-dom": "19.2.3",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
     "@vitest/ui": "^4.1.5",
     "eslint": "9.39.4",
-    "eslint-config-next": "^16.2.6",
-    "tailwindcss": "4.2.4",
+    "eslint-config-next": "^16.4.2",
+    "tailwindcss": "4.3.3",
     "typescript": "6.0.3",
     "vitest": "^4.1.5"
   }
